@@ -5,11 +5,13 @@ import 'package:quantum_forge/features/job_runner/providers/settings_provider.da
 
 class MolecularViewerWidget extends StatefulWidget {
   final String? currentXyzData;
+  final List<Atom>? atoms;
   final QuantumSettings? settings;
 
   const MolecularViewerWidget({
     super.key,
     this.currentXyzData,
+    this.atoms,
     this.settings,
   });
 
@@ -35,13 +37,20 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
   @override
   void didUpdateWidget(covariant MolecularViewerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentXyzData != widget.currentXyzData) {
+    if (oldWidget.currentXyzData != widget.currentXyzData || oldWidget.atoms != widget.atoms) {
       _parseData();
     }
   }
 
   Future<void> _parseData() async {
-    if (widget.currentXyzData != null) {
+    if (widget.atoms != null) {
+      if (mounted) {
+        setState(() {
+          _atoms = widget.atoms!;
+          _isLoading = false;
+        });
+      }
+    } else if (widget.currentXyzData != null) {
       setState(() => _isLoading = true);
       final atoms = await XyzParser.parseAsync(widget.currentXyzData!);
       if (mounted) {
@@ -55,7 +64,7 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.currentXyzData == null) {
+    if (widget.currentXyzData == null && widget.atoms == null) {
       return const Center(child: Text('No structure loaded.'));
     }
 

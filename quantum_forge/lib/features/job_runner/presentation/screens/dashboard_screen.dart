@@ -12,12 +12,17 @@ import 'package:quantum_forge/core/services/file_picker_service.dart';
 import 'package:quantum_forge/features/job_runner/providers/job_provider.dart';
 import 'package:quantum_forge/features/job_runner/data/models/job_models.dart';
 import 'package:quantum_forge/features/job_runner/providers/settings_provider.dart';
-import 'package:quantum_forge/features/job_runner/presentation/widgets/kinetic_chart_widget.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/quantum_controls_panel.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/reaction_animation_widget.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/screens/library_screen.dart';
+import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/energy_profile_card.dart';
+import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/hero_metrics_row.dart';
+import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/arrhenius_plot_card.dart';
+import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/thermo_properties_grid.dart';
+import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/molecular_data_cards.dart';
+import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/distinct_molecules_viewer.dart';
 import 'history_screen.dart';
 import 'coordinate_editor_screen.dart';
 enum _NavDestination { library, newJob, editor, history }
@@ -776,252 +781,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Column(
           children: [
-            // ── ROW 1: Energy Profile + Molecular Viewer side by side ───────
+            // ROW 1: Energy Profile
             SizedBox(
               height: 340,
-              child: Row(
-                children: [
-                  // Energy profile chart
-                  Expanded(
-                    flex: 3,
-                    child: _glassCard(
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-                            child: Row(
-                              children: [
-                                const Text('Reaction Energy Profile',
-                                    style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                                const Spacer(),
-                                if (scaledRefEa != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-                                    ),
-                                    child: Text(
-                                      'Ref Ea: ${scaledRefEa.toStringAsFixed(1)} kcal/mol',
-                                      style: TextStyle(color: Colors.amber.shade300, fontSize: 11, fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: KineticChartWidget(
-                              energyProfile: scaledProfile,
-                              referenceEa: scaledRefEa,
-                              onPointSelected: (index) => setState(() => _selectedFrameIndex = index),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-
+              child: EnergyProfileCard(
+                energyProfile: scaledProfile,
+                referenceEa: scaledRefEa,
+                onPointSelected: (index) => setState(() => _selectedFrameIndex = index),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // ── ROW 2: 3 hero metric cards full width ────────────────────────
-            SizedBox(
-              height: 130,
-              child: Row(
-                children: [
-                  _bigMetricCard('ΔG‡', gibbs.toStringAsFixed(1), 'kcal/mol', Icons.bolt, const Color(0xFF69F0AE)),
-                  const SizedBox(width: 16),
-                  _bigMetricCard('Ea', ea.toStringAsFixed(1), 'kcal/mol', Icons.local_fire_department, const Color(0xFFFF6E40)),
-                  const SizedBox(width: 16),
-                  _bigMetricCard('k', rateConst.toStringAsExponential(1), 's⁻¹', Icons.speed, const Color(0xFFFF80AB)),
-                  const SizedBox(width: 16),
-                  _bigMetricCard('ΔH‡', baseEnthalpy.toStringAsFixed(1), 'kcal/mol', Icons.thermostat, const Color(0xFF4FC3F7)),
-                  const SizedBox(width: 16),
-                  _bigMetricCard('ΔS‡', baseEntropy.toStringAsFixed(1), 'cal/mol·K', Icons.shuffle, const Color(0xFF80DEEA)),
-                ],
-              ),
+            
+            // ROW 2: Hero Metrics
+            HeroMetricsRow(
+              gibbs: gibbs,
+              ea: ea,
+              rateConst: rateConst,
+              baseEnthalpy: baseEnthalpy,
+              baseEntropy: baseEntropy,
             ),
-
             const SizedBox(height: 16),
 
-            // ── ROW 2b: Full-width Arrhenius plot ────────────────────────────
-            SizedBox(
-              height: 220,
-              child: _glassCard(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.trending_down, color: Color(0xFF4FC3F7), size: 16),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Arrhenius Plot — ln(k) vs Temperature (200 K → 1000 K)',
-                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                            ),
-                            child: Text(
-                              'Ea = ${ea.toStringAsFixed(1)} kcal/mol',
-                              style: const TextStyle(color: Colors.white54, fontSize: 11),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: CustomPaint(
-                          painter: _ArrheniusPlotPainter(rateVsTemp),
-                          size: Size.infinite,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            // ROW 2b: Arrhenius Plot
+            ArrheniusPlotCard(
+              ea: ea,
+              rateVsTemp: rateVsTemp,
             ),
-
             const SizedBox(height: 16),
 
-            // ── ROW 3: 12-cell metrics grid ─────────────────────────────────
-            _glassCard(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: Text('Comprehensive Thermodynamic Properties',
-                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                    ),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 2.4,
-                      ),
-                      itemCount: metrics.length,
-                      itemBuilder: (context, index) {
-                        final m = metrics[index];
-                        return _buildMetricTile(m['title'], m['value'], m['icon'], m['color']);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
+            // ROW 3: Thermodynamic Properties Grid
+            ThermoPropertiesGrid(metrics: metrics),
             const SizedBox(height: 16),
 
-            // ── ROW 4: Molecular Data ─────────────────────────────────────
+            // ROW 4: Molecular Data
             if (status.trajectoryFrames != null && status.trajectoryFrames!.isNotEmpty)
-              _buildMolecularDataCardsRow(status.trajectoryFrames!),
+              MolecularDataCards(trajectoryFrames: status.trajectoryFrames!),
+            
+            const SizedBox(height: 16),
+
+            // ROW 5: Distinct Reactants
+            if (status.trajectoryFrames != null && status.trajectoryFrames!.isNotEmpty)
+              DistinctMoleculesViewer(
+                title: 'Distinct Reactants', 
+                atoms: XyzParser.parse(status.trajectoryFrames!.first),
+              ),
+            const SizedBox(height: 16),
+
+            // ROW 6: Distinct Products
+            if (status.trajectoryFrames != null && status.trajectoryFrames!.isNotEmpty)
+              DistinctMoleculesViewer(
+                title: 'Distinct Products', 
+                atoms: XyzParser.parse(status.trajectoryFrames!.last),
+              ),
+            const SizedBox(height: 16),
+
+            // ROW 7: Reaction Mechanism Animation
+            _buildReactionAnimationCard(status),
           ],
         );
       },
     );
   }
 
-  Widget _buildMolecularDataCardsRow(List<String> frames) {
-    if (frames.isEmpty) return const SizedBox();
 
-    final rAtoms = XyzParser.parse(frames.first);
-    final pAtoms = XyzParser.parse(frames.last);
-
-    final rInfo = XyzParser.getMolecularInfo(rAtoms);
-    final pInfo = XyzParser.getMolecularInfo(pAtoms);
-
-    return Row(
-      children: [
-        Expanded(child: _buildMolecularDataCard('Reactant', rInfo)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildMolecularDataCard('Product', pInfo)),
-      ],
-    );
-  }
-
-  Widget _buildMolecularDataCard(String title, MolecularInfo info) {
-    return _glassCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(title == 'Reactant' ? Icons.login : Icons.logout, color: const Color(0xFF4FC3F7), size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  '$title Data',
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Formula', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                Text(info.formula.isEmpty ? 'Unknown' : info.formula, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Molecular Weight', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                Text('${info.weight.toStringAsFixed(2)} g/mol', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total Atoms', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                Text('${info.numAtoms}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            if (info.elementCounts.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              const Text('Elements:', style: TextStyle(color: Colors.white54, fontSize: 12)),
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: info.elementCounts.entries.map((e) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                    ),
-                    child: Text('${e.key}: ${e.value}', style: const TextStyle(color: Colors.white, fontSize: 11)),
-                  );
-                }).toList(),
-              ),
-            ]
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildReactionAnimationCard(JobStatusResponse status) {
     final energyProfile = status.energyProfile ?? [];
@@ -1078,70 +900,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _bigMetricCard(String label, String value, String unit, IconData icon, Color color) {
-    return Expanded(
-      child: _glassCard(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, color: color, size: 16),
-                  const SizedBox(width: 6),
-                  Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
-              ),
-              Text(unit, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildMetricTile(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 13),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(title,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 10),
-                    overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(value,
-                style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildStatusCard(String message, double? progress, JobState state) {
     final isRunning =
@@ -1239,140 +998,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class _ArrheniusPlotPainter extends CustomPainter {
-  final List<double> lnKValues;
-  _ArrheniusPlotPainter(this.lnKValues);
 
-  static const _leftPad  = 52.0;
-  static const _bottomPad = 28.0;
-  static const _topPad    = 10.0;
-  static const _rightPad  = 12.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (lnKValues.length < 2) return;
-
-    final double minY = lnKValues.reduce((a, b) => a < b ? a : b);
-    final double maxY = lnKValues.reduce((a, b) => a > b ? a : b);
-    final double rangeY = (maxY - minY).abs() < 0.0001 ? 1.0 : maxY - minY;
-    final int n = lnKValues.length;
-
-    final plotW = size.width  - _leftPad - _rightPad;
-    final plotH = size.height - _bottomPad - _topPad;
-
-    double px(int i) => _leftPad + plotW * i / (n - 1);
-    double py(double v) => _topPad + plotH - plotH * (v - minY) / rangeY;
-
-    final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.07)
-      ..strokeWidth = 1;
-    final axisPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.18)
-      ..strokeWidth = 1.2;
-    final ts = TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 10);
-
-    // ── Grid & Y-axis labels ──────────────────────────────────────────────
-    const yDivs = 5;
-    for (int i = 0; i <= yDivs; i++) {
-      final v = minY + rangeY * i / yDivs;
-      final y = py(v);
-      canvas.drawLine(Offset(_leftPad, y), Offset(size.width - _rightPad, y), gridPaint);
-      // Y label
-      final tp = TextPainter(
-        text: TextSpan(text: v.toStringAsFixed(1), style: ts),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(_leftPad - tp.width - 6, y - tp.height / 2));
-    }
-
-    // ── X-axis grid & labels ──────────────────────────────────────────────
-    final temps = [200, 300, 400, 500, 600, 700, 800, 900, 1000];
-    for (final T in temps) {
-      final xi = ((T - 200) / 80.0).round().clamp(0, n - 1);
-      final x = px(xi);
-      if (x < _leftPad || x > size.width - _rightPad) continue;
-      canvas.drawLine(
-        Offset(x, _topPad), Offset(x, size.height - _bottomPad), gridPaint);
-      final tp = TextPainter(
-        text: TextSpan(text: '${T}K', style: ts),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(x - tp.width / 2, size.height - _bottomPad + 4));
-    }
-
-    // ── Axes ──────────────────────────────────────────────────────────────
-    canvas.drawLine(
-        Offset(_leftPad, _topPad), Offset(_leftPad, size.height - _bottomPad), axisPaint);
-    canvas.drawLine(
-        Offset(_leftPad, size.height - _bottomPad),
-        Offset(size.width - _rightPad, size.height - _bottomPad), axisPaint);
-
-    // Y-axis label
-    final yLabel = TextPainter(
-      text: TextSpan(
-          text: 'ln(k / s⁻¹)',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    canvas.save();
-    canvas.translate(10, _topPad + plotH / 2 + yLabel.width / 2);
-    canvas.rotate(-pi / 2);
-    yLabel.paint(canvas, Offset.zero);
-    canvas.restore();
-
-    // ── Filled area under curve ───────────────────────────────────────────
-    final fillPath = Path();
-    fillPath.moveTo(px(0), size.height - _bottomPad);
-    for (int i = 0; i < n; i++) {
-      fillPath.lineTo(px(i), py(lnKValues[i]));
-    }
-    fillPath.lineTo(px(n - 1), size.height - _bottomPad);
-    fillPath.close();
-
-    final fillGrad = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        const Color(0xFF4FC3F7).withValues(alpha: 0.28),
-        const Color(0xFF4FC3F7).withValues(alpha: 0.04),
-      ],
-    );
-    canvas.drawPath(fillPath,
-        Paint()..shader = fillGrad.createShader(
-            Rect.fromLTWH(_leftPad, _topPad, plotW, plotH)));
-
-    // ── Gradient line ─────────────────────────────────────────────────────
-    final lineGrad = LinearGradient(
-      colors: [const Color(0xFF80DEEA), const Color(0xFF4FC3F7), const Color(0xFF1565C0)],
-    );
-    final linePaint = Paint()
-      ..shader = lineGrad.createShader(
-          Rect.fromLTWH(_leftPad, _topPad, plotW, plotH))
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final path = Path();
-    for (int i = 0; i < n; i++) {
-      final x = px(i), y = py(lnKValues[i]);
-      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
-    }
-    canvas.drawPath(path, linePaint);
-
-    // ── Data dots ─────────────────────────────────────────────────────────
-    for (int i = 0; i < n; i++) {
-      final x = px(i), y = py(lnKValues[i]);
-      canvas.drawCircle(Offset(x, y), 4.5, Paint()
-        ..color = const Color(0xFF4FC3F7).withValues(alpha: 0.9));
-      canvas.drawCircle(Offset(x, y), 4.5, Paint()
-        ..color = Colors.white.withValues(alpha: 0.5)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArrheniusPlotPainter old) =>
-      old.lnKValues != lnKValues;
-}
