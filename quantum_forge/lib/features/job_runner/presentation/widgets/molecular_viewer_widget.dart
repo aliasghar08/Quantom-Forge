@@ -21,6 +21,8 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
   bool _electronCloudMode = false;
   List<Atom> _atoms = [];
 
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -35,11 +37,16 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
     }
   }
 
-  void _parseData() {
+  Future<void> _parseData() async {
     if (widget.currentXyzData != null) {
-      setState(() {
-        _atoms = XyzParser.parse(widget.currentXyzData!);
-      });
+      setState(() => _isLoading = true);
+      final atoms = await XyzParser.parseAsync(widget.currentXyzData!);
+      if (mounted) {
+        setState(() {
+          _atoms = atoms;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -47,6 +54,10 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
   Widget build(BuildContext context) {
     if (widget.currentXyzData == null) {
       return const Center(child: Text('No structure loaded.'));
+    }
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
     }
 
     return Stack(
@@ -97,6 +108,15 @@ class _MolecularPainter extends CustomPainter {
   final double scale;
   final bool electronCloudMode;
 
+  static final Map<Color, Paint> _basePaints = {};
+  static final Map<Color, Paint> _glowPaints = {};
+  static final Paint _borderPaint = Paint()
+    ..color = Colors.black87
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.0;
+  static final Paint _darkeningPaint = Paint()..style = PaintingStyle.fill;
+  static final Rect _unitRect = const Rect.fromLTWH(-1, -1, 2, 2);
+
   _MolecularPainter({
     required this.atoms,
     required this.rotationX,
@@ -104,6 +124,29 @@ class _MolecularPainter extends CustomPainter {
     required this.scale,
     required this.electronCloudMode,
   });
+
+  Paint _getBasePaint(Color color) {
+    if (_basePaints.containsKey(color)) return _basePaints[color]!;
+    final grad = RadialGradient(
+      colors: [Colors.white.withValues(alpha: 0.8), color, color.withValues(alpha: 0.8)],
+      stops: const [0.0, 0.4, 1.0],
+      center: const Alignment(-0.3, -0.3),
+    );
+    final paint = Paint()..shader = grad.createShader(_unitRect);
+    _basePaints[color] = paint;
+    return paint;
+  }
+
+  Paint _getGlowPaint(Color color) {
+    if (_glowPaints.containsKey(color)) return _glowPaints[color]!;
+    final grad = RadialGradient(
+      colors: [color.withValues(alpha: 0.4), color.withValues(alpha: 0.0)],
+      stops: const [0.3, 1.0],
+    );
+    final paint = Paint()..shader = grad.createShader(const Rect.fromLTWH(-2.5, -2.5, 5.0, 5.0));
+    _glowPaints[color] = paint;
+    return paint;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -156,47 +199,34 @@ class _MolecularPainter extends CustomPainter {
     // Sort by depth (painters algorithm)
     projected.sort((a, b) => a.zDepth.compareTo(b.zDepth));
 
-    // Pre-allocate Paint objects to avoid GC pressure during animation
-    final spherePaint = Paint();
-    final borderPaint = Paint()
-      ..color = Colors.black87
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
     // Draw
     for (final p in projected) {
-      // Simple lighting effect based on Z depth
-      final lightFactor = (p.zDepth + 10) / 20.0;
-      final adjustedColor = Color.lerp(Colors.black, p.atom.color, lightFactor.clamp(0.2, 1.0))!;
-      
       final radius = p.atom.radius * scale * 0.5;
       final center = Offset(p.screenX, p.screenY);
 
-      final grad = RadialGradient(
-        colors: [Colors.white.withValues(alpha: 0.8), adjustedColor, adjustedColor.withValues(alpha: 0.8)],
-        stops: const [0.0, 0.4, 1.0],
-        center: const Alignment(-0.3, -0.3),
-      );
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.scale(radius);
 
-      final rect = Rect.fromCircle(center: center, radius: radius);
-      spherePaint.shader = grad.createShader(rect);
+      canvas.drawCircle(Offset.zero, 1.0, _getBasePaint(p.atom.color));
 
-      canvas.drawCircle(center, radius, spherePaint);
+      // Simple lighting effect based on Z depth via overlay
+      final lightFactor = (p.zDepth + 10) / 20.0;
+      final darkness = 1.0 - lightFactor.clamp(0.2, 1.0);
+      if (darkness > 0) {
+        _darkeningPaint.color = Colors.black.withValues(alpha: darkness * 0.5);
+        canvas.drawCircle(Offset.zero, 1.0, _darkeningPaint);
+      }
+
+      if (electronCloudMode) {
+        canvas.drawCircle(Offset.zero, 2.5, _getGlowPaint(p.atom.color));
+      }
       
-      // Simple border
+      canvas.restore();
+
+      // Simple border (drawn outside scaled canvas to preserve 1.0 width)
       if (!electronCloudMode) {
-        canvas.drawCircle(center, radius, borderPaint);
-      } else {
-        // Draw orbital glow
-        final glowPaint = Paint()
-          ..shader = RadialGradient(
-            colors: [
-              p.atom.color.withValues(alpha: 0.4),
-              p.atom.color.withValues(alpha: 0.0)
-            ],
-            stops: const [0.3, 1.0],
-          ).createShader(Rect.fromCircle(center: center, radius: radius * 2.5));
-        canvas.drawCircle(center, radius * 2.5, glowPaint);
+        canvas.drawCircle(center, radius, _borderPaint);
       }
     }
   }

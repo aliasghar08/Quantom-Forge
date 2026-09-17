@@ -80,6 +80,35 @@ class _KineticChartPainter extends CustomPainter {
   final double? referenceEa;
   final int? hoveredIndex;
 
+  static final Paint _gridPaint = Paint()
+    ..color = Colors.white.withValues(alpha: 0.1)
+    ..strokeWidth = 1;
+    
+  static final Paint _linePaint = Paint()
+    ..color = Colors.cyanAccent
+    ..strokeWidth = 3
+    ..style = PaintingStyle.stroke;
+    
+  static final Paint _refPaint = Paint()
+    ..color = Colors.orangeAccent
+    ..strokeWidth = 2
+    ..style = PaintingStyle.stroke;
+    
+  static final Paint _normalPointPaint = Paint()
+    ..color = Colors.cyan
+    ..style = PaintingStyle.fill;
+    
+  static final Paint _hoveredPointPaint = Paint()
+    ..color = Colors.white
+    ..style = PaintingStyle.fill;
+    
+  static final Paint _borderPaint = Paint()
+    ..color = Colors.black
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+    
+  static final Paint _tooltipPaint = Paint()..color = Colors.white;
+
   _KineticChartPainter({
     required this.energyProfile,
     this.referenceEa,
@@ -90,8 +119,12 @@ class _KineticChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (energyProfile.isEmpty) return;
 
-    double maxE = energyProfile.reduce((a, b) => a > b ? a : b);
-    double minE = energyProfile.reduce((a, b) => a < b ? a : b);
+    double maxE = energyProfile[0];
+    double minE = energyProfile[0];
+    for (int i = 1; i < energyProfile.length; i++) {
+      if (energyProfile[i] > maxE) maxE = energyProfile[i];
+      if (energyProfile[i] < minE) minE = energyProfile[i];
+    }
     
     // Add padding to y axis
     maxE += 15;
@@ -100,9 +133,6 @@ class _KineticChartPainter extends CustomPainter {
     final yRange = maxE - minE;
     
     // Grid Lines and Labels
-    final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1)
-      ..strokeWidth = 1;
       
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
@@ -112,7 +142,7 @@ class _KineticChartPainter extends CustomPainter {
       final yValue = minE + (yRange * i / numYLabels);
       final yPos = size.height - ((yValue - minE) / yRange) * size.height;
       
-      canvas.drawLine(Offset(0, yPos), Offset(size.width, yPos), gridPaint);
+      canvas.drawLine(Offset(0, yPos), Offset(size.width, yPos), _gridPaint);
       
       textPainter.text = TextSpan(
         text: yValue.toStringAsFixed(0),
@@ -134,10 +164,6 @@ class _KineticChartPainter extends CustomPainter {
     }
 
     // Draw line
-    final linePaint = Paint()
-      ..color = Colors.cyanAccent
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
       
     final path = Path();
     final points = <Offset>[];
@@ -158,23 +184,18 @@ class _KineticChartPainter extends CustomPainter {
         final cp2 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p1.dy);
         path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p1.dx, p1.dy);
       }
-      canvas.drawPath(path, linePaint);
+      canvas.drawPath(path, _linePaint);
     }
 
     // Draw TS Reference line
     if (referenceEa != null) {
       final refY = size.height - ((referenceEa! - minE) / yRange) * size.height;
-      final refPaint = Paint()
-        ..color = Colors.orangeAccent
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke;
-
       // Draw dashed line
       const dashWidth = 5.0;
       const dashSpace = 5.0;
       double startX = 0;
       while (startX < size.width) {
-        canvas.drawLine(Offset(startX, refY), Offset(startX + dashWidth, refY), refPaint);
+        canvas.drawLine(Offset(startX, refY), Offset(startX + dashWidth, refY), _refPaint);
         startX += dashWidth + dashSpace;
       }
       
@@ -186,27 +207,14 @@ class _KineticChartPainter extends CustomPainter {
       textPainter.paint(canvas, Offset(10, refY - 15));
     }
 
-    // Pre-allocate paints for points
-    final normalPointPaint = Paint()
-      ..color = Colors.cyan
-      ..style = PaintingStyle.fill;
-    final hoveredPointPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    final borderPaint = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final tooltipPaint = Paint()..color = Colors.white;
-
     // Draw Points
     for (int i = 0; i < points.length; i++) {
       final isHovered = i == hoveredIndex;
-      final pointPaint = isHovered ? hoveredPointPaint : normalPointPaint;
+      final pointPaint = isHovered ? _hoveredPointPaint : _normalPointPaint;
       final radius = isHovered ? 6.0 : 4.0;
         
       canvas.drawCircle(points[i], radius, pointPaint);
-      canvas.drawCircle(points[i], radius, borderPaint);
+      canvas.drawCircle(points[i], radius, _borderPaint);
       
       // Draw tooltip if hovered
       if (isHovered) {
@@ -226,7 +234,7 @@ class _KineticChartPainter extends CustomPainter {
         
         canvas.drawRRect(
           RRect.fromRectAndRadius(tooltipRect, const Radius.circular(4)),
-          tooltipPaint,
+          _tooltipPaint,
         );
         
         textPainter.paint(canvas, Offset(points[i].dx - textPainter.width / 2, points[i].dy - 31));

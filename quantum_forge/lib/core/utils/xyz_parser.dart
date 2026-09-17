@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class Atom {
@@ -34,13 +36,19 @@ class XyzParser {
     'P': 1.8,
   };
 
+  static final RegExp _whitespaceRegExp = RegExp(r'\s+');
+
+  static Future<List<Atom>> parseAsync(String xyz) async {
+    return compute(parse, xyz);
+  }
+
   static List<Atom> parse(String xyz) {
-    final lines = xyz.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    final lines = const LineSplitter().convert(xyz).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
     if (lines.length < 3) return [];
 
     final atoms = <Atom>[];
     for (int i = 2; i < lines.length; i++) {
-      final parts = lines[i].split(RegExp(r'\s+'));
+      final parts = lines[i].split(_whitespaceRegExp);
       if (parts.length >= 4) {
         final symbol = parts[0];
         final x = double.tryParse(parts[1]) ?? 0.0;
