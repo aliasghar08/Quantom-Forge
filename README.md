@@ -30,24 +30,60 @@
 The codebase is strictly organized using a feature-first architecture, ensuring separation of concerns and high scalability.
 
 ```text
-lib/
-├── core/                       # Foundation and shared logic
-│   ├── services/               # Core services (Auth, Job Repository, Win32 File Picker, Local Storage)
-│   ├── state/                  # Dependency injection and base provider setup
-│   └── utils/                  # Utilities (XYZ Parser, UUIDs, Local Prefs)
-│
-├── features/                   # Feature-driven modules
-│   ├── job_runner/             # Main computational and analytics module
-│   │   ├── data/               # Job state models
-│   │   ├── presentation/       # Screens (Dashboard, Analytics, History, Coordinate Editor)
-│   │   │   └── widgets/        # Specialized Widgets (Molecular Viewer, Kinetic Chart, Controls Panel)
-│   │   └── providers/          # Reactive state management for computational jobs and settings
-│   │
-│   └── reaction_library/       # Templates and pre-defined chemical reactions
-│       ├── data/               # Reaction templates and molecular data
-│       └── presentation/       # Library screens and Reaction Card widgets
-│
-└── main.dart                   # Application entry point
+quantum_forge/
+├── lib/
+│   ├── core/
+│   │   ├── services/
+│   │   │   ├── auth_service.dart
+│   │   │   ├── file_picker_service.dart
+│   │   │   ├── job_repository.dart
+│   │   │   ├── local_auth_service.dart
+│   │   │   ├── local_job_repository.dart
+│   │   │   ├── local_storage_service.dart
+│   │   │   └── storage_service.dart
+│   │   ├── state/
+│   │   │   └── provider.dart
+│   │   └── utils/
+│   │       ├── local_prefs.dart
+│   │       ├── uuid_util.dart
+│   │       ├── win32_file_picker.dart
+│   │       └── xyz_parser.dart
+│   ├── features/
+│   │   ├── job_runner/
+│   │   │   ├── data/
+│   │   │   │   └── models/
+│   │   │   │       └── job_models.dart
+│   │   │   ├── presentation/
+│   │   │   │   ├── screens/
+│   │   │   │   │   ├── analytics_screen.dart
+│   │   │   │   │   ├── coordinate_editor_screen.dart
+│   │   │   │   │   ├── dashboard_screen.dart
+│   │   │   │   │   └── history_screen.dart
+│   │   │   │   └── widgets/
+│   │   │   │       ├── kinetic_chart_widget.dart
+│   │   │   │       ├── molecular_viewer_widget.dart
+│   │   │   │       └── quantum_controls_panel.dart
+│   │   │   └── providers/
+│   │   │       ├── job_provider.dart
+│   │   │       └── settings_provider.dart
+│   │   └── reaction_library/
+│   │       ├── data/
+│   │       │   └── reaction_templates.dart
+│   │       └── presentation/
+│   │           ├── screens/
+│   │           │   └── library_screen.dart
+│   │           └── widgets/
+│   │               └── reaction_card_widget.dart
+│   └── main.dart
+├── pubspec.yaml
+├── pubspec.lock
+├── analysis_options.yaml
+├── windows/
+├── macos/
+├── linux/
+├── ios/
+├── android/
+└── web/
 ```
 
 ### Architectural Highlights
