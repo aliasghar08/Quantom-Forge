@@ -181,8 +181,8 @@ class JobNotifier extends ValueNotifier<JobStatusResponse?> {
           sb.writeln('Frame $frame (t=$t)'); // Comment line
           
           for (int i = 2; i < rLines.length; i++) {
-            final rParts = rLines[i].trim().split(RegExp(r'\\s+'));
-            final pParts = pLines[i].trim().split(RegExp(r'\\s+'));
+            final rParts = rLines[i].trim().split(RegExp(r'\s+'));
+            final pParts = pLines[i].trim().split(RegExp(r'\s+'));
             
             if (rParts.length >= 4 && pParts.length >= 4 && rParts[0] == pParts[0]) {
               final symbol = rParts[0];

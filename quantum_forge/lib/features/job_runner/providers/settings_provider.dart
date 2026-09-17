@@ -54,6 +54,53 @@ class QuantumSettings {
     this.conformationalSearch = false,
   });
 
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+  
+    return other is QuantumSettings &&
+      other.charge == charge &&
+      other.spinMultiplicity == spinMultiplicity &&
+      other.mlipModel == mlipModel &&
+      other.solventModel == solventModel &&
+      other.temperatureK == temperatureK &&
+      other.optimizerAlgorithm == optimizerAlgorithm &&
+      other.maxSteps == maxSteps &&
+      other.convergence == convergence &&
+      other.maxForceNorm == maxForceNorm &&
+      other.nebImages == nebImages &&
+      other.springConstant == springConstant &&
+      other.zpeCorrection == zpeCorrection &&
+      other.computeThermochemistry == computeThermochemistry &&
+      other.runIrc == runIrc &&
+      other.frequencyAnalysis == frequencyAnalysis &&
+      other.exportFormat == exportFormat &&
+      other.conformationalSearch == conformationalSearch;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hashAll([
+      charge,
+      spinMultiplicity,
+      mlipModel,
+      solventModel,
+      temperatureK,
+      optimizerAlgorithm,
+      maxSteps,
+      convergence,
+      maxForceNorm,
+      nebImages,
+      springConstant,
+      zpeCorrection,
+      computeThermochemistry,
+      runIrc,
+      frequencyAnalysis,
+      exportFormat,
+      conformationalSearch,
+    ]);
+  }
+
   QuantumSettings copyWith({
     int? charge,
     int? spinMultiplicity,

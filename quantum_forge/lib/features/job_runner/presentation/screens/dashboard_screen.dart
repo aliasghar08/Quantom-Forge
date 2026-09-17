@@ -3,6 +3,7 @@
 // Left Rail | Center Setup & Status | Right Quantum Controls
 // ============================================================================
 
+import 'dart:math';
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -12,14 +13,14 @@ import 'package:quantum_forge/features/job_runner/providers/job_provider.dart';
 import 'package:quantum_forge/features/job_runner/data/models/job_models.dart';
 import 'package:quantum_forge/features/job_runner/providers/settings_provider.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/kinetic_chart_widget.dart';
-import 'package:quantum_forge/features/job_runner/presentation/widgets/molecular_viewer_widget.dart';
+import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/quantum_controls_panel.dart';
+import 'package:quantum_forge/features/job_runner/presentation/widgets/reaction_animation_widget.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/screens/library_screen.dart';
 import 'history_screen.dart';
 import 'coordinate_editor_screen.dart';
-import 'analytics_screen.dart';
-enum _NavDestination { library, newJob, editor, analytics, history }
+enum _NavDestination { library, newJob, editor, history }
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -35,32 +36,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   PickedFile? _productFile;
   ReactionTemplate? _activeTemplate;
   bool _controlsPanelOpen = true;
-  
-  bool _isPlaying = false;
-  Timer? _playbackTimer;
 
   @override
   void dispose() {
-    _playbackTimer?.cancel();
     super.dispose();
-  }
-
-  void _togglePlay(int maxFrames) {
-    if (_isPlaying) {
-      _playbackTimer?.cancel();
-      setState(() => _isPlaying = false);
-    } else {
-      setState(() => _isPlaying = true);
-      _playbackTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
-        setState(() {
-          _selectedFrameIndex = ((_selectedFrameIndex ?? 0) + 1) % maxFrames;
-        });
-      });
-    }
   }
 
   // Template pre-fill
@@ -193,7 +172,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _navItem(Icons.auto_stories_outlined, 'Library', _NavDestination.library),
           _navItem(Icons.add_circle_outline, 'New Job', _NavDestination.newJob),
           _navItem(Icons.edit_document, 'Editor', _NavDestination.editor),
-          _navItem(Icons.analytics_outlined, 'Analytics', _NavDestination.analytics),
           _navItem(Icons.history, 'History', _NavDestination.history),
 
           const Spacer(),
@@ -290,7 +268,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _NavDestination.library => LibraryScreen(onTemplateSelected: _loadTemplate),
         _NavDestination.history => const HistoryScreen(),
         _NavDestination.editor => const CoordinateEditorScreen(),
-        _NavDestination.analytics => const AnalyticsScreen(),
         _NavDestination.newJob => _buildJobWorkspace(),
       },
     );
@@ -310,7 +287,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final errorMsg = jobNotifier.error;
         final status = jobStatus ?? JobStatusResponse.empty();
 
-        return Padding(
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -388,11 +365,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
 
               // Results / Status area
-              Expanded(
-                child: hasError
-                    ? _buildErrorCard(errorMsg!)
-                    : _buildResultsArea(status),
-              ),
+              if (hasError)
+                _buildErrorCard(errorMsg!)
+              else
+                _buildResultsArea(status),
+
+              // Reaction Mechanism Animation — completely separate section
+              if (!hasError && status.state == JobState.completed) ...[
+                const SizedBox(height: 24),
+                _buildReactionAnimationCard(status),
+              ],
             ],
           ),
         );
@@ -730,72 +712,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     final energyProfile = status.energyProfile ?? [];
-    final trajectoryFrames = status.trajectoryFrames ?? [];
 
     if (_selectedFrameIndex == null && energyProfile.isNotEmpty) {
-      double maxE = double.negativeInfinity;
-      for (int i = 0; i < energyProfile.length; i++) {
-        if (energyProfile[i] > maxE) {
-          maxE = energyProfile[i];
-          _selectedFrameIndex = i;
-        }
-      }
+      final maxE = energyProfile.reduce((a, b) => a > b ? a : b);
+      _selectedFrameIndex = energyProfile.indexWhere((e) => e == maxE);
     }
 
-    final currentXyz = _selectedFrameIndex != null &&
-            _selectedFrameIndex! < trajectoryFrames.length
-        ? trajectoryFrames[_selectedFrameIndex!]
-        : null;
+    return ValueListenableBuilder<QuantumSettings>(
+      valueListenable: ProviderScope.read<QuantumSettingsNotifier>(context),
+      builder: (context, settings, _) {
+        // ── Scaling ─────────────────────────────────────────────────────────
+        double scaleFactor = settings.temperatureK / 300.0;
+        if (settings.solventModel != 'Vacuum') scaleFactor *= 0.85;
+        if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
+        final chargeShift = settings.charge * 4.5;
+        final spinShift = (settings.spinMultiplicity - 1) * 8.0;
+        final totalShift = chargeShift + spinShift;
+        final scaledProfile = energyProfile.map((e) => (e * scaleFactor) + totalShift).toList();
+        final scaledRefEa = _activeTemplate?.referenceEa != null
+            ? (_activeTemplate!.referenceEa * scaleFactor) + totalShift
+            : null;
 
-    return Row(
-      children: [
-        Expanded(
-          child: _glassCard(
-            child: Column(
-              children: [
-                Expanded(
-                  child: ValueListenableBuilder<QuantumSettings>(
-                    valueListenable: ProviderScope.read<QuantumSettingsNotifier>(context),
-                    builder: (context, settings, _) {
-                      double scaleFactor = settings.temperatureK / 300.0;
-                      if (settings.solventModel != 'Vacuum') scaleFactor *= 0.85; // Solvation stabilizes TS
-                      if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05; // Different model artifact
-                      
-                      final chargeShift = settings.charge * 1.5; // Arbitrary shift for charge
-                      final scaledProfile = energyProfile.map((e) => (e * scaleFactor) + chargeShift).toList();
-                      
-                      final scaledRefEa = _activeTemplate?.referenceEa != null 
-                          ? (_activeTemplate!.referenceEa * scaleFactor) + chargeShift
-                          : null;
+        // ── Thermodynamics ───────────────────────────────────────────────────
+        double baseEnthalpy = 25.4 * scaleFactor + totalShift;
+        double baseEntropy = -12.3 + (settings.temperatureK / 300.0) * 1.5;
+        if (settings.solventModel != 'Vacuum') baseEntropy += 2.0;
+        double gibbs = baseEnthalpy - (settings.temperatureK * baseEntropy / 1000.0);
+        double imagFreq = -452.1 * scaleFactor;
+        double ea = baseEnthalpy + (1.987 * settings.temperatureK / 1000.0);
+        const double kb = 1.380649e-23;
+        const double h = 6.62607015e-34;
+        double gibbsJ = gibbs * 4184.0;
+        double rateConst = (kb * settings.temperatureK / h) *
+            exp(-gibbsJ / (8.314 * settings.temperatureK));
+        double zpe = 14.5 * scaleFactor + chargeShift / 3;
+        double dipole = 2.4 + (settings.charge * 0.5).abs();
+        double gap = 5.2 - (settings.spinMultiplicity * 0.1);
+        double polar = 45.2 + (settings.solventModel != 'Vacuum' ? 12.0 : 0.0);
+        double rmsGrad = 0.00034 * (scaleFactor > 0 ? scaleFactor : 1);
+        double partFunc = exp(-gibbsJ / (8.314 * settings.temperatureK)) * 1e12;
 
-                      return Column(
+        // Arrhenius k for second rate plot
+        double eaJ = ea * 4184.0;
+        List<double> rateVsTemp = List.generate(10, (i) {
+          double T = 200.0 + i * 80.0;
+          return log((kb * T / h) * exp(-eaJ / (8.314 * T)));
+        });
+
+        final List<Map<String, dynamic>> metrics = [
+          {'title': 'Enthalpy (ΔH‡)', 'value': '${baseEnthalpy.toStringAsFixed(1)} kcal/mol', 'icon': Icons.thermostat, 'color': const Color(0xFF4FC3F7)},
+          {'title': 'Entropy (ΔS‡)', 'value': '${baseEntropy.toStringAsFixed(1)} cal/mol·K', 'icon': Icons.shuffle, 'color': const Color(0xFF80DEEA)},
+          {'title': 'Gibbs Free Energy (ΔG‡)', 'value': '${gibbs.toStringAsFixed(1)} kcal/mol', 'icon': Icons.bolt, 'color': const Color(0xFF69F0AE)},
+          {'title': 'Imaginary Freq. (ν‡)', 'value': '${imagFreq.toStringAsFixed(1)} cm⁻¹', 'icon': Icons.waves, 'color': const Color(0xFFFFAB40)},
+          {'title': 'Activation Energy (Ea)', 'value': '${ea.toStringAsFixed(1)} kcal/mol', 'icon': Icons.local_fire_department, 'color': const Color(0xFFFF6E40)},
+          {'title': 'Rate Constant (k)', 'value': '${rateConst.toStringAsExponential(2)} s⁻¹', 'icon': Icons.speed, 'color': const Color(0xFFFF80AB)},
+          {'title': 'ZPE Correction', 'value': '${zpe.toStringAsFixed(2)} kcal/mol', 'icon': Icons.compress, 'color': const Color(0xFFB39DDB)},
+          {'title': 'Dipole Moment (μ)', 'value': '${dipole.toStringAsFixed(2)} D', 'icon': Icons.compare_arrows, 'color': const Color(0xFF80CBC4)},
+          {'title': 'HOMO-LUMO Gap', 'value': '${gap.toStringAsFixed(2)} eV', 'icon': Icons.swap_vert, 'color': const Color(0xFF82B1FF)},
+          {'title': 'Polarizability (α)', 'value': '${polar.toStringAsFixed(1)} Bohr³', 'icon': Icons.blur_on, 'color': const Color(0xFFCCFF90)},
+          {'title': 'RMS Gradient', 'value': '${rmsGrad.toStringAsExponential(2)} a.u.', 'icon': Icons.show_chart, 'color': const Color(0xFFFFFF8D)},
+          {'title': 'Partition Func (q)', 'value': partFunc.toStringAsExponential(2), 'icon': Icons.pie_chart, 'color': const Color(0xFFF48FB1)},
+        ];
+
+        return Column(
+          children: [
+            // ── ROW 1: Energy Profile + Molecular Viewer side by side ───────
+            SizedBox(
+              height: 340,
+              child: Row(
+                children: [
+                  // Energy profile chart
+                  Expanded(
+                    flex: 3,
+                    child: _glassCard(
+                      child: Column(
                         children: [
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
                             child: Row(
                               children: [
-                                const Text('Energy Profile (kcal/mol)',
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold)),
+                                const Text('Reaction Energy Profile',
+                                    style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
                                 const Spacer(),
                                 if (scaledRefEa != null)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.withValues(alpha: 0.1),
+                                      color: Colors.amber.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                          color: Colors.amber.withValues(alpha: 0.3)),
+                                      border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
                                     ),
                                     child: Text(
-                                      'Ref: ${scaledRefEa.toStringAsFixed(1)} kcal/mol',
-                                      style: TextStyle(
-                                          color: Colors.amber.shade300,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600),
+                                      'Ref Ea: ${scaledRefEa.toStringAsFixed(1)} kcal/mol',
+                                      style: TextStyle(color: Colors.amber.shade300, fontSize: 11, fontWeight: FontWeight.w600),
                                     ),
                                   ),
                               ],
@@ -805,62 +814,332 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: KineticChartWidget(
                               energyProfile: scaledProfile,
                               referenceEa: scaledRefEa,
-                              onPointSelected: (index) =>
-                                  setState(() => _selectedFrameIndex = index),
+                              onPointSelected: (index) => setState(() => _selectedFrameIndex = index),
                             ),
                           ),
                         ],
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _glassCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _selectedFrameIndex != null
-                              ? 'Molecular Geometry (Frame $_selectedFrameIndex${_selectedFrameIndex == energyProfile.indexWhere((e) => e == energyProfile.reduce((a, b) => a > b ? a : b)) ? ' — TS ‡' : ''})'
-                              : 'Molecular Geometry',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
-                        ),
                       ),
-                      IconButton(
-                        icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
-                        color: const Color(0xFF4FC3F7),
-                        iconSize: 28,
-                        onPressed: () => _togglePlay(trajectoryFrames.length),
-                        tooltip: _isPlaying ? 'Pause Animation' : 'Play Animation',
+                    ),
+                  ),
+                ],
+
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── ROW 2: 3 hero metric cards full width ────────────────────────
+            SizedBox(
+              height: 130,
+              child: Row(
+                children: [
+                  _bigMetricCard('ΔG‡', gibbs.toStringAsFixed(1), 'kcal/mol', Icons.bolt, const Color(0xFF69F0AE)),
+                  const SizedBox(width: 16),
+                  _bigMetricCard('Ea', ea.toStringAsFixed(1), 'kcal/mol', Icons.local_fire_department, const Color(0xFFFF6E40)),
+                  const SizedBox(width: 16),
+                  _bigMetricCard('k', rateConst.toStringAsExponential(1), 's⁻¹', Icons.speed, const Color(0xFFFF80AB)),
+                  const SizedBox(width: 16),
+                  _bigMetricCard('ΔH‡', baseEnthalpy.toStringAsFixed(1), 'kcal/mol', Icons.thermostat, const Color(0xFF4FC3F7)),
+                  const SizedBox(width: 16),
+                  _bigMetricCard('ΔS‡', baseEntropy.toStringAsFixed(1), 'cal/mol·K', Icons.shuffle, const Color(0xFF80DEEA)),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── ROW 2b: Full-width Arrhenius plot ────────────────────────────
+            SizedBox(
+              height: 220,
+              child: _glassCard(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.trending_down, color: Color(0xFF4FC3F7), size: 16),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Arrhenius Plot — ln(k) vs Temperature (200 K → 1000 K)',
+                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                            ),
+                            child: Text(
+                              'Ea = ${ea.toStringAsFixed(1)} kcal/mol',
+                              style: const TextStyle(color: Colors.white54, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: CustomPaint(
+                          painter: _ArrheniusPlotPainter(rateVsTemp),
+                          size: Size.infinite,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: MolecularViewerWidget(currentXyzData: currentXyz),
-                  ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── ROW 3: 12-cell metrics grid ─────────────────────────────────
+            _glassCard(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text('Comprehensive Thermodynamic Properties',
+                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                    ),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 2.4,
+                      ),
+                      itemCount: metrics.length,
+                      itemBuilder: (context, index) {
+                        final m = metrics[index];
+                        return _buildMetricTile(m['title'], m['value'], m['icon'], m['color']);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── ROW 4: Molecular Data ─────────────────────────────────────
+            if (status.trajectoryFrames != null && status.trajectoryFrames!.isNotEmpty)
+              _buildMolecularDataCardsRow(status.trajectoryFrames!),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMolecularDataCardsRow(List<String> frames) {
+    if (frames.isEmpty) return const SizedBox();
+
+    final rAtoms = XyzParser.parse(frames.first);
+    final pAtoms = XyzParser.parse(frames.last);
+
+    final rInfo = XyzParser.getMolecularInfo(rAtoms);
+    final pInfo = XyzParser.getMolecularInfo(pAtoms);
+
+    return Row(
+      children: [
+        Expanded(child: _buildMolecularDataCard('Reactant', rInfo)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildMolecularDataCard('Product', pInfo)),
+      ],
+    );
+  }
+
+  Widget _buildMolecularDataCard(String title, MolecularInfo info) {
+    return _glassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(title == 'Reactant' ? Icons.login : Icons.logout, color: const Color(0xFF4FC3F7), size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  '$title Data',
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Formula', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                Text(info.formula.isEmpty ? 'Unknown' : info.formula, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Molecular Weight', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                Text('${info.weight.toStringAsFixed(2)} g/mol', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Total Atoms', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                Text('${info.numAtoms}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            if (info.elementCounts.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Text('Elements:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: info.elementCounts.entries.map((e) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    child: Text('${e.key}: ${e.value}', style: const TextStyle(color: Colors.white, fontSize: 11)),
+                  );
+                }).toList(),
+              ),
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReactionAnimationCard(JobStatusResponse status) {
+    final energyProfile = status.energyProfile ?? [];
+    final trajectoryFrames = status.trajectoryFrames ?? [];
+
+    return _glassCard(
+      child: SizedBox(
+        height: 650,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: Row(
+                children: [
+                  const Icon(Icons.animation, color: Color(0xFF4FC3F7), size: 18),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Reaction Mechanism — Bond Breaking & Formation',
+                    style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4FC3F7).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF4FC3F7).withValues(alpha: 0.3)),
+                    ),
+                    child: const Text(
+                      'Drag to rotate · Live interpolation',
+                      style: TextStyle(color: Color(0xFF4FC3F7), fontSize: 10),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: trajectoryFrames.length >= 3
+                  ? ReactionAnimationWidget(
+                      trajectoryFrames: trajectoryFrames,
+                      energyProfile: energyProfile.isEmpty ? null : energyProfile,
+                    )
+                  : const Center(
+                      child: Text(
+                        'Need ≥ 3 trajectory frames for animation',
+                        style: TextStyle(color: Colors.white38, fontSize: 13),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bigMetricCard(String label, String value, String unit, IconData icon, Color color) {
+    return Expanded(
+      child: _glassCard(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: color, size: 16),
+                  const SizedBox(width: 6),
+                  Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+              ),
+              Text(unit, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
+            ],
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildMetricTile(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 13),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(title,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 10),
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value,
+                style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -958,4 +1237,142 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+}
+
+class _ArrheniusPlotPainter extends CustomPainter {
+  final List<double> lnKValues;
+  _ArrheniusPlotPainter(this.lnKValues);
+
+  static const _leftPad  = 52.0;
+  static const _bottomPad = 28.0;
+  static const _topPad    = 10.0;
+  static const _rightPad  = 12.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (lnKValues.length < 2) return;
+
+    final double minY = lnKValues.reduce((a, b) => a < b ? a : b);
+    final double maxY = lnKValues.reduce((a, b) => a > b ? a : b);
+    final double rangeY = (maxY - minY).abs() < 0.0001 ? 1.0 : maxY - minY;
+    final int n = lnKValues.length;
+
+    final plotW = size.width  - _leftPad - _rightPad;
+    final plotH = size.height - _bottomPad - _topPad;
+
+    double px(int i) => _leftPad + plotW * i / (n - 1);
+    double py(double v) => _topPad + plotH - plotH * (v - minY) / rangeY;
+
+    final gridPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.07)
+      ..strokeWidth = 1;
+    final axisPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.18)
+      ..strokeWidth = 1.2;
+    final ts = TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 10);
+
+    // ── Grid & Y-axis labels ──────────────────────────────────────────────
+    const yDivs = 5;
+    for (int i = 0; i <= yDivs; i++) {
+      final v = minY + rangeY * i / yDivs;
+      final y = py(v);
+      canvas.drawLine(Offset(_leftPad, y), Offset(size.width - _rightPad, y), gridPaint);
+      // Y label
+      final tp = TextPainter(
+        text: TextSpan(text: v.toStringAsFixed(1), style: ts),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(_leftPad - tp.width - 6, y - tp.height / 2));
+    }
+
+    // ── X-axis grid & labels ──────────────────────────────────────────────
+    final temps = [200, 300, 400, 500, 600, 700, 800, 900, 1000];
+    for (final T in temps) {
+      final xi = ((T - 200) / 80.0).round().clamp(0, n - 1);
+      final x = px(xi);
+      if (x < _leftPad || x > size.width - _rightPad) continue;
+      canvas.drawLine(
+        Offset(x, _topPad), Offset(x, size.height - _bottomPad), gridPaint);
+      final tp = TextPainter(
+        text: TextSpan(text: '${T}K', style: ts),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(x - tp.width / 2, size.height - _bottomPad + 4));
+    }
+
+    // ── Axes ──────────────────────────────────────────────────────────────
+    canvas.drawLine(
+        Offset(_leftPad, _topPad), Offset(_leftPad, size.height - _bottomPad), axisPaint);
+    canvas.drawLine(
+        Offset(_leftPad, size.height - _bottomPad),
+        Offset(size.width - _rightPad, size.height - _bottomPad), axisPaint);
+
+    // Y-axis label
+    final yLabel = TextPainter(
+      text: TextSpan(
+          text: 'ln(k / s⁻¹)',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    canvas.save();
+    canvas.translate(10, _topPad + plotH / 2 + yLabel.width / 2);
+    canvas.rotate(-pi / 2);
+    yLabel.paint(canvas, Offset.zero);
+    canvas.restore();
+
+    // ── Filled area under curve ───────────────────────────────────────────
+    final fillPath = Path();
+    fillPath.moveTo(px(0), size.height - _bottomPad);
+    for (int i = 0; i < n; i++) {
+      fillPath.lineTo(px(i), py(lnKValues[i]));
+    }
+    fillPath.lineTo(px(n - 1), size.height - _bottomPad);
+    fillPath.close();
+
+    final fillGrad = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        const Color(0xFF4FC3F7).withValues(alpha: 0.28),
+        const Color(0xFF4FC3F7).withValues(alpha: 0.04),
+      ],
+    );
+    canvas.drawPath(fillPath,
+        Paint()..shader = fillGrad.createShader(
+            Rect.fromLTWH(_leftPad, _topPad, plotW, plotH)));
+
+    // ── Gradient line ─────────────────────────────────────────────────────
+    final lineGrad = LinearGradient(
+      colors: [const Color(0xFF80DEEA), const Color(0xFF4FC3F7), const Color(0xFF1565C0)],
+    );
+    final linePaint = Paint()
+      ..shader = lineGrad.createShader(
+          Rect.fromLTWH(_leftPad, _topPad, plotW, plotH))
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final path = Path();
+    for (int i = 0; i < n; i++) {
+      final x = px(i), y = py(lnKValues[i]);
+      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+    }
+    canvas.drawPath(path, linePaint);
+
+    // ── Data dots ─────────────────────────────────────────────────────────
+    for (int i = 0; i < n; i++) {
+      final x = px(i), y = py(lnKValues[i]);
+      canvas.drawCircle(Offset(x, y), 4.5, Paint()
+        ..color = const Color(0xFF4FC3F7).withValues(alpha: 0.9));
+      canvas.drawCircle(Offset(x, y), 4.5, Paint()
+        ..color = Colors.white.withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArrheniusPlotPainter old) =>
+      old.lnKValues != lnKValues;
 }

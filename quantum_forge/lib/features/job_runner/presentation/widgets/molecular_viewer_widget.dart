@@ -1,13 +1,16 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
+import 'package:quantum_forge/features/job_runner/providers/settings_provider.dart';
 
 class MolecularViewerWidget extends StatefulWidget {
   final String? currentXyzData;
+  final QuantumSettings? settings;
 
   const MolecularViewerWidget({
     super.key,
     this.currentXyzData,
+    this.settings,
   });
 
   @override
@@ -77,6 +80,7 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
                 rotationY: _rotationY,
                 scale: _scale,
                 electronCloudMode: _electronCloudMode,
+                settings: widget.settings,
               ),
               size: Size.infinite,
             ),
@@ -107,6 +111,7 @@ class _MolecularPainter extends CustomPainter {
   final double rotationY;
   final double scale;
   final bool electronCloudMode;
+  final QuantumSettings? settings;
 
   static final Map<Color, Paint> _basePaints = {};
   static final Map<Color, Paint> _glowPaints = {};
@@ -123,6 +128,7 @@ class _MolecularPainter extends CustomPainter {
     required this.rotationY,
     required this.scale,
     required this.electronCloudMode,
+    this.settings,
   });
 
   Paint _getBasePaint(Color color) {
@@ -208,14 +214,15 @@ class _MolecularPainter extends CustomPainter {
         final dzRaw = a1.z - a2.z;
         final dist = math.sqrt(dxRaw*dxRaw + dyRaw*dyRaw + dzRaw*dzRaw);
         
-        final threshold = a1.covalentRadius + a2.covalentRadius + 0.4;
+        final idealDist = a1.covalentRadius + a2.covalentRadius;
+        final threshold = idealDist * 1.6; // Allow bonds to stretch up to 1.6x their normal length during TS
         
         if (dist < threshold) {
           final p1 = projected[i];
           final p2 = projected[j];
           final avgZ = (p1.zDepth + p2.zDepth) / 2;
           
-          bool isActive = dist > (a1.covalentRadius + a2.covalentRadius) && dist < threshold;
+          bool isActive = dist > (idealDist * 1.15) && dist < threshold;
           
           projectedBonds.add(_ProjectedBond(
             p1: p1,
@@ -223,6 +230,7 @@ class _MolecularPainter extends CustomPainter {
             zDepth: avgZ,
             distance: dist,
             isActive: isActive,
+            idealDist: idealDist,
           ));
         }
       }
@@ -246,7 +254,12 @@ class _MolecularPainter extends CustomPainter {
           _drawDashedLine(canvas, Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
           
           // Draw energy label
-          final energy = 100 * math.exp(-2.0 * (item.distance - 1.5));
+          double scaleFactor = settings?.temperatureK != null ? (settings!.temperatureK / 300.0) : 1.0;
+          if (settings?.solventModel != null && settings!.solventModel != 'Vacuum') scaleFactor *= 0.85;
+          if (settings?.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
+          final chargeShift = (settings?.charge ?? 0) * 1.5;
+
+          final energy = 100 * math.exp(-2.0 * (item.distance - item.idealDist)) * scaleFactor + chargeShift;
           final textSpan = TextSpan(
             text: '${energy.toStringAsFixed(1)} kcal/mol',
             style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]),
@@ -321,6 +334,7 @@ class _MolecularPainter extends CustomPainter {
         rotationY != oldDelegate.rotationY ||
         scale != oldDelegate.scale ||
         electronCloudMode != oldDelegate.electronCloudMode ||
+        settings != oldDelegate.settings ||
         atoms != oldDelegate.atoms;
   }
 }
@@ -351,6 +365,7 @@ class _ProjectedBond implements _ProjectedItem {
   final double zDepth;
   final double distance;
   final bool isActive;
+  final double idealDist;
 
   _ProjectedBond({
     required this.p1,
@@ -358,5 +373,6 @@ class _ProjectedBond implements _ProjectedItem {
     required this.zDepth,
     required this.distance,
     required this.isActive,
+    required this.idealDist,
   });
 }
