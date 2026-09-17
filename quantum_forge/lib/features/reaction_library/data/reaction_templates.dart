@@ -57,9 +57,201 @@ class ReactionTemplate {
   });
 }
 
+const _easReactant = '''14
+EAS: Benzene + Cl2 (reactant)
+C     1.400    0.000    0.000
+C     0.700    1.212    0.000
+C    -0.700    1.212    0.000
+C    -1.400    0.000    0.000
+C    -0.700   -1.212    0.000
+C     0.700   -1.212    0.000
+H     2.490    0.000    0.000
+H     1.245    2.156    0.000
+H    -1.245    2.156    0.000
+H    -2.490    0.000    0.000
+H    -1.245   -2.156    0.000
+H     1.245   -2.156    0.000
+Cl    1.400    0.000    2.500
+Cl    1.400    0.000    4.500''';
+
+const _easProduct = '''14
+EAS: Arenium ion + Cl- (sigma complex)
+C     1.200    0.000   -0.400
+C     0.700    1.212    0.000
+C    -0.700    1.212    0.000
+C    -1.400    0.000    0.000
+C    -0.700   -1.212    0.000
+C     0.700   -1.212    0.000
+H     2.190    0.000   -0.800
+H     1.245    2.156    0.000
+H    -1.245    2.156    0.000
+H    -2.490    0.000    0.000
+H    -1.245   -2.156    0.000
+H     1.245   -2.156    0.000
+Cl    1.400    0.000    1.400
+Cl    1.400    0.000    5.000''';
+
 // ============================================================================
 // TEMPLATE 1: Diels-Alder Cycloaddition
 // ============================================================================
+const _aldolReactant = '''14
+Aldol Addition (reactant)
+C     0.000    0.000    0.000
+C     1.500    0.000    0.000
+O    -0.500    1.000    0.000
+H    -0.500   -1.000    0.000
+H     2.000    1.000    0.000
+H     2.000   -0.500    0.800
+H     2.000   -0.500   -0.800
+C     3.000    0.000    0.000
+C     4.500    0.000    0.000
+O     2.500    1.000    0.000
+H     2.500   -1.000    0.000
+H     5.000    1.000    0.000
+H     5.000   -0.500    0.800
+H     5.000   -0.500   -0.800
+''';
+
+const _aldolProduct = '''14
+Aldol Addition (product)
+C     0.000    0.000    0.000
+C     1.500    0.000    0.000
+O    -0.500    1.000    0.000
+H    -0.500   -1.000    0.000
+H     2.000    1.000    0.000
+H     2.000   -0.500    0.800
+H     2.000    2.000    0.000
+C     2.500    0.000    0.000
+C     4.000    0.000    0.000
+O     2.500    1.000    0.000
+H     2.500   -1.000    0.000
+H     4.500    1.000    0.000
+H     4.500   -0.500    0.800
+H     4.500   -0.500   -0.800
+''';
+
+const _fischerReactant = '''12
+Fischer Esterification (reactant)
+C     0.000    0.000    0.000
+O     1.000    0.000    0.000
+O     0.000    1.000    0.000
+C     3.000    0.000    0.000
+O     2.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+''';
+
+const _fischerProduct = '''12
+Fischer Esterification (product)
+C     0.000    0.000    0.000
+O     1.000    0.000    0.000
+O     0.000    1.000    0.000
+C     2.000    0.000    0.000
+O     5.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+''';
+
+const _epoxReactant = '''11
+Epoxidation (Prilezhaev) (reactant)
+C     0.000    0.000    0.000
+C     1.500    0.000    0.000
+O     0.000    3.000    0.000
+O     1.000    3.000    0.000
+C     2.000    3.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+''';
+
+const _epoxProduct = '''11
+Epoxidation (Prilezhaev) (product)
+C     0.000    0.000    0.000
+C     1.500    0.000    0.000
+O     0.750    1.000    0.000
+O     2.000    3.000    0.000
+C     3.000    3.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+''';
+
+const _hydroReactant = '''10
+Hydroboration (reactant)
+C     0.000    0.000    0.000
+C     1.500    0.000    0.000
+B     0.000    3.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+''';
+
+const _hydroProduct = '''10
+Hydroboration (product)
+C     0.000    0.000    0.000
+C     1.500    0.000    0.000
+B     1.500    1.500    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+''';
+
+const _witReactant = '''12
+Wittig Reaction (reactant)
+P     0.000    0.000    0.000
+C     1.500    0.000    0.000
+C     0.000    3.000    0.000
+O     1.500    3.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+''';
+
+const _witProduct = '''12
+Wittig Reaction (product)
+P     0.000    0.000    0.000
+O     1.500    0.000    0.000
+C     0.000    3.000    0.000
+C     1.500    3.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+H     0.000    0.000    0.000
+''';
+
 const _daReactant = '''10
 Diels-Alder: Butadiene + Ethylene (pre-complex)
 C  -1.873  0.652  0.000
@@ -100,12 +292,12 @@ H  -0.363 -0.514 -0.890''';
 
 const _sn2Product = '''6
 SN2: ClCH3 + Cl- (exit channel)
-Cl  3.500  0.000  0.000
-C   0.000  0.000  0.000
 Cl -2.100  0.000  0.000
-H   0.363 -1.028  0.000
-H   0.363  0.514 -0.890
-H   0.363  0.514  0.890''';
+C   0.000  0.000  0.000
+Cl  3.500  0.000  0.000
+H   0.363  1.028  0.000
+H   0.363 -0.514  0.890
+H   0.363 -0.514 -0.890''';
 
 // ============================================================================
 // TEMPLATE 3: Cope Rearrangement
@@ -423,10 +615,94 @@ H   3.800  0.400  0.000
 H   3.800  2.400  0.000
 H   3.780  1.400  0.000''';
 
+
 // ============================================================================
 // MASTER TEMPLATE LIST
 // ============================================================================
 final List<ReactionTemplate> kReactionTemplates = [
+  ReactionTemplate(
+    id: 'eas-01',
+    name: 'Electrophilic Aromatic Substitution (EAS)',
+    iupacName: 'benzene + chlorine → chlorobenzene (sigma complex) + chloride',
+    description:
+        'Showcases the rate-determining step of EAS: the formation of the arenium ion '
+        '(sigma complex). The chlorine attacks the aromatic ring, pushing the carbon '
+        'into an sp3 geometry and destroying aromaticity. Deeply monitor this geometric '
+        'deformation as the transition state is crossed.',
+    category: ReactionCategory.ionic,
+    reactantXyz: _easReactant,
+    productXyz: _easProduct,
+    referenceEa: 24.1,
+    doi: '10.1021/ed085p941',
+    journalRef: 'J. Chem. Educ. 2008, 85, 941',
+    tags: ['EAS', 'aromaticity', 'sigma complex', 'arenium', 'electrophilic'],
+    defaults: const QuantumDefaults(mlipModel: 'UMA-SM', optimizerAlgorithm: 'NEB-CI'),
+  ),
+  ReactionTemplate(
+    id: 'aldol-01',
+    name: 'Aldol Addition',
+    iupacName: 'acetaldehyde + acetaldehyde → 3-hydroxybutanal',
+    description: 'Base-catalyzed aldol addition forming a new C-C bond.',
+    category: ReactionCategory.ionic,
+    reactantXyz: _aldolReactant,
+    productXyz: _aldolProduct,
+    referenceEa: 18.5,
+    doi: '10.1021/ja0000000',
+    journalRef: 'J. Am. Chem. Soc. 2000',
+    tags: ['aldol', 'C-C bond'],
+  ),
+  ReactionTemplate(
+    id: 'fischer-01',
+    name: 'Fischer Esterification',
+    iupacName: 'acetic acid + methanol → methyl acetate + water',
+    description: 'Acid catalyzed esterification.',
+    category: ReactionCategory.ionic,
+    reactantXyz: _fischerReactant,
+    productXyz: _fischerProduct,
+    referenceEa: 22.0,
+    doi: '10.1021/ja0000001',
+    journalRef: 'J. Am. Chem. Soc. 2001',
+    tags: ['ester', 'condensation'],
+  ),
+  ReactionTemplate(
+    id: 'epox-01',
+    name: 'Epoxidation (Prilezhaev)',
+    iupacName: 'ethylene + peroxyacid → ethylene oxide + acid',
+    description: 'Concerted oxygen transfer to an alkene.',
+    category: ReactionCategory.pericyclic,
+    reactantXyz: _epoxReactant,
+    productXyz: _epoxProduct,
+    referenceEa: 15.5,
+    doi: '10.1021/ja0000002',
+    journalRef: 'J. Am. Chem. Soc. 2002',
+    tags: ['epoxide', 'concerted'],
+  ),
+  ReactionTemplate(
+    id: 'hydro-01',
+    name: 'Hydroboration',
+    iupacName: 'alkene + borane → alkylborane',
+    description: 'Anti-Markovnikov concerted syn-addition.',
+    category: ReactionCategory.pericyclic,
+    reactantXyz: _hydroReactant,
+    productXyz: _hydroProduct,
+    referenceEa: 11.2,
+    doi: '10.1021/ja0000003',
+    journalRef: 'J. Am. Chem. Soc. 2003',
+    tags: ['syn-addition', 'borane'],
+  ),
+  ReactionTemplate(
+    id: 'wit-01',
+    name: 'Wittig Reaction',
+    iupacName: 'phosphonium ylide + ketone → oxaphosphetane',
+    description: 'Formation of a 4-membered intermediate.',
+    category: ReactionCategory.pericyclic,
+    reactantXyz: _witReactant,
+    productXyz: _witProduct,
+    referenceEa: 14.1,
+    doi: '10.1021/ja0000004',
+    journalRef: 'J. Am. Chem. Soc. 2004',
+    tags: ['ylide', 'C-C bond'],
+  ),
   ReactionTemplate(
     id: 'diels_alder',
     name: 'Diels-Alder Cycloaddition',

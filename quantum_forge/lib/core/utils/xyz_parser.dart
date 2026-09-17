@@ -9,8 +9,9 @@ class Atom {
   final double z;
   final Color color;
   final double radius;
+  final double covalentRadius;
 
-  const Atom(this.symbol, this.x, this.y, this.z, this.color, this.radius);
+  const Atom(this.symbol, this.x, this.y, this.z, this.color, this.radius, this.covalentRadius);
 }
 
 class XyzParser {
@@ -36,10 +37,21 @@ class XyzParser {
     'P': 1.8,
   };
 
+  static const Map<String, double> _atomCovalentRadii = {
+    'H': 0.31,
+    'C': 0.76,
+    'O': 0.66,
+    'N': 0.71,
+    'F': 0.57,
+    'Cl': 1.02,
+    'S': 1.05,
+    'P': 1.07,
+  };
+
   static final RegExp _whitespaceRegExp = RegExp(r'\s+');
 
   static Future<List<Atom>> parseAsync(String xyz) async {
-    return compute(parse, xyz);
+    return parse(xyz);
   }
 
   static List<Atom> parse(String xyz) {
@@ -62,6 +74,7 @@ class XyzParser {
           z,
           _atomColors[symbol] ?? Colors.pinkAccent,
           _atomRadii[symbol] ?? 1.5,
+          _atomCovalentRadii[symbol] ?? 0.7,
         ));
       }
     }

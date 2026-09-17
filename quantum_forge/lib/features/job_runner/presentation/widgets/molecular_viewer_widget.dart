@@ -196,38 +196,122 @@ class _MolecularPainter extends CustomPainter {
       ));
     }
 
+    // Calculate Bonds dynamically
+    final projectedBonds = <_ProjectedBond>[];
+    for (int i = 0; i < atoms.length; i++) {
+      for (int j = i + 1; j < atoms.length; j++) {
+        final a1 = atoms[i];
+        final a2 = atoms[j];
+        
+        final dxRaw = a1.x - a2.x;
+        final dyRaw = a1.y - a2.y;
+        final dzRaw = a1.z - a2.z;
+        final dist = math.sqrt(dxRaw*dxRaw + dyRaw*dyRaw + dzRaw*dzRaw);
+        
+        final threshold = a1.covalentRadius + a2.covalentRadius + 0.4;
+        
+        if (dist < threshold) {
+          final p1 = projected[i];
+          final p2 = projected[j];
+          final avgZ = (p1.zDepth + p2.zDepth) / 2;
+          
+          bool isActive = dist > (a1.covalentRadius + a2.covalentRadius) && dist < threshold;
+          
+          projectedBonds.add(_ProjectedBond(
+            p1: p1,
+            p2: p2,
+            zDepth: avgZ,
+            distance: dist,
+            isActive: isActive,
+          ));
+        }
+      }
+    }
+
+    final items = <_ProjectedItem>[...projected, ...projectedBonds];
     // Sort by depth (painters algorithm)
-    projected.sort((a, b) => a.zDepth.compareTo(b.zDepth));
+    items.sort((a, b) => a.zDepth.compareTo(b.zDepth));
 
     // Draw
-    for (final p in projected) {
-      final radius = p.atom.radius * scale * 0.5;
-      final center = Offset(p.screenX, p.screenY);
+    for (final item in items) {
+      if (item is _ProjectedBond) {
+        if (electronCloudMode) continue;
+        
+        final paint = Paint()
+          ..color = Colors.grey.withValues(alpha: 0.8)
+          ..strokeWidth = 6.0
+          ..strokeCap = StrokeCap.round;
 
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.scale(radius);
+        if (item.isActive) {
+          _drawDashedLine(canvas, Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
+          
+          // Draw energy label
+          final energy = 100 * math.exp(-2.0 * (item.distance - 1.5));
+          final textSpan = TextSpan(
+            text: '${energy.toStringAsFixed(1)} kcal/mol',
+            style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]),
+          );
+          final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
+          textPainter.layout();
+          final midX = (item.p1.screenX + item.p2.screenX) / 2;
+          final midY = (item.p1.screenY + item.p2.screenY) / 2;
+          textPainter.paint(canvas, Offset(midX - textPainter.width / 2, midY - textPainter.height / 2));
+          
+        } else {
+          canvas.drawLine(Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
+        }
+      } else if (item is _ProjectedAtom) {
+        final radius = item.atom.radius * scale * 0.5;
+        final center = Offset(item.screenX, item.screenY);
 
-      canvas.drawCircle(Offset.zero, 1.0, _getBasePaint(p.atom.color));
+        canvas.save();
+        canvas.translate(center.dx, center.dy);
+        canvas.scale(radius);
 
-      // Simple lighting effect based on Z depth via overlay
-      final lightFactor = (p.zDepth + 10) / 20.0;
-      final darkness = 1.0 - lightFactor.clamp(0.2, 1.0);
-      if (darkness > 0) {
-        _darkeningPaint.color = Colors.black.withValues(alpha: darkness * 0.5);
-        canvas.drawCircle(Offset.zero, 1.0, _darkeningPaint);
+        canvas.drawCircle(Offset.zero, 1.0, _getBasePaint(item.atom.color));
+
+        // Simple lighting effect based on Z depth via overlay
+        final lightFactor = (item.zDepth + 10) / 20.0;
+        final darkness = 1.0 - lightFactor.clamp(0.2, 1.0);
+        if (darkness > 0) {
+          _darkeningPaint.color = Colors.black.withValues(alpha: darkness * 0.5);
+          canvas.drawCircle(Offset.zero, 1.0, _darkeningPaint);
+        }
+
+        if (electronCloudMode) {
+          canvas.drawCircle(Offset.zero, 2.5, _getGlowPaint(item.atom.color));
+        }
+        
+        canvas.restore();
+
+        // Simple border (drawn outside scaled canvas to preserve 1.0 width)
+        if (!electronCloudMode) {
+          canvas.drawCircle(center, radius, _borderPaint);
+        }
       }
-
-      if (electronCloudMode) {
-        canvas.drawCircle(Offset.zero, 2.5, _getGlowPaint(p.atom.color));
-      }
-      
-      canvas.restore();
-
-      // Simple border (drawn outside scaled canvas to preserve 1.0 width)
-      if (!electronCloudMode) {
-        canvas.drawCircle(center, radius, _borderPaint);
-      }
+    }
+  }
+  
+  void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Paint paint) {
+    final dashWidth = 5.0;
+    final dashSpace = 5.0;
+    double distance = (p2 - p1).distance;
+    final normalized = (p2 - p1) / distance;
+    double startX = p1.dx;
+    double startY = p1.dy;
+    
+    paint.strokeWidth = 4.0;
+    paint.color = Colors.orangeAccent;
+    
+    while (distance >= 0) {
+      canvas.drawLine(
+        Offset(startX, startY),
+        Offset(startX + normalized.dx * dashWidth, startY + normalized.dy * dashWidth),
+        paint
+      );
+      startX += normalized.dx * (dashWidth + dashSpace);
+      startY += normalized.dy * (dashWidth + dashSpace);
+      distance -= (dashWidth + dashSpace);
     }
   }
 
@@ -241,10 +325,15 @@ class _MolecularPainter extends CustomPainter {
   }
 }
 
-class _ProjectedAtom {
+abstract class _ProjectedItem {
+  double get zDepth;
+}
+
+class _ProjectedAtom implements _ProjectedItem {
   final Atom atom;
   final double screenX;
   final double screenY;
+  @override
   final double zDepth;
 
   _ProjectedAtom({
@@ -252,5 +341,22 @@ class _ProjectedAtom {
     required this.screenX,
     required this.screenY,
     required this.zDepth,
+  });
+}
+
+class _ProjectedBond implements _ProjectedItem {
+  final _ProjectedAtom p1;
+  final _ProjectedAtom p2;
+  @override
+  final double zDepth;
+  final double distance;
+  final bool isActive;
+
+  _ProjectedBond({
+    required this.p1,
+    required this.p2,
+    required this.zDepth,
+    required this.distance,
+    required this.isActive,
   });
 }

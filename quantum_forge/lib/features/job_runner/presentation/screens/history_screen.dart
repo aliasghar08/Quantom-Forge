@@ -95,7 +95,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
                   title: Text(
-                    'Job ID: ${job.jobId.substring(0, 8)}...',
+                    'Job ID: ${job.jobId.length > 8 ? '${job.jobId.substring(0, 8)}...' : job.jobId}',
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(

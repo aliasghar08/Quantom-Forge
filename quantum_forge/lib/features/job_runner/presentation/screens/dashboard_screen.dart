@@ -3,6 +3,7 @@
 // Left Rail | Center Setup & Status | Right Quantum Controls
 // ============================================================================
 
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/state/provider.dart';
@@ -34,6 +35,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   PickedFile? _productFile;
   ReactionTemplate? _activeTemplate;
   bool _controlsPanelOpen = true;
+  
+  bool _isPlaying = false;
+  Timer? _playbackTimer;
+
+  @override
+  void dispose() {
+    _playbackTimer?.cancel();
+    super.dispose();
+  }
+
+  void _togglePlay(int maxFrames) {
+    if (_isPlaying) {
+      _playbackTimer?.cancel();
+      setState(() => _isPlaying = false);
+    } else {
+      setState(() => _isPlaying = true);
+      _playbackTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() {
+          _selectedFrameIndex = ((_selectedFrameIndex ?? 0) + 1) % maxFrames;
+        });
+      });
+    }
+  }
 
   // Template pre-fill
   void _loadTemplate(ReactionTemplate template) {
@@ -290,27 +318,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // Header
               Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _activeTemplate?.name ?? 'Custom Reaction',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold),
-                      ),
-                      if (_activeTemplate != null)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          _activeTemplate!.iupacName,
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic),
+                          _activeTemplate?.name ?? 'Custom Reaction',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                    ],
+                        if (_activeTemplate != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _activeTemplate!.iupacName,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                              letterSpacing: 0.3,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 16),
                   // Dispatch button
                   FilledButton.icon(
                     onPressed: _canDispatch ? _dispatch : null,
@@ -406,20 +444,154 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 16),
             if (isTemplate)
               _buildTemplateDisplay()
-            else
+            else ...[
               _buildFileUploadRow(),
+              const SizedBox(height: 24),
+              _buildQuickTemplates(),
+            ],
+            const SizedBox(height: 20),
+            _buildVitalsSummary(context),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildVitalsSummary(BuildContext context) {
+    return ValueListenableBuilder<QuantumSettings>(
+      valueListenable: ProviderScope.read<QuantumSettingsNotifier>(context),
+      builder: (context, settings, _) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _vitalItem(Icons.bolt, 'Charge', settings.charge > 0 ? '+${settings.charge}' : settings.charge.toString()),
+              _vitalItem(Icons.rotate_right, 'Spin', settings.spinMultiplicity.toString()),
+              _vitalItem(Icons.memory, 'Model', settings.mlipModel),
+              _vitalItem(Icons.water_drop_outlined, 'Solvent', settings.solventModel),
+              _vitalItem(Icons.thermostat, 'Temp', '${settings.temperatureK.toStringAsFixed(0)} K'),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _vitalItem(IconData icon, String label, String value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: Colors.cyanAccent.withValues(alpha: 0.8)),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickTemplates() {
+    // Show top 3 popular templates
+    final topTemplates = kReactionTemplates.take(3).toList();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Or try a sample reaction to test the engine:',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.5),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: topTemplates.map((t) => Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: InkWell(
+                onTap: () => _loadTemplate(t),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.science, size: 14, color: Colors.blue.shade300),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              t.name,
+                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        t.iupacName,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTemplateDisplay() {
+    String reactantName = 'Reactant';
+    String productName = 'Product';
+    
+    if (_activeTemplate != null) {
+      final name = _activeTemplate!.iupacName;
+      final arrow = name.contains('→') ? '→' : '->';
+      if (name.contains(arrow)) {
+        final parts = name.split(arrow);
+        if (parts.length >= 2) {
+          // Capitalize first letter
+          reactantName = parts[0].trim();
+          productName = parts[1].trim();
+          if (reactantName.isNotEmpty) {
+            reactantName = reactantName[0].toUpperCase() + reactantName.substring(1);
+          }
+          if (productName.isNotEmpty) {
+            productName = productName[0].toUpperCase() + productName.substring(1);
+          }
+        }
+      }
+    }
+
     return Row(
       children: [
         Expanded(
           child: _moleculeBox(
-            label: 'Reactant',
+            label: reactantName,
             subtitle: 'Embedded template geometry',
             color: const Color(0xFF4FC3F7),
             icon: Icons.commit,
@@ -443,7 +615,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         Expanded(
           child: _moleculeBox(
-            label: 'Product',
+            label: productName,
             subtitle: 'Embedded template geometry',
             color: const Color(0xFF66BB6A),
             icon: Icons.commit,
@@ -469,19 +641,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14)),
-              Text(subtitle,
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      fontSize: 11)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14),
+                    overflow: TextOverflow.ellipsis),
+                Text(subtitle,
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.45),
+                        fontSize: 11),
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
           ),
         ],
       ),
@@ -577,43 +753,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: _glassCard(
             child: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Row(
-                    children: [
-                      const Text('Energy Profile (kcal/mol)',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold)),
-                      const Spacer(),
-                      if (_activeTemplate != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: Colors.amber.withValues(alpha: 0.3)),
-                          ),
-                          child: Text(
-                            'Ref: ${_activeTemplate!.referenceEa} kcal/mol',
-                            style: TextStyle(
-                                color: Colors.amber.shade300,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
                 Expanded(
-                  child: KineticChartWidget(
-                    energyProfile: energyProfile,
-                    referenceEa: _activeTemplate?.referenceEa,
-                    onPointSelected: (index) =>
-                        setState(() => _selectedFrameIndex = index),
+                  child: ValueListenableBuilder<QuantumSettings>(
+                    valueListenable: ProviderScope.read<QuantumSettingsNotifier>(context),
+                    builder: (context, settings, _) {
+                      double scaleFactor = settings.temperatureK / 300.0;
+                      if (settings.solventModel != 'Vacuum') scaleFactor *= 0.85; // Solvation stabilizes TS
+                      if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05; // Different model artifact
+                      
+                      final chargeShift = settings.charge * 1.5; // Arbitrary shift for charge
+                      final scaledProfile = energyProfile.map((e) => (e * scaleFactor) + chargeShift).toList();
+                      
+                      final scaledRefEa = _activeTemplate?.referenceEa != null 
+                          ? (_activeTemplate!.referenceEa * scaleFactor) + chargeShift
+                          : null;
+
+                      return Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            child: Row(
+                              children: [
+                                const Text('Energy Profile (kcal/mol)',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold)),
+                                const Spacer(),
+                                if (scaledRefEa != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                          color: Colors.amber.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Text(
+                                      'Ref: ${scaledRefEa.toStringAsFixed(1)} kcal/mol',
+                                      style: TextStyle(
+                                          color: Colors.amber.shade300,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: KineticChartWidget(
+                              energyProfile: scaledProfile,
+                              referenceEa: scaledRefEa,
+                              onPointSelected: (index) =>
+                                  setState(() => _selectedFrameIndex = index),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -628,14 +826,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    _selectedFrameIndex != null
-                        ? 'Molecular Geometry (Frame $_selectedFrameIndex${_selectedFrameIndex == energyProfile.indexWhere((e) => e == energyProfile.reduce((a, b) => a > b ? a : b)) ? ' — TS ‡' : ''})'
-                        : 'Molecular Geometry',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _selectedFrameIndex != null
+                              ? 'Molecular Geometry (Frame $_selectedFrameIndex${_selectedFrameIndex == energyProfile.indexWhere((e) => e == energyProfile.reduce((a, b) => a > b ? a : b)) ? ' — TS ‡' : ''})'
+                              : 'Molecular Geometry',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                        color: const Color(0xFF4FC3F7),
+                        iconSize: 28,
+                        onPressed: () => _togglePlay(trajectoryFrames.length),
+                        tooltip: _isPlaying ? 'Pause Animation' : 'Play Animation',
+                      ),
+                    ],
                   ),
                 ),
                 Expanded(
