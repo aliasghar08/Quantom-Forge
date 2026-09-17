@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #121212; /* Dark theme to match Flutter */
+            touch-action: none; /* Prevents scroll conflicts with Flutter */
+        }
+        #container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+    </style>
+    <script src="https://3Dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
+</head>
+<body>
+    <div id="container"></div>
+    <script>
+        let viewer = null;
+        let xyzBuffer = "";
+
+        function initViewer() {
+            let element = document.getElementById('container');
+            let config = { backgroundColor: '#121212' };
+            viewer = $3Dmol.createViewer(element, config);
+        }
+
+        function appendChunk(chunkData) {
+            xyzBuffer += chunkData;
+        }
+
+        function renderMolecule() {
+            if (!viewer) initViewer();
+            viewer.clear();
+            viewer.addModel(xyzBuffer, "xyz");
+            viewer.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.3 } });
+            viewer.zoomTo();
+            viewer.render();
+            xyzBuffer = ""; // Clear buffer after render
+        }
+
+        initViewer();
+    </script>
+</body>
+</html>

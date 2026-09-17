@@ -1,0 +1,41 @@
+workflows:
+  windows-release-workflow:
+    name: Windows Release (.exe)
+    instance_type: windows_x2
+    environment:
+      flutter: stable
+    scripts:
+      - name: Install dependencies
+        script: flutter pub get
+      - name: Build Windows executable
+        script: flutter build windows --release
+    artifacts:
+      - build/windows/x64/runner/Release/*.exe
+    publishing:
+      email:
+        recipients:
+          - you@example.com
+        notify:
+          success: true
+          failure: true
+
+  macos-release-workflow:
+    name: macOS Release (Mac Mini M2)
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+    scripts:
+      - name: Install dependencies
+        script: flutter pub get
+      - name: Build macOS Application
+        script: flutter build macos --release
+    artifacts:
+      - build/macos/Build/Products/Release/*.app
+    publishing:
+      email:
+        recipients:
+          - you@example.com
+        notify:
+          success: true
+          failure: true
