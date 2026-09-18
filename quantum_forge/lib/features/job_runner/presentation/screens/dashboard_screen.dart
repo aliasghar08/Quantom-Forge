@@ -324,8 +324,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            alignment: WrapAlignment.spaceBetween,
             children: [
               _vitalItem(Icons.bolt, 'Charge',
                   settings.charge > 0 ? '+${settings.charge}' : settings.charge.toString()),
@@ -333,6 +335,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   settings.spinMultiplicity.toString()),
               _vitalItem(Icons.memory, 'Model', settings.mlipModel),
               _vitalItem(Icons.water_drop_outlined, 'Solvent', settings.solventModel),
+              if (settings.catalyst != 'None')
+                _vitalItem(Icons.auto_awesome, 'Catalyst', settings.catalyst.split(' ').first),
               _vitalItem(Icons.thermostat, 'Temp',
                   '${settings.temperatureK.toStringAsFixed(0)} K'),
             ],

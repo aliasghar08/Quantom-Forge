@@ -2,6 +2,7 @@
 // Quantum Settings Provider
 // Persistent state for all researcher-controlled computation parameters.
 // Saved to SharedPreferences so settings survive app restarts.
+// Includes: catalyst selection, solvent, MLIP model, optimizer, analysis flags.
 // ============================================================================
 
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,9 @@ class QuantumSettings {
   final int nebImages;
   final double springConstant;
 
+  // --- Catalyst ---
+  final String catalyst;
+
   // --- Analysis ---
   final bool zpeCorrection;
   final bool computeThermochemistry;
@@ -38,6 +42,8 @@ class QuantumSettings {
     this.mlipModel = 'MACE-MP-0',
     this.solventModel = 'Vacuum',
     this.temperatureK = 298.15,
+    // Catalyst
+    this.catalyst = 'None',
     // Optimizer
     this.optimizerAlgorithm = 'NEB-CI',
     this.maxSteps = 300,
@@ -64,6 +70,7 @@ class QuantumSettings {
       other.mlipModel == mlipModel &&
       other.solventModel == solventModel &&
       other.temperatureK == temperatureK &&
+      other.catalyst == catalyst &&
       other.optimizerAlgorithm == optimizerAlgorithm &&
       other.maxSteps == maxSteps &&
       other.convergence == convergence &&
@@ -86,6 +93,7 @@ class QuantumSettings {
       mlipModel,
       solventModel,
       temperatureK,
+      catalyst,
       optimizerAlgorithm,
       maxSteps,
       convergence,
@@ -107,6 +115,7 @@ class QuantumSettings {
     String? mlipModel,
     String? solventModel,
     double? temperatureK,
+    String? catalyst,
     String? optimizerAlgorithm,
     int? maxSteps,
     String? convergence,
@@ -126,6 +135,7 @@ class QuantumSettings {
       mlipModel: mlipModel ?? this.mlipModel,
       solventModel: solventModel ?? this.solventModel,
       temperatureK: temperatureK ?? this.temperatureK,
+      catalyst: catalyst ?? this.catalyst,
       optimizerAlgorithm: optimizerAlgorithm ?? this.optimizerAlgorithm,
       maxSteps: maxSteps ?? this.maxSteps,
       convergence: convergence ?? this.convergence,
@@ -147,6 +157,7 @@ class QuantumSettings {
         'mlip_model': mlipModel,
         'solvent_model': solventModel,
         'temperature_k': temperatureK,
+        'catalyst': catalyst,
         'optimizer_algorithm': optimizerAlgorithm,
         'max_steps': maxSteps,
         'convergence': convergence,
@@ -187,15 +198,17 @@ class QuantumSettingsNotifier extends ValueNotifier<QuantumSettings> {
   static const _keyFreq = 'qs_freq';
   static const _keyExport = 'qs_export';
   static const _keyConf = 'qs_conf';
+  static const _keyCatalyst = 'qs_catalyst';
 
   Future<void> _load() async {
     final prefs = await LocalPrefs.getInstance();
     value = QuantumSettings(
       charge: prefs.getInt(_keyCharge) ?? 0,
       spinMultiplicity: prefs.getInt(_keySpin) ?? 1,
-      mlipModel: prefs.getString(_keyMlip) ?? 'UMA-SM',
+      mlipModel: prefs.getString(_keyMlip) ?? 'MACE-MP-0',
       solventModel: prefs.getString(_keySolvent) ?? 'Vacuum',
       temperatureK: prefs.getDouble(_keyTemp) ?? 298.15,
+      catalyst: prefs.getString(_keyCatalyst) ?? 'None',
       optimizerAlgorithm: prefs.getString(_keyAlgo) ?? 'NEB-CI',
       maxSteps: prefs.getInt(_keySteps) ?? 300,
       convergence: prefs.getString(_keyConv) ?? 'Normal',
@@ -218,6 +231,7 @@ class QuantumSettingsNotifier extends ValueNotifier<QuantumSettings> {
     await prefs.setString(_keyMlip, s.mlipModel);
     await prefs.setString(_keySolvent, s.solventModel);
     await prefs.setDouble(_keyTemp, s.temperatureK);
+    await prefs.setString(_keyCatalyst, s.catalyst);
     await prefs.setString(_keyAlgo, s.optimizerAlgorithm);
     await prefs.setInt(_keySteps, s.maxSteps);
     await prefs.setString(_keyConv, s.convergence);

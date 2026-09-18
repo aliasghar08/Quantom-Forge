@@ -27,9 +27,39 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel>
   static const _solventModels = [
     'Vacuum',
     'PCM (H₂O)',
+    'PCM (EtOH)',
+    'PCM (MeOH)',
     'PCM (DMSO)',
     'PCM (THF)',
-    'Onsager (ε=78.4)'
+    'PCM (DCM)',
+    'PCM (Toluene)',
+    'PCM (Hexane)',
+    'Onsager (ε=78.4)',
+    'SMD (H₂O)',
+    'SMD (DMSO)',
+  ];
+  static const _catalysts = [
+    'None',
+    // Transition metals
+    'Pd(0)  — Oxidative addition',
+    'Pd(II) — Reductive elimination',
+    'Rh(I)  — Wilkinson',
+    'Ru(II) — Grubbs 2nd gen',
+    'Cu(I)  — CuAAC click',
+    'Ni(0)  — Kumada coupling',
+    'Ir(III)— C–H activation',
+    // Organocatalysts
+    'Proline (organocatalyst)',
+    'NHC (N-heterocyclic carbene)',
+    'Chiral BINAP-Rh',
+    // Acids / Bases
+    'BF₃ (Lewis acid)',
+    'TiCl₄ (Lewis acid)',
+    'KOH (base)',
+    'LDA (strong base)',
+    // Enzymes
+    'Lipase B (enzyme)',
+    'Cytochrome P450 (enzyme)',
   ];
   static const _algorithms = [
     'NEB-CI',
@@ -229,6 +259,131 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel>
             activeColor: const Color(0xFF4FC3F7),
             inactiveColor: Colors.white12,
             onChanged: (v) => n.update((q) => q.copyWith(temperatureK: v)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _sectionLabel('Catalyst'),
+        const SizedBox(height: 10),
+        // Catalyst picker
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: s.catalyst == 'None'
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : const Color(0xFFFFAB40).withValues(alpha: 0.5),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.auto_awesome,
+                      size: 14,
+                      color: s.catalyst == 'None'
+                          ? Colors.white38
+                          : const Color(0xFFFFAB40),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Active Catalyst',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (s.catalyst != 'None')
+                      InkWell(
+                        onTap: () =>
+                            n.update((q) => q.copyWith(catalyst: 'None')),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('Clear',
+                              style: TextStyle(
+                                  color: Colors.redAccent, fontSize: 9)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _catalysts.contains(s.catalyst) ? s.catalyst : 'None',
+                      dropdownColor: const Color(0xFF1C2E3A),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      isExpanded: true,
+                      items: _catalysts.map((c) {
+                        final isNone = c == 'None';
+                        return DropdownMenuItem(
+                          value: c,
+                          child: Text(
+                            c,
+                            style: TextStyle(
+                              color: isNone ? Colors.white38 : Colors.white,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (v) =>
+                          n.update((q) => q.copyWith(catalyst: v ?? 'None')),
+                    ),
+                  ),
+                ),
+              ),
+              if (s.catalyst != 'None')
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFAB40).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                          color: const Color(0xFFFFAB40).withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline,
+                            color: Color(0xFFFFAB40), size: 12),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Catalyst included in NEB path. Energy profile accounts for catalytic cycle.',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 9,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],

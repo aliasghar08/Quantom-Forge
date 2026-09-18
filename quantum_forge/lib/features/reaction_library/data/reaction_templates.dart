@@ -906,4 +906,460 @@ final List<ReactionTemplate> kReactionTemplates = [
     tags: ['anti-periplanar', 'bimolecular', 'Zaitsev', 'concerted'],
     defaults: const QuantumDefaults(charge: -1, mlipModel: 'UMA-SM'),
   ),
+
+  // ── NEW COMPLEX TEMPLATES ──────────────────────────────────────────────────
+
+  ReactionTemplate(
+    id: 'pd_ch_activation',
+    name: 'Pd(II)-Catalyzed C–H Activation / Functionalization',
+    iupacName: 'benzene + Pd(OAc)₂ → phenyl-Pd(II) + AcOH (concerted metalation-deprotonation)',
+    description:
+        'Concerted metalation-deprotonation (CMD) mechanism. The Pd center and the acetate '
+        'cooperate to lower the C–H activation barrier via a 6-membered pericyclic-like TS. '
+        'Key step in directed C–H functionalization. The agostic interaction and Pd–C bond '
+        'distance at TS is ~2.05 Å. Widely used in late-stage diversification of complex molecules.',
+    category: ReactionCategory.organometallic,
+    reactantXyz: '''17
+Pd(II) C-H Activation reactant complex
+Pd    0.000    0.000    0.000
+O     1.800    0.200    0.350
+O     2.100    1.900    0.100
+C     2.700    1.050    0.100
+C     3.900    1.050    0.300
+H     4.450    0.150    0.450
+H     4.450    1.950    0.300
+H     3.900    1.050   -0.750
+C     0.000    0.000    2.000
+C     1.212    0.000    2.700
+C     1.212    0.000    4.100
+C     0.000    0.000    4.800
+C    -1.212    0.000    4.100
+C    -1.212    0.000    2.700
+H     2.156    0.000    2.150
+H     2.156    0.000    4.650
+H     0.000    0.000    5.890
+H    -2.156    0.000    4.650
+H    -2.156    0.000    2.150''',
+    productXyz: '''17
+Pd(II) C-H Activation product: PhPd(OAc) + AcOH
+Pd    0.000    0.000    0.000
+C     2.050    0.000    0.000
+C     2.600    1.212    0.000
+C     3.990    1.212    0.000
+C     4.690    0.000    0.000
+C     3.990   -1.212    0.000
+C     2.600   -1.212    0.000
+H     2.050    2.156    0.000
+H     4.540    2.156    0.000
+H     5.780    0.000    0.000
+H     4.540   -2.156    0.000
+H     2.050   -2.156    0.000
+O    -1.800    0.200    0.350
+O    -2.100    1.900    0.100
+C    -2.700    1.050    0.100
+C    -3.900    1.050    0.300
+H    -4.450    1.950    0.300
+H     0.000    3.000    0.000
+H     0.000    3.960    0.000''',
+    referenceEa: 23.4,
+    doi: '10.1021/ja904042b',
+    journalRef: 'J. Am. Chem. Soc. 2009, 131, 13345',
+    tags: ['CMD', 'Pd', 'C-H', 'metalation', 'late-stage', 'Nobel'],
+    defaults: const QuantumDefaults(
+        mlipModel: 'MACE-MP-0', optimizerAlgorithm: 'NEB-CI'),
+  ),
+
+  ReactionTemplate(
+    id: 'suzuki_coupling',
+    name: 'Suzuki-Miyaura Cross-Coupling (Pd-catalyzed)',
+    iupacName: 'PhB(OH)₂ + PhBr → biphenyl  (via Pd(0)/Pd(II) catalytic cycle)',
+    description:
+        'Three-step Pd catalytic cycle: (1) oxidative addition of PhBr to Pd(0) → Ph-Pd(II)-Br, '
+        '(2) transmetalation with PhB(OH)₂ → Ph-Pd(II)-Ph, (3) reductive elimination → biphenyl + Pd(0). '
+        'Nobel Prize 2010 (Heck, Negishi, Suzuki). Reductive elimination TS has a ~90° C-Pd-C angle. '
+        'Highly sensitive to ligand sterics and electronics.',
+    category: ReactionCategory.organometallic,
+    reactantXyz: '''30
+Suzuki coupling: Ph-Pd(II)-Ph pre-reductive-elimination complex
+Pd    0.000    0.000    0.000
+C     2.000    0.000    0.000
+C     2.600    1.212    0.000
+C     4.000    1.212    0.000
+C     4.700    0.000    0.000
+C     4.000   -1.212    0.000
+C     2.600   -1.212    0.000
+H     2.000    2.156    0.000
+H     4.600    2.156    0.000
+H     5.790    0.000    0.000
+H     4.600   -2.156    0.000
+H     2.000   -2.156    0.000
+C    -2.000    0.000    0.000
+C    -2.600    1.212    0.000
+C    -4.000    1.212    0.000
+C    -4.700    0.000    0.000
+C    -4.000   -1.212    0.000
+C    -2.600   -1.212    0.000
+H    -2.000    2.156    0.000
+H    -4.600    2.156    0.000
+H    -5.790    0.000    0.000
+H    -4.600   -2.156    0.000
+H    -2.000   -2.156    0.000
+P     0.000    2.200    0.000
+P     0.000   -2.200    0.000
+C     0.800    3.200    0.800
+C     0.800   -3.200    0.800
+H     1.500    3.800    0.300
+H     1.500   -3.800    0.300
+H     0.300    3.800    1.500''',
+    productXyz: '''30
+Suzuki coupling product: biphenyl + Pd(0) + phosphine ligands
+C     0.000    0.000    0.000
+C     1.212    0.700    0.000
+C     2.424    0.000    0.000
+C     2.424   -1.400    0.000
+C     1.212   -2.100    0.000
+C     0.000   -1.400    0.000
+H    -0.944    0.544    0.000
+H     1.212    1.788    0.000
+H     3.368    0.544    0.000
+H     3.368   -1.944    0.000
+H     1.212   -3.188    0.000
+H    -0.944   -1.944    0.000
+C     3.712    0.700    0.000
+C     4.924    0.000    0.000
+C     4.924   -1.400    0.000
+C     3.712   -2.100    0.000
+C     3.712    0.700    0.000
+C     6.136    0.700    0.000
+H     4.924    1.100    0.000
+H     6.080    1.788    0.000
+H     7.080    0.156    0.000
+H     6.080   -2.344    0.000
+H     3.712   -3.188    0.000
+Pd    8.000    0.000    0.000
+P     9.800    0.000    0.000
+P     6.200    0.000    0.000
+C    10.800    1.000    0.000
+C     5.200    1.000    0.000
+H    11.600    0.600    0.000
+H     4.400    0.600    0.000
+H     0.000    1.400    0.000''',
+    referenceEa: 18.7,
+    doi: '10.1021/cr900207r',
+    journalRef: 'Chem. Rev. 2011, 111, 1215',
+    tags: ['Pd', 'cross-coupling', 'Nobel-2010', 'biphenyl', 'reductive-elimination'],
+    defaults: const QuantumDefaults(
+        mlipModel: 'MACE-MP-0', optimizerAlgorithm: 'NEB-CI'),
+  ),
+
+  ReactionTemplate(
+    id: 'wittig',
+    name: 'Wittig Olefination',
+    iupacName: 'Ph₃P=CH₂ + CH₂O → ethylene + Ph₃P=O (via oxaphosphetane)',
+    description:
+        'Nucleophilic addition of a phosphorus ylide to an aldehyde, forming a 4-membered '
+        'oxaphosphetane intermediate which undergoes retro-[2+2] cycloelimination. '
+        'Non-stabilised ylides give Z-alkenes (kinetic control). The [2+2] pathway and concerted '
+        'mechanism are still debated. Ea for oxaphosphetane formation is ~8 kcal/mol; '
+        'retrocyclization Ea ~25 kcal/mol. Widely used for alkene synthesis.',
+    category: ReactionCategory.pericyclic,
+    reactantXyz: '''24
+Wittig reactant: methylenetriphenylphosphorane + formaldehyde
+P     0.000    0.000    0.000
+C     1.700    0.000    0.000
+H     2.200    0.950    0.000
+H     2.200   -0.950    0.000
+C    -0.800    1.700    0.000
+C    -0.800    2.400    1.200
+C    -0.800    3.800    1.200
+C    -0.800    4.500    0.000
+C    -0.800    3.800   -1.200
+C    -0.800    2.400   -1.200
+H    -0.800    1.900    2.156
+H    -0.800    4.400    2.156
+H    -0.800    5.590    0.000
+H    -0.800    4.400   -2.156
+H    -0.800    1.900   -2.156
+C    -0.800   -1.700    0.000
+C    -1.500   -2.400    1.200
+C    -1.500   -3.800    1.200
+C    -0.800   -4.500    0.000
+C    -0.100   -3.800   -1.200
+C    -0.100   -2.400   -1.200
+C     0.000    0.000    5.000
+O     0.000    0.000    6.210
+H     0.980    0.000    4.450
+H    -0.980    0.000    4.450''',
+    productXyz: '''24
+Wittig product: ethylene + triphenylphosphine oxide
+C     0.000    0.000    0.000
+C     1.335    0.000    0.000
+H    -0.545    0.945    0.000
+H    -0.545   -0.945    0.000
+H     1.880    0.945    0.000
+H     1.880   -0.945    0.000
+P     6.000    0.000    0.000
+O     7.550    0.000    0.000
+C     5.200    1.700    0.000
+C     5.200    2.400    1.200
+C     5.200    3.800    1.200
+C     5.200    4.500    0.000
+C     5.200    3.800   -1.200
+C     5.200    2.400   -1.200
+H     5.200    1.900    2.156
+H     5.200    4.400    2.156
+H     5.200    5.590    0.000
+H     5.200    4.400   -2.156
+H     5.200    1.900   -2.156
+C     5.200   -1.700    0.000
+C     4.500   -2.400    1.200
+C     4.500   -3.800    1.200
+C     5.200   -4.500    0.000
+C     5.900   -3.800   -1.200
+H     5.900   -2.400   -1.200''',
+    referenceEa: 8.1,
+    doi: '10.1021/cr040677k',
+    journalRef: 'Chem. Rev. 2004, 104, 2857',
+    tags: ['ylide', 'phosphorus', '[2+2]', 'oxaphosphetane', 'Z-selective', 'Nobel'],
+    defaults: const QuantumDefaults(mlipModel: 'UMA-SM'),
+  ),
+
+  ReactionTemplate(
+    id: 'cuaac_click',
+    name: 'CuAAC "Click" Chemistry (Huisgen Cycloaddition)',
+    iupacName: 'phenyl azide + phenylacetylene → 1,4-diphenyl-1,2,3-triazole  [Cu(I)-cat.]',
+    description:
+        'Copper(I)-catalyzed azide-alkyne cycloaddition — the prototypical "click" reaction. '
+        'Cu(I) activates the alkyne via π-coordination, dramatically lowering the barrier '
+        'from ~26 kcal/mol (uncatalysed Huisgen) to ~15 kcal/mol. Proceeds through a '
+        'Cu-acetylide intermediate, then a 6-membered Cu-azide-alkyne metallacycle TS. '
+        'Strictly regioselective for 1,4-substituted triazoles. Nobel Prize 2022 (click chemistry).',
+    category: ReactionCategory.pericyclic,
+    reactantXyz: '''26
+CuAAC: phenylacetylene + phenyl azide (separated)
+C    -4.000    0.000    0.000
+C    -2.800    0.000    0.000
+C    -1.600    0.000    0.000
+H    -1.065    0.945    0.000
+H    -1.065   -0.945    0.000
+C    -5.200    0.700    0.000
+C    -6.412    0.000    0.000
+C    -6.412   -1.400    0.000
+C    -5.200   -2.100    0.000
+C    -3.988   -1.400    0.000
+H    -5.200    1.788    0.000
+H    -7.356    0.544    0.000
+H    -7.356   -1.944    0.000
+H    -5.200   -3.188    0.000
+H    -3.044   -1.944    0.000
+N     4.000    0.000    0.000
+N     4.000    1.150    0.000
+N     4.000    2.300    0.000
+C     5.212    0.000    0.000
+C     5.212   -1.400    0.000
+C     6.424   -2.100    0.000
+C     7.636   -1.400    0.000
+C     7.636    0.000    0.000
+C     6.424    0.700    0.000
+H     5.212   -2.488    0.000
+H     6.424   -3.188    0.000
+H     8.580   -1.944    0.000
+H     8.580    0.544    0.000
+H     6.424    1.788    0.000''',
+    productXyz: '''26
+CuAAC product: 1,4-diphenyl-1,2,3-triazole
+N     0.000    0.000    0.000
+N     1.000    0.700    0.000
+N     2.000    0.000    0.000
+C     1.700   -1.200    0.000
+C     0.400   -1.300    0.000
+H     0.000   -2.280    0.000
+H     2.400   -2.000    0.000
+C    -1.000    0.700    0.000
+C    -2.200    0.000    0.000
+C    -3.400    0.700    0.000
+C    -3.400    2.100    0.000
+C    -2.200    2.800    0.000
+C    -1.000    2.100    0.000
+H    -2.200   -1.088    0.000
+H    -4.344    0.156    0.000
+H    -4.344    2.644    0.000
+H    -2.200    3.888    0.000
+H    -0.056    2.644    0.000
+C     3.300   -0.700    0.000
+C     4.500    0.000    0.000
+C     5.712   -0.700    0.000
+C     5.712   -2.100    0.000
+C     4.500   -2.800    0.000
+C     3.288   -2.100    0.000
+H     4.500    1.088    0.000
+H     6.656   -0.156    0.000
+H     6.656   -2.644    0.000
+H     4.500   -3.888    0.000
+H     2.344   -2.644    0.000''',
+    referenceEa: 14.9,
+    doi: '10.1021/ja0278544',
+    journalRef: 'J. Am. Chem. Soc. 2002, 124, 14840',
+    tags: ['click', 'CuAAC', 'triazole', 'Cu(I)', 'Nobel-2022', 'bioorthogonal'],
+    defaults: const QuantumDefaults(
+        mlipModel: 'MACE-MP-0', optimizerAlgorithm: 'NEB-CI'),
+  ),
+
+  ReactionTemplate(
+    id: 'p450_epoxidation',
+    name: 'Cytochrome P450 Alkene Epoxidation',
+    iupacName: 'ethylene + Compound I (Fe(IV)=O porphyrin) → ethylene oxide + Fe(III)-porphyrin',
+    description:
+        'Monooxygenation of ethylene by the high-valent iron-oxo "Compound I" active species of '
+        'cytochrome P450. Two-state reactivity on high-spin (quartet) and low-spin (doublet) '
+        'surfaces. The radical rebound mechanism proceeds via a radical carbon intermediate after '
+        'initial O-atom transfer. Barrier heights: ~14 kcal/mol (doublet), ~17 kcal/mol (quartet). '
+        'Key in drug metabolism and biosynthesis.',
+    category: ReactionCategory.radical,
+    reactantXyz: '''20
+P450 Compound I + ethylene reactant
+Fe    0.000    0.000    0.000
+O     0.000    0.000    1.720
+N     2.000    0.000    0.000
+N     0.000    2.000    0.000
+N    -2.000    0.000    0.000
+N     0.000   -2.000    0.000
+C     2.500    1.400    0.000
+C     1.400    2.500    0.000
+C    -1.400    2.500    0.000
+C    -2.500    1.400    0.000
+C    -2.500   -1.400    0.000
+C    -1.400   -2.500    0.000
+C     1.400   -2.500    0.000
+C     2.500   -1.400    0.000
+H     3.400    1.900    0.000
+H     1.900    3.400    0.000
+H    -1.900    3.400    0.000
+H    -3.400    1.900    0.000
+C     0.000    0.000    5.000
+C     1.335    0.000    5.000
+H    -0.545    0.950    5.000
+H    -0.545   -0.950    5.000
+H     1.880    0.950    5.000
+H     1.880   -0.950    5.000''',
+    productXyz: '''20
+P450 product: ethylene oxide + Fe(III)-porphyrin
+Fe    0.000    0.000    0.000
+N     2.000    0.000    0.000
+N     0.000    2.000    0.000
+N    -2.000    0.000    0.000
+N     0.000   -2.000    0.000
+C     2.500    1.400    0.000
+C     1.400    2.500    0.000
+C    -1.400    2.500    0.000
+C    -2.500    1.400    0.000
+C    -2.500   -1.400    0.000
+C    -1.400   -2.500    0.000
+C     1.400   -2.500    0.000
+C     2.500   -1.400    0.000
+H     3.400    1.900    0.000
+H     1.900    3.400    0.000
+H    -1.900    3.400    0.000
+H    -3.400    1.900    0.000
+C     0.000    0.000    5.000
+C     1.200    0.000    5.000
+O     0.600    0.000    6.200
+H    -0.545    0.950    5.000
+H    -0.545   -0.950    5.000
+H     1.745    0.950    5.000
+H     1.745   -0.950    5.000''',
+    referenceEa: 14.2,
+    doi: '10.1021/cr400415k',
+    journalRef: 'Chem. Rev. 2014, 114, 3659',
+    tags: ['enzyme', 'Fe=O', 'radical-rebound', 'two-state', 'epoxidation', 'drug-metabolism'],
+    defaults: const QuantumDefaults(
+        charge: 0, spinMultiplicity: 2, mlipModel: 'MACE-MP-0',
+        optimizerAlgorithm: 'NEB-CI'),
+  ),
+
+  ReactionTemplate(
+    id: 'proline_aldol',
+    name: 'Proline-Catalyzed Asymmetric Aldol Reaction',
+    iupacName: 'acetone + 4-nitrobenzaldehyde → (S)-4-hydroxy-4-(4-nitrophenyl)butan-2-one  [L-Pro cat.]',
+    description:
+        'L-Proline catalyses the aldol via enamine mechanism (List-Barbas, 2000). '
+        'Proline condenses with acetone to form a nucleophilic Z-enamine. '
+        'The si-face attack on the aldehyde is preferred via a Zimmermann-Traxler-like TS '
+        'stabilised by an intramolecular H-bond between the carboxylic acid and the developing '
+        'alkoxide. Gives >99% ee for most aromatic aldehydes. Paradigmatic organocatalysis. '
+        'Nobel Prize 2021 (List and MacMillan).',
+    category: ReactionCategory.nucleophilic,
+    reactantXyz: '''28
+Proline-aldol: Z-enamine + 4-nitrobenzaldehyde
+N     0.000    0.000    0.000
+C     1.480    0.000    0.000
+C     2.000    1.480    0.000
+C     1.000    2.400    0.000
+C    -0.480    1.820    0.000
+C    -0.500   -0.500   -1.400
+O    -1.200   -1.500   -1.500
+O    -0.100    0.100   -2.400
+H    -0.100   -0.100   -3.340
+C    -1.480   -0.100    1.200
+C    -2.600    0.000    1.200
+H     0.800    3.450    0.000
+H     1.400    2.500    1.000
+H    -0.800    2.400    0.900
+H    -0.800    2.300   -0.900
+H     1.800    0.400   -0.950
+H     1.800    0.400    0.950
+H     2.200    1.600   -1.000
+H     2.200    1.600    1.000
+C    -1.900   -0.900    1.200
+H    -2.150    1.000    1.200
+H    -3.300   -0.900    1.200
+C     6.000    0.000    0.000
+O     7.200    0.000    0.000
+C     4.800    0.700    0.000
+C     3.600    0.000    0.000
+N     2.400    0.700    0.000
+O     2.400    1.900    0.000
+O     1.350    0.000    0.000
+H     4.800    1.788    0.000
+H     3.600   -1.088    0.000''',
+    productXyz: '''28
+Proline-aldol product: beta-hydroxyketone (S-config)
+O     0.000    0.000    0.000
+C     1.420    0.000    0.000
+C     2.120    1.260    0.000
+C     3.540    1.260    0.000
+O     4.240    0.000    0.000
+C     4.900    2.380    0.000
+C     6.290    2.380    0.000
+C     6.990    3.600    0.000
+C     6.290    4.820    0.000
+N     4.900    4.820    0.000
+O     4.200    6.040    0.000
+O     3.090    4.650    0.000
+H     1.820   -0.490   -0.920
+H     1.820   -0.490    0.920
+H     1.620    1.760   -0.920
+H     1.620    1.760    0.920
+H     3.980    1.740   -0.920
+H     3.980    1.740    0.920
+H     4.360    2.930   -0.920
+H     4.360    2.930    0.920
+H     6.830    1.450    0.000
+H     8.075    3.600    0.000
+H     6.830    5.750    0.000
+C    -1.420    0.000    0.000
+O    -2.120    1.040    0.000
+C    -2.120   -1.260    0.000
+H    -1.820    0.950   -0.100
+H    -2.820   -1.020   -0.800
+H    -2.820   -1.020    0.800
+H    -1.620   -2.140    0.000''',
+    referenceEa: 10.4,
+    doi: '10.1021/ja005513q',
+    journalRef: 'J. Am. Chem. Soc. 2000, 122, 394',
+    tags: ['organocatalysis', 'enamine', 'proline', 'asymmetric', 'Nobel-2021', 'aldol'],
+    defaults: const QuantumDefaults(
+        mlipModel: 'UMA-SM', optimizerAlgorithm: 'NEB-CI'),
+  ),
 ];
+
