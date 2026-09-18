@@ -187,6 +187,27 @@ class _MolecularPainter extends CustomPainter {
     final cosY = math.cos(rotationY);
     final sinY = math.sin(rotationY);
 
+    // Calculate maximum distance from center of mass for stable auto-scaling
+    double maxDistSq = 0.0;
+    if (atoms.isNotEmpty) {
+      for (final a in atoms) {
+        final dx = a.x - avgX;
+        final dy = a.y - avgY;
+        final dz = a.z - avgZ;
+        final distSq = dx*dx + dy*dy + dz*dz;
+        if (distSq > maxDistSq) maxDistSq = distSq;
+      }
+    }
+
+    double dynamicScale = scale;
+    if (maxDistSq > 0.01) {
+      final maxDist = math.sqrt(maxDistSq);
+      // Target 65% of the smallest screen dimension so it fits beautifully
+      final targetSize = math.min(size.width, size.height) * 0.65;
+      dynamicScale = targetSize / (2 * maxDist);
+      dynamicScale = dynamicScale.clamp(10.0, 150.0);
+    }
+
     // Project atoms
     final projected = <_ProjectedAtom>[];
     for (final atom in atoms) {
@@ -205,8 +226,8 @@ class _MolecularPainter extends CustomPainter {
 
       projected.add(_ProjectedAtom(
         atom: atom,
-        screenX: cx + rx * scale,
-        screenY: cy + ry * scale,
+        screenX: cx + rx * dynamicScale,
+        screenY: cy + ry * dynamicScale,
         zDepth: rz2,
       ));
     }

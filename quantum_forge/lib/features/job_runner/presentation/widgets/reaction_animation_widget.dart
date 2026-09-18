@@ -475,13 +475,14 @@ class _RxnPainterV3 extends CustomPainter {
     double ax, double ay, double az,
     double cx, double cy,
     double cosX, double sinX, double cosY, double sinY,
+    double currentScale,
   ) {
     final dx = x - ax, dy = y - ay, dz = z - az;
     final rx  = dx * cosY - dz * sinY;
     final rz1 = dx * sinY + dz * cosY;
     final ry  = dy * cosX - rz1 * sinX;
     final rz2 = dy * sinX + rz1 * cosX;
-    return (sx: cx + rx * _scale, sy: cy + ry * _scale, z: rz2);
+    return (sx: cx + rx * currentScale, sy: cy + ry * currentScale, z: rz2);
   }
 
   @override
@@ -493,10 +494,35 @@ class _RxnPainterV3 extends CustomPainter {
     final rot = rotNotifier.value;
     final cx = size.width / 2, cy = size.height / 2;
 
-    // Centre of mass
+    // Centre of mass (current frame)
     double ax = 0, ay = 0, az = 0;
     for (final a in atoms) { ax += a.x; ay += a.y; az += a.z; }
     ax /= atoms.length; ay /= atoms.length; az /= atoms.length;
+
+    // Centre of mass (TS state) for stable scale calculation
+    double tsAx = 0, tsAy = 0, tsAz = 0;
+    for (final a in tsAtoms) { tsAx += a.x; tsAy += a.y; tsAz += a.z; }
+    if (tsAtoms.isNotEmpty) {
+      tsAx /= tsAtoms.length; tsAy /= tsAtoms.length; tsAz /= tsAtoms.length;
+    }
+
+    // Calculate a CONSTANT scale for the entire animation based on the transition state
+    double maxDistSq = 0.0;
+    for (final a in tsAtoms) {
+      final dx = a.x - tsAx;
+      final dy = a.y - tsAy;
+      final dz = a.z - tsAz;
+      final distSq = dx*dx + dy*dy + dz*dz;
+      if (distSq > maxDistSq) maxDistSq = distSq;
+    }
+    double dynamicScale = _scale;
+    if (maxDistSq > 0.01) {
+      // Add 8.0 to account for the max separation offset (8.0 for reactants, 7.0 for products)
+      final maxDist = math.sqrt(maxDistSq) + 8.0; 
+      final targetSize = math.min(size.width, size.height) * 0.70;
+      dynamicScale = targetSize / (2 * maxDist);
+      dynamicScale = dynamicScale.clamp(20.0, 180.0);
+    }
 
     final cosX = math.cos(rot.dx), sinX = math.sin(rot.dx);
     final cosY = math.cos(rot.dy), sinY = math.sin(rot.dy);
@@ -533,7 +559,7 @@ class _RxnPainterV3 extends CustomPainter {
       final jx = _jitter(t, i);
       final jy = _jitter(t, i + 11);
       final p = _proj(a.x + jx, a.y + jy, a.z, ax, ay, az,
-          cx, cy, cosX, sinX, cosY, sinY);
+          cx, cy, cosX, sinX, cosY, sinY, dynamicScale);
       proj.add(_PA(atom: a, sx: p.sx, sy: p.sy, z: p.z));
     }
 
