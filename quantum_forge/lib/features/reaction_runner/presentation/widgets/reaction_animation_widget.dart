@@ -334,6 +334,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
               ctrl: _ctrl,
               rotNotifier: _rotNotifier,
               energyProfile: widget.energyProfile ?? [],
+              showBondEnergies: _showEnergies,
             ),
             size: Size.infinite,
           ),
