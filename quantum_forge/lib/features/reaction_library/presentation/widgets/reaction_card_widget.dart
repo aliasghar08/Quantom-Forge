@@ -1,5 +1,6 @@
 // ============================================================================
 // Reaction Card Widget — displays a template in the library browser
+// Overflow-safe: no Expanded inside unbounded Column. All text is clamped.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -15,43 +16,32 @@ class ReactionCardWidget extends StatelessWidget {
     required this.onLoad,
   });
 
-  static Color _categoryColor(ReactionCategory c) {
-    switch (c) {
-      case ReactionCategory.pericyclic:
-        return const Color(0xFF4FC3F7); // sky blue
-      case ReactionCategory.radical:
-        return const Color(0xFFFF7043); // deep orange
-      case ReactionCategory.organometallic:
-        return const Color(0xFFAB47BC); // purple
-      case ReactionCategory.ionic:
-        return const Color(0xFF26A69A); // teal
-      case ReactionCategory.thermal:
-        return const Color(0xFFFFCA28); // amber
-      case ReactionCategory.nucleophilic:
-        return const Color(0xFF66BB6A); // green
-    }
+  static Color categoryColor(ReactionCategory c) {
+    return switch (c) {
+      ReactionCategory.pericyclic    => const Color(0xFF4FC3F7),
+      ReactionCategory.radical       => const Color(0xFFFF7043),
+      ReactionCategory.organometallic=> const Color(0xFFAB47BC),
+      ReactionCategory.ionic         => const Color(0xFF26A69A),
+      ReactionCategory.thermal       => const Color(0xFFFFCA28),
+      ReactionCategory.nucleophilic  => const Color(0xFF66BB6A),
+    };
   }
 
-  static String _categoryLabel(ReactionCategory c) {
-    switch (c) {
-      case ReactionCategory.pericyclic:
-        return 'Pericyclic';
-      case ReactionCategory.radical:
-        return 'Radical';
-      case ReactionCategory.organometallic:
-        return 'Organometallic';
-      case ReactionCategory.ionic:
-        return 'Ionic';
-      case ReactionCategory.thermal:
-        return 'Thermal';
-      case ReactionCategory.nucleophilic:
-        return 'Nucleophilic';
-    }
+  static String categoryLabel(ReactionCategory c) {
+    return switch (c) {
+      ReactionCategory.pericyclic    => 'Pericyclic',
+      ReactionCategory.radical       => 'Radical',
+      ReactionCategory.organometallic=> 'Organometallic',
+      ReactionCategory.ionic         => 'Ionic',
+      ReactionCategory.thermal       => 'Thermal',
+      ReactionCategory.nucleophilic  => 'Nucleophilic',
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _categoryColor(template.category);
+    final color = categoryColor(template.category);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
@@ -71,99 +61,95 @@ class ReactionCardWidget extends StatelessWidget {
         onTap: onLoad,
         hoverColor: color.withValues(alpha: 0.06),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min, // ← key: don't expand
             children: [
-              // Category chip
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: color.withValues(alpha: 0.5)),
-                ),
-                child: Text(
-                  _categoryLabel(template.category),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              // Ea badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.bolt, size: 14, color: Colors.amber.shade300),
-                    const SizedBox(width: 4),
-                    Text(
-                      'ΔE‡ = ${template.referenceEa} kcal/mol',
-                      style: TextStyle(
-                        color: Colors.amber.shade200,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+              // ── Top row: category chip + Ea badge ──────────────────────────
+              Row(
+                children: [
+                  // Category chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: color.withValues(alpha: 0.5)),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Reaction name
-              Text(
-                template.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
-
-              // IUPAC name
-              Text(
-                template.iupacName,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 11,
-                  fontStyle: FontStyle.italic,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                    child: Text(
+                      categoryLabel(template.category),
+                      style: TextStyle(
+                          color: color, fontSize: 10, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const Spacer(),
+                  // Ea badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.bolt, size: 12, color: Colors.amber.shade300),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${template.referenceEa} kcal/mol',
+                        style: TextStyle(
+                            color: Colors.amber.shade200,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ]),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
 
-              // Description
-              Expanded(
-                child: Text(
-                  template.description,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
-                  overflow: TextOverflow.fade,
-                ),
+              // ── Reaction name ───────────────────────────────────────────────
+              Text(
+                template.name,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 4),
 
-              // Tags
+              // ── IUPAC name ──────────────────────────────────────────────────
+              Text(
+                template.iupacName,
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+
+              // ── Description (clamped, no Expanded needed) ───────────────────
+              Text(
+                template.description,
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.68),
+                    fontSize: 12,
+                    height: 1.45),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+
+              // ── Tags ────────────────────────────────────────────────────────
               Wrap(
-                spacing: 6,
+                spacing: 5,
                 runSpacing: 4,
-                children: template.tags.take(4).map((tag) {
+                children: template.tags.take(3).map((tag) {
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(4),
@@ -171,26 +157,25 @@ class ReactionCardWidget extends StatelessWidget {
                     child: Text(
                       '#$tag',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.45),
-                        fontSize: 10,
-                      ),
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 9),
                     ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // DOI + Load button
+              // ── Footer: DOI + Load button ───────────────────────────────────
               Row(
                 children: [
                   Expanded(
                     child: Text(
                       template.journalRef,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.35),
-                        fontSize: 10,
-                      ),
+                          color: Colors.white.withValues(alpha: 0.3),
+                          fontSize: 9),
                       overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -199,16 +184,17 @@ class ReactionCardWidget extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: color,
                       foregroundColor: Colors.black87,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                          borderRadius: BorderRadius.circular(8)),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    icon: const Icon(Icons.science, size: 16),
-                    label: const Text(
-                      'Load Template',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                    ),
+                    icon: const Icon(Icons.science, size: 14),
+                    label: const Text('Load',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 12)),
                   ),
                 ],
               ),
