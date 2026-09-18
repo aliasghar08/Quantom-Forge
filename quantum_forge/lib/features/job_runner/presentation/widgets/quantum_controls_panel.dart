@@ -23,7 +23,7 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel>
     with TickerProviderStateMixin {
   late final TabController _tabController;
 
-  static const _mlipModels = ['UMA-SM', 'MACE-MP-0', 'CHGNet', 'GFN2-xTB'];
+  static const _mlipModels = ['UMA-SM', 'UMA-Medium', 'MACE-MP-0', 'CHGNet', 'GFN2-xTB'];
   static const _solventModels = [
     'Vacuum',
     'PCM (H₂O)',
