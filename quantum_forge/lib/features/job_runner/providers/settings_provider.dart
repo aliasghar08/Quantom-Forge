@@ -35,7 +35,7 @@ class QuantumSettings {
     // System
     this.charge = 0,
     this.spinMultiplicity = 1,
-    this.mlipModel = 'UMA-SM',
+    this.mlipModel = 'MACE-MP-0',
     this.solventModel = 'Vacuum',
     this.temperatureK = 298.15,
     // Optimizer
