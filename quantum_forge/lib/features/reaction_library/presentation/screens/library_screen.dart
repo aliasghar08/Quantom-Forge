@@ -206,18 +206,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 20,
-          mainAxisSpacing: 20,
-          mainAxisExtent: 320, // Generous fixed height prevents overflow
-        ),
-        itemCount: items.length,
-        itemBuilder: (_, i) => ReactionCardWidget(
-          template: items[i],
-          onLoad: () => widget.onTemplateSelected(items[i]),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Calculate width for 3 columns with 20px spacing (2 gaps = 40px)
+          double cardWidth = (constraints.maxWidth - 40) / 3;
+          if (cardWidth < 280) {
+            // Drop to 2 columns on narrow windows
+            cardWidth = (constraints.maxWidth - 20) / 2;
+          }
+          
+          return SingleChildScrollView(
+            child: Wrap(
+              spacing: 20,
+              runSpacing: 20,
+              children: items.map((item) {
+                return SizedBox(
+                  width: cardWidth,
+                  child: ReactionCardWidget(
+                    template: item,
+                    onLoad: () => widget.onTemplateSelected(item),
+                  ),
+                );
+              }).toList(),
+            ),
+          );
+        },
       ),
     );
   }
