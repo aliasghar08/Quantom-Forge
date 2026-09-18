@@ -52,7 +52,11 @@ class TemplateDetailScreen extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: ReactionAnimationWidget(
-                  trajectoryFrames: [template.reactantXyz, template.productXyz],
+                  trajectoryFrames: [
+                    template.reactantXyz, 
+                    template.reactantXyz, // Dummy TS frame
+                    template.productXyz
+                  ],
                 ),
               ),
             ),

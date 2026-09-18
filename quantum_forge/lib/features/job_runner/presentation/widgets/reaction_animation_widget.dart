@@ -158,14 +158,21 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: Color(0xFF4FC3F7), strokeWidth: 2),
-            SizedBox(height: 12),
-            Text('Parsing trajectory & detecting molecules…',
-                style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(
+              width: 150,
+              child: LinearProgressIndicator(
+                color: Color(0xFF4FC3F7),
+                backgroundColor: Colors.white10,
+                minHeight: 2,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Parsing trajectory & detecting molecules...',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12, fontWeight: FontWeight.bold)),
           ],
         ),
       );
