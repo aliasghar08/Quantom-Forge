@@ -72,10 +72,17 @@ class LocalJobRepository implements JobRepository {
 
   @override
   Future<JobStatusResponse?> getJob(String jobId) async {
-    final file = await _jobFile(jobId);
-    if (!await file.exists()) return null;
-    final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-    return _fromMap(raw);
+    try {
+      final file = await _jobFile(jobId);
+      if (!await file.exists()) return null;
+      final content = await file.readAsString();
+      if (content.trim().isEmpty) return null;
+      final raw = jsonDecode(content) as Map<String, dynamic>;
+      return _fromMap(raw);
+    } catch (e) {
+      print('Error reading job $jobId: $e');
+      return null;
+    }
   }
 
   @override
@@ -137,10 +144,17 @@ class LocalJobRepository implements JobRepository {
   // Index management
   // -------------------------------------------------------------------------
   Future<List<Map<String, dynamic>>> _readIndex() async {
-    final file = await _indexFile;
-    if (!await file.exists()) return [];
-    final raw = jsonDecode(await file.readAsString());
-    return (raw as List).cast<Map<String, dynamic>>();
+    try {
+      final file = await _indexFile;
+      if (!await file.exists()) return [];
+      final content = await file.readAsString();
+      if (content.trim().isEmpty) return [];
+      final raw = jsonDecode(content);
+      return (raw as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      print('Error reading index: $e');
+      return [];
+    }
   }
 
   Future<void> _updateIndex(String jobId, Map<String, dynamic> doc) async {

@@ -24,6 +24,7 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
   double _rotationY = 0;
   final double _scale = 45.0;
   bool _electronCloudMode = false;
+  bool _showBondData = false;
   List<Atom> _atoms = [];
 
   bool _isLoading = false;
@@ -89,6 +90,7 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
                 rotationY: _rotationY,
                 scale: _scale,
                 electronCloudMode: _electronCloudMode,
+                showBondData: _showBondData,
                 settings: widget.settings,
               ),
               size: Size.infinite,
@@ -100,11 +102,18 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
           right: 12,
           child: Row(
             children: [
-              const Text('Electron Cloud Mode', style: TextStyle(color: Colors.white, fontSize: 12)),
+              const Text('Electron Cloud', style: TextStyle(color: Colors.white, fontSize: 12)),
               Switch(
                 value: _electronCloudMode,
                 onChanged: (val) => setState(() => _electronCloudMode = val),
                 activeTrackColor: Colors.purpleAccent,
+              ),
+              const SizedBox(width: 8),
+              const Text('Bond Energies', style: TextStyle(color: Colors.white, fontSize: 12)),
+              Switch(
+                value: _showBondData,
+                onChanged: (val) => setState(() => _showBondData = val),
+                activeTrackColor: Colors.orangeAccent,
               ),
             ],
           ),
@@ -120,6 +129,7 @@ class _MolecularPainter extends CustomPainter {
   final double rotationY;
   final double scale;
   final bool electronCloudMode;
+  final bool showBondData;
   final QuantumSettings? settings;
 
   static final Map<Color, Paint> _basePaints = {};
@@ -137,6 +147,7 @@ class _MolecularPainter extends CustomPainter {
     required this.rotationY,
     required this.scale,
     required this.electronCloudMode,
+    required this.showBondData,
     this.settings,
   });
 
@@ -280,8 +291,12 @@ class _MolecularPainter extends CustomPainter {
           ..strokeWidth = 6.0
           ..strokeCap = StrokeCap.round;
 
-        if (item.isActive) {
-          _drawDashedLine(canvas, Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
+        if (item.isActive || showBondData) {
+          if (item.isActive) {
+            _drawDashedLine(canvas, Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
+          } else {
+            canvas.drawLine(Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
+          }
           
           // Draw energy label
           double scaleFactor = settings?.temperatureK != null ? (settings!.temperatureK / 300.0) : 1.0;

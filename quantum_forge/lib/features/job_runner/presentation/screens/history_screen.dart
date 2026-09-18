@@ -22,12 +22,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Future<void> _loadJobs() async {
     setState(() => _isLoading = true);
-    final repo = ProviderScope.read<JobRepository>(context);
-    final jobs = await repo.listJobs('');
-    setState(() {
-      _jobs = jobs;
-      _isLoading = false;
-    });
+    try {
+      final repo = ProviderScope.read<JobRepository>(context);
+      final jobs = await repo.listJobs('');
+      if (mounted) {
+        setState(() {
+          _jobs = jobs;
+        });
+      }
+    } catch (e) {
+      print('Error loading jobs: $e');
+      if (mounted) {
+        setState(() {
+          _jobs = [];
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _deleteJob(String jobId) async {
