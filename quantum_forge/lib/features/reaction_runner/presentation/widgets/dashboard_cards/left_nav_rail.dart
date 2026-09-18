@@ -3,6 +3,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 enum NavDestination { library, newReaction, editor, history }
 
@@ -166,30 +167,39 @@ class ProfessionalDrawer extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Colors.white.withValues(alpha: 0.1),
-                      child: const Icon(Icons.person, color: Colors.white70, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Researcher Pro',
-                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                StreamBuilder<User?>(
+                  stream: FirebaseAuth.instance.authStateChanges(),
+                  builder: (context, snapshot) {
+                    final user = snapshot.data;
+                    final name = user?.displayName ?? 'Researcher';
+                    final email = user?.email ?? 'Unauthenticated';
+
+                    return Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.white.withValues(alpha: 0.1),
+                          child: const Icon(Icons.person, color: Colors.white70, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                email,
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                              ),
+                            ],
                           ),
-                          Text(
-                            'Local Workspace',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
