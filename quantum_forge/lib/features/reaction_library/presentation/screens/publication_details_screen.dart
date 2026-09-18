@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
+import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/glass_card.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class PublicationDetailsScreen extends StatefulWidget {
   final ReactionTemplate template;
@@ -122,78 +124,86 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeaderCard(title, authors, containerTitle, publisher, year),
-          const SizedBox(height: 24),
-          _buildAbstractCard(abstractText),
-          const SizedBox(height: 24),
-          _buildExternalLinksCard(title),
-        ],
+      child: AnimationLimiter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: AnimationConfiguration.toStaggeredList(
+            duration: const Duration(milliseconds: 600),
+            childAnimationBuilder: (widget) => SlideAnimation(
+              verticalOffset: 50.0,
+              child: FadeInAnimation(child: widget),
+            ),
+            children: [
+              _buildHeaderCard(title, authors, containerTitle, publisher, year),
+              const SizedBox(height: 24),
+              _buildAbstractCard(abstractText),
+              const SizedBox(height: 24),
+              _buildExternalLinksCard(title),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildHeaderCard(String title, String authors, String journal, String publisher, String year) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B263B),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4FC3F7).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4FC3F7).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text('DOI: ${widget.template.doi}', style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
-                child: Text('DOI: ${widget.template.doi}', style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-              const Spacer(),
-              Text(year, style: const TextStyle(color: Colors.white54, fontSize: 14)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Text(authors, style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.5)),
-          const SizedBox(height: 16),
-          const Divider(color: Colors.white10),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.book, color: Colors.white54, size: 16),
-              const SizedBox(width: 8),
-              Expanded(child: Text('$journal • $publisher', style: const TextStyle(color: Colors.white54, fontSize: 14))),
-            ],
-          ),
-        ],
+                const Spacer(),
+                Text(year, style: const TextStyle(color: Colors.white54, fontSize: 14)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Text(authors, style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.5)),
+            const SizedBox(height: 16),
+            const Divider(color: Colors.white10),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.book, color: Colors.white54, size: 16),
+                const SizedBox(width: 8),
+                Expanded(child: Text('$journal • $publisher', style: const TextStyle(color: Colors.white54, fontSize: 14))),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAbstractCard(String abstractText) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B263B),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Abstract', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Text(abstractText, style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.6)),
-        ],
+    return GlassCard(
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          iconColor: const Color(0xFF4FC3F7),
+          collapsedIconColor: Colors.white54,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          title: const Text('Abstract', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: Text(abstractText, style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.6)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -202,39 +212,36 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     final doiUrl = 'https://doi.org/${widget.template.doi}';
     final scholarUrl = 'https://scholar.google.com/scholar?q=${Uri.encodeComponent(title)}';
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B263B),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('External References', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          _buildLinkButton(
-            icon: Icons.language,
-            label: 'View on Publisher Site (DOI)',
-            url: doiUrl,
-            color: const Color(0xFF4FC3F7),
-          ),
-          const SizedBox(height: 12),
-          _buildLinkButton(
-            icon: Icons.school,
-            label: 'Search on Google Scholar',
-            url: scholarUrl,
-            color: Colors.greenAccent,
-          ),
-          const SizedBox(height: 12),
-          _buildLinkButton(
-            icon: Icons.data_object,
-            label: 'View Raw CrossRef Metadata',
-            url: 'https://api.crossref.org/works/${widget.template.doi}',
-            color: Colors.orangeAccent,
-          ),
-        ],
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('External References', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            _buildLinkButton(
+              icon: Icons.language,
+              label: 'View on Publisher Site (DOI)',
+              url: doiUrl,
+              color: const Color(0xFF4FC3F7),
+            ),
+            const SizedBox(height: 12),
+            _buildLinkButton(
+              icon: Icons.school,
+              label: 'Search on Google Scholar',
+              url: scholarUrl,
+              color: Colors.greenAccent,
+            ),
+            const SizedBox(height: 12),
+            _buildLinkButton(
+              icon: Icons.data_object,
+              label: 'View Raw CrossRef Metadata',
+              url: 'https://api.crossref.org/works/${widget.template.doi}',
+              color: Colors.orangeAccent,
+            ),
+          ],
+        ),
       ),
     );
   }
