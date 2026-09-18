@@ -245,6 +245,7 @@ class _MolecularPainter extends CustomPainter {
 
     // Calculate Bonds dynamically
     final projectedBonds = <_ProjectedBond>[];
+    int bondIndexCounter = 1;
     for (int i = 0; i < atoms.length; i++) {
       for (int j = i + 1; j < atoms.length; j++) {
         final a1 = atoms[i];
@@ -272,6 +273,7 @@ class _MolecularPainter extends CustomPainter {
             distance: dist,
             isActive: isActive,
             idealDist: idealDist,
+            index: bondIndexCounter++,
           ));
         }
       }
@@ -298,21 +300,26 @@ class _MolecularPainter extends CustomPainter {
         }
         
         if (showBondData) {
-          // Draw energy label
-          double scaleFactor = settings?.temperatureK != null ? (settings!.temperatureK / 300.0) : 1.0;
-          if (settings?.solventModel != null && settings!.solventModel != 'Vacuum') scaleFactor *= 0.85;
-          if (settings?.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
-          final chargeShift = (settings?.charge ?? 0) * 1.5;
-
-          final energy = 100 * math.exp(-2.0 * (item.distance - item.idealDist)) * scaleFactor + chargeShift;
-          final textSpan = TextSpan(
-            text: '${energy.toStringAsFixed(1)} kcal/mol',
-            style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)]),
-          );
-          final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
-          textPainter.layout();
+          // Draw badge
+          final badgeRadius = 7.0;
           final midX = (item.p1.screenX + item.p2.screenX) / 2;
           final midY = (item.p1.screenY + item.p2.screenY) / 2;
+          
+          canvas.drawCircle(
+            Offset(midX, midY), 
+            badgeRadius, 
+            Paint()..color = Colors.orangeAccent
+          );
+          
+          final textSpan = TextSpan(
+            text: '${item.index}',
+            style: const TextStyle(
+              color: Colors.black87, 
+              fontSize: 10, 
+              fontWeight: FontWeight.bold
+            ),
+          );
+          final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr)..layout();
           textPainter.paint(canvas, Offset(midX - textPainter.width / 2, midY - textPainter.height / 2));
         }
       } else if (item is _ProjectedAtom) {
@@ -345,7 +352,65 @@ class _MolecularPainter extends CustomPainter {
         }
       }
     }
+
+    if (showBondData && projectedBonds.isNotEmpty) {
+      _drawBondLegend(canvas, size, projectedBonds);
+    }
   }
+
+  void _drawBondLegend(Canvas canvas, Size size, List<_ProjectedBond> bonds) {
+    const pad = 12.0;
+    double scaleFactor = settings?.temperatureK != null ? (settings!.temperatureK / 300.0) : 1.0;
+    if (settings?.solventModel != null && settings!.solventModel != 'Vacuum') scaleFactor *= 0.85;
+    if (settings?.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
+    final chargeShift = (settings?.charge ?? 0) * 1.5;
+
+    // Create sorted list of bonds by index
+    final sortedBonds = List<_ProjectedBond>.from(bonds)..sort((a, b) => a.index.compareTo(b.index));
+    
+    // Build text paragraphs
+    final spans = <TextSpan>[];
+    spans.add(const TextSpan(
+      text: 'Bond Energies\n',
+      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)
+    ));
+    
+    for (final b in sortedBonds) {
+      final energy = 100 * math.exp(-2.0 * (b.distance - b.idealDist)) * scaleFactor + chargeShift;
+      spans.add(TextSpan(
+        text: '  ${b.index}.  ',
+        style: const TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold)
+      ));
+      spans.add(TextSpan(
+        text: '${b.p1.atom.symbol}–${b.p2.atom.symbol}  :  ${energy.toStringAsFixed(1)} kcal/mol\n',
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 10)
+      ));
+    }
+    
+    final tp = TextPainter(
+      text: TextSpan(children: spans),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: size.width - 24);
+
+    final rect = Rect.fromLTWH(
+      pad, 
+      size.height - tp.height - pad, 
+      tp.width + pad * 2, 
+      tp.height + pad
+    );
+    
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)), 
+      Paint()..color = Colors.black.withValues(alpha: 0.7)
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)), 
+      Paint()..color = Colors.white.withValues(alpha: 0.15)..style = PaintingStyle.stroke
+    );
+    
+    tp.paint(canvas, Offset(pad * 2, size.height - tp.height - pad + 6));
+  }
+
   
   void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Paint paint) {
     final dashWidth = 5.0;
@@ -409,6 +474,7 @@ class _ProjectedBond implements _ProjectedItem {
   final double distance;
   final bool isActive;
   final double idealDist;
+  final int index;
 
   _ProjectedBond({
     required this.p1,
@@ -417,5 +483,6 @@ class _ProjectedBond implements _ProjectedItem {
     required this.distance,
     required this.isActive,
     required this.idealDist,
+    required this.index,
   });
 }

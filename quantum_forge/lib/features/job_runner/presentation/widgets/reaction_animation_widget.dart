@@ -572,6 +572,7 @@ class _RxnPainterV3 extends CustomPainter {
 
     // ── Build bonds ────────────────────────────────────────────────────────
     final bonds = <_BD>[];
+    int bondIndexCounter = 1;
     for (int i = 0; i < atoms.length; i++) {
       for (int j = i + 1; j < atoms.length; j++) {
         final a1 = atoms[i], a2 = atoms[j];
@@ -590,7 +591,7 @@ class _RxnPainterV3 extends CustomPainter {
 
         bonds.add(_BD(p1: proj[i], p2: proj[j],
             z: (proj[i].z + proj[j].z) / 2,
-            dist: dist, ideal: ideal, kind: kind, animT: t));
+            dist: dist, ideal: ideal, kind: kind, animT: t, index: bondIndexCounter++));
       }
     }
 
@@ -609,6 +610,11 @@ class _RxnPainterV3 extends CustomPainter {
     _drawAxes(canvas, size, cosX, sinX, cosY, sinY);
     _drawEnergyPlot(canvas, size, t);
     _drawPhaseCaption(canvas, size, t);
+    
+    // Draw bond legend
+    if (bonds.isNotEmpty) {
+      _drawBondLegend(canvas, size, bonds);
+    }
   }
 
   // ── Bond drawing ───────────────────────────────────────────────────────────
@@ -625,7 +631,7 @@ class _RxnPainterV3 extends CustomPainter {
         final col = Color.lerp(Colors.blueGrey.shade400, Colors.deepOrangeAccent, p)!;
         if (stretch > 1.15) {
           _dashBond(canvas, p1, p2, col, 5.0);
-          if (stretch > 1.25) _energyBubble(canvas, p1, p2, b.dist, b.ideal, col);
+          if (stretch > 1.25) _energyBubble(canvas, p1, p2, b.dist, b.ideal, col, b.index);
         } else {
           _cylBond(canvas, p1, p2, col, 6.5);
         }
@@ -634,7 +640,7 @@ class _RxnPainterV3 extends CustomPainter {
         final col = const Color(0xFF66BB6A).withValues(alpha: p.clamp(0.15, 1.0));
         if (stretch > 1.12) {
           _dashBond(canvas, p1, p2, col, 4.5);
-          if (p > 0.3) _energyBubble(canvas, p1, p2, b.dist, b.ideal, const Color(0xFF66BB6A));
+          if (p > 0.3) _energyBubble(canvas, p1, p2, b.dist, b.ideal, const Color(0xFF66BB6A), b.index);
         } else {
           _cylBond(canvas, p1, p2, const Color(0xFF66BB6A), 6.5);
         }
@@ -684,32 +690,84 @@ class _RxnPainterV3 extends CustomPainter {
   }
 
   void _energyBubble(Canvas canvas, Offset p1, Offset p2,
-      double dist, double ideal, Color col) {
+      double dist, double ideal, Color col, int index) {
     final energy = 110.0 * math.exp(-2.2 * (dist - ideal));
     if (energy < 2) return;
-    final mid = (p1 + p2) / 2 - const Offset(0, 16);
+    
+    final badgeRadius = 7.0;
+    final midX = (p1.dx + p2.dx) / 2;
+    final midY = (p1.dy + p2.dy) / 2;
+    
+    canvas.drawCircle(
+      Offset(midX, midY), 
+      badgeRadius, 
+      Paint()..color = col
+    );
+    
+    final textSpan = TextSpan(
+      text: '$index',
+      style: const TextStyle(
+        color: Colors.black87, 
+        fontSize: 10, 
+        fontWeight: FontWeight.bold
+      ),
+    );
+    final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr)..layout();
+    textPainter.paint(canvas, Offset(midX - textPainter.width / 2, midY - textPainter.height / 2));
+  }
 
+  void _drawBondLegend(Canvas canvas, Size size, List<_BD> bonds) {
+    const pad = 12.0;
+
+    // Create sorted list of bonds by index
+    final sortedBonds = List<_BD>.from(bonds)..sort((a, b) => a.index.compareTo(b.index));
+    
+    // Build text paragraphs
+    final spans = <TextSpan>[];
+    spans.add(const TextSpan(
+      text: 'Live Bond Energies\n',
+      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)
+    ));
+    
+    for (final b in sortedBonds) {
+      final energy = 110.0 * math.exp(-2.2 * (b.dist - b.ideal));
+      // Only show meaningful bonds that have some energetic character in animation
+      // Or show all. Let's show all for consistency.
+      final valStr = energy < 0.1 ? '~0.0' : energy.toStringAsFixed(1);
+      
+      spans.add(TextSpan(
+        text: '  ${b.index}.  ',
+        style: const TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold)
+      ));
+      spans.add(TextSpan(
+        text: '${b.p1.atom.symbol}–${b.p2.atom.symbol}  :  $valStr kcal/mol\n',
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 10)
+      ));
+    }
+    
     final tp = TextPainter(
-      text: TextSpan(children: [
-        TextSpan(
-            text: '${energy.toStringAsFixed(0)} ',
-            style: TextStyle(color: col, fontSize: 10, fontWeight: FontWeight.bold)),
-        TextSpan(
-            text: 'kcal/mol',
-            style: TextStyle(color: col.withValues(alpha: 0.75), fontSize: 8)),
-      ]),
+      text: TextSpan(children: spans),
       textDirection: TextDirection.ltr,
-    )..layout();
+    )..layout(maxWidth: size.width - 24);
 
-    final rr = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: mid, width: tp.width + 12, height: tp.height + 8),
-        const Radius.circular(5));
-    canvas.drawRRect(rr, Paint()..color = Colors.black.withValues(alpha: 0.72));
-    canvas.drawRRect(rr, Paint()
-      ..color = col.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8);
-    tp.paint(canvas, Offset(mid.dx - tp.width / 2, mid.dy - tp.height / 2));
+    // Draw in top-left corner
+    final rect = Rect.fromLTWH(
+      pad, 
+      pad, 
+      tp.width + pad * 2, 
+      tp.height + pad
+    );
+    
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)), 
+      Paint()..color = Colors.black.withValues(alpha: 0.7)
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)), 
+      Paint()..color = Colors.white.withValues(alpha: 0.15)..style = PaintingStyle.stroke
+    );
+    
+    tp.paint(canvas, Offset(pad * 2, pad + 6));
   }
 
   // ── Atom drawing ───────────────────────────────────────────────────────────
@@ -946,7 +1004,8 @@ class _BD implements _Item {
   final double dist, ideal;
   final _BK kind;
   final double animT;
+  final int index;
   _BD({required this.p1, required this.p2, required this.z,
        required this.dist, required this.ideal, required this.kind,
-       required this.animT});
+       required this.animT, required this.index});
 }
