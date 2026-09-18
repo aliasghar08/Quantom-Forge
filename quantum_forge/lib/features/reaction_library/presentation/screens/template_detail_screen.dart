@@ -140,7 +140,7 @@ class TemplateDetailScreen extends StatelessWidget {
                       const Text('Reactants', style: TextStyle(color: Colors.white54, fontSize: 12)),
                       const SizedBox(height: 8),
                       Container(
-                        height: 250,
+                        height: 400,
                         decoration: BoxDecoration(
                           color: const Color(0xFF15151C),
                           borderRadius: BorderRadius.circular(12),
@@ -162,7 +162,7 @@ class TemplateDetailScreen extends StatelessWidget {
                       const Text('Products', style: TextStyle(color: Colors.white54, fontSize: 12)),
                       const SizedBox(height: 8),
                       Container(
-                        height: 250,
+                        height: 400,
                         decoration: BoxDecoration(
                           color: const Color(0xFF15151C),
                           borderRadius: BorderRadius.circular(12),

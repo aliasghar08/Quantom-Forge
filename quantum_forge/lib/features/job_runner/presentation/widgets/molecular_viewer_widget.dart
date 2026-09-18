@@ -291,13 +291,13 @@ class _MolecularPainter extends CustomPainter {
           ..strokeWidth = 6.0
           ..strokeCap = StrokeCap.round;
 
-        if (item.isActive || showBondData) {
-          if (item.isActive) {
-            _drawDashedLine(canvas, Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
-          } else {
-            canvas.drawLine(Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
-          }
-          
+        if (item.isActive) {
+          _drawDashedLine(canvas, Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
+        } else {
+          canvas.drawLine(Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
+        }
+        
+        if (showBondData) {
           // Draw energy label
           double scaleFactor = settings?.temperatureK != null ? (settings!.temperatureK / 300.0) : 1.0;
           if (settings?.solventModel != null && settings!.solventModel != 'Vacuum') scaleFactor *= 0.85;
@@ -314,12 +314,9 @@ class _MolecularPainter extends CustomPainter {
           final midX = (item.p1.screenX + item.p2.screenX) / 2;
           final midY = (item.p1.screenY + item.p2.screenY) / 2;
           textPainter.paint(canvas, Offset(midX - textPainter.width / 2, midY - textPainter.height / 2));
-          
-        } else {
-          canvas.drawLine(Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
         }
       } else if (item is _ProjectedAtom) {
-        final radius = item.atom.radius * scale * 0.28;
+        final radius = item.atom.radius * scale * 0.15;
         final center = Offset(item.screenX, item.screenY);
 
         canvas.save();
