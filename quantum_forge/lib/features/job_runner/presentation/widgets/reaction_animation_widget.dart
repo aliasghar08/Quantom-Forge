@@ -601,7 +601,7 @@ class _RxnPainterV3 extends CustomPainter {
       if (item is _BD) {
         _drawBond(canvas, item, t);
       } else if (item is _PA) {
-        _drawAtom(canvas, item, t);
+        _drawAtom(canvas, item, t, dynamicScale);
       }
     }
 
@@ -713,7 +713,7 @@ class _RxnPainterV3 extends CustomPainter {
   }
 
   // ── Atom drawing ───────────────────────────────────────────────────────────
-  void _drawAtom(Canvas canvas, _PA p, double t) {
+  void _drawAtom(Canvas canvas, _PA p, double t, double dynamicScale) {
     double glowExtra = 0;
     if (t < _t1) { glowExtra = 0.08 * (t / _t1); }
     if (t >= _t1 * 0.85 && t < _t2) {
@@ -721,7 +721,7 @@ class _RxnPainterV3 extends CustomPainter {
       glowExtra = 0.20 * math.sin(tsT * math.pi);
     }
 
-    final r = p.atom.radius * _scale * 0.25;
+    final r = p.atom.radius * dynamicScale * 0.15;
     final c = Offset(p.sx, p.sy);
 
     if (p.atom.symbol != 'H') {
@@ -861,12 +861,29 @@ class _RxnPainterV3 extends CustomPainter {
     final ct = cursorIdx - ci;
     final cx2 = _l(px(ci), px(ci + 1), ct);
     final cy2 = _l(py(profile[ci]), py(profile[ci + 1]), ct);
+    final currentEnergy = _l(profile[ci], profile[ci + 1], ct);
+
     canvas.drawCircle(Offset(cx2, cy2), 4.5, Paint()
       ..color = const Color(0xFFFFAB40).withValues(alpha: 0.95));
     canvas.drawCircle(Offset(cx2, cy2), 4.5, Paint()
       ..color = Colors.white.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2);
+
+    // Current energy label near cursor
+    final valTp = TextPainter(
+      text: TextSpan(
+        text: '${currentEnergy.toStringAsFixed(1)} kcal/mol',
+        style: const TextStyle(
+          color: Color(0xFFFFAB40), 
+          fontSize: 9, 
+          fontWeight: FontWeight.bold,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)]
+        )
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    valTp.paint(canvas, Offset(cx2 - valTp.width / 2, cy2 - valTp.height - 8));
 
     // Label
     final ltp = TextPainter(

@@ -58,6 +58,7 @@ class TemplateDetailScreen extends StatelessWidget {
                     template.reactantXyz, // Dummy TS frame
                     template.productXyz
                   ],
+                  energyProfile: _generateSyntheticProfile(template.referenceEa),
                 ),
               ),
             ),
@@ -223,4 +224,23 @@ class TemplateDetailScreen extends StatelessWidget {
       ReactionCategory.nucleophilic  => 'Nucleophilic',
     };
   }
+
+  List<double> _generateSyntheticProfile(double ea) {
+    final profile = <double>[];
+    final ep = -ea * 0.5; // Exothermic assumption
+    for (int i = 0; i <= 30; i++) {
+      double t = i / 30.0;
+      if (t <= 0.35) {
+        double p = t / 0.35;
+        double s = p * p * (3 - 2 * p);
+        profile.add(ea * s);
+      } else {
+        double p = (t - 0.35) / 0.65;
+        double s = p * p * (3 - 2 * p);
+        profile.add(ea + (ep - ea) * s);
+      }
+    }
+    return profile;
+  }
 }
+
