@@ -376,6 +376,7 @@ class _MolecularPainter extends CustomPainter {
         rotationY != oldDelegate.rotationY ||
         scale != oldDelegate.scale ||
         electronCloudMode != oldDelegate.electronCloudMode ||
+        showBondData != oldDelegate.showBondData ||
         settings != oldDelegate.settings ||
         atoms != oldDelegate.atoms;
   }
