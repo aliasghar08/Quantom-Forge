@@ -25,6 +25,24 @@ class QuantumDefaults {
     this.mlipModel = 'UMA-SM',
     this.optimizerAlgorithm = 'NEB-CI',
   });
+
+  factory QuantumDefaults.fromJson(Map<String, dynamic> json) {
+    return QuantumDefaults(
+      charge: json['charge'] as int? ?? 0,
+      spinMultiplicity: json['spinMultiplicity'] as int? ?? 1,
+      mlipModel: json['mlipModel'] as String? ?? 'UMA-SM',
+      optimizerAlgorithm: json['optimizerAlgorithm'] as String? ?? 'NEB-CI',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'charge': charge,
+      'spinMultiplicity': spinMultiplicity,
+      'mlipModel': mlipModel,
+      'optimizerAlgorithm': optimizerAlgorithm,
+    };
+  }
 }
 
 class ReactionTemplate {
@@ -55,6 +73,44 @@ class ReactionTemplate {
     this.tags = const [],
     this.defaults = const QuantumDefaults(),
   });
+
+  factory ReactionTemplate.fromJson(Map<String, dynamic> json, String id) {
+    return ReactionTemplate(
+      id: id,
+      name: json['name'] as String? ?? '',
+      iupacName: json['iupacName'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      category: ReactionCategory.values.firstWhere(
+        (e) => e.name == json['category'],
+        orElse: () => ReactionCategory.thermal,
+      ),
+      reactantXyz: json['reactantXyz'] as String? ?? '',
+      productXyz: json['productXyz'] as String? ?? '',
+      referenceEa: (json['referenceEa'] as num?)?.toDouble() ?? 0.0,
+      doi: json['doi'] as String? ?? '',
+      journalRef: json['journalRef'] as String? ?? '',
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [],
+      defaults: json['defaults'] != null
+          ? QuantumDefaults.fromJson(json['defaults'] as Map<String, dynamic>)
+          : const QuantumDefaults(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'iupacName': iupacName,
+      'description': description,
+      'category': category.name,
+      'reactantXyz': reactantXyz,
+      'productXyz': productXyz,
+      'referenceEa': referenceEa,
+      'doi': doi,
+      'journalRef': journalRef,
+      'tags': tags,
+      'defaults': defaults.toJson(),
+    };
+  }
 }
 
 const _easReactant = '''14

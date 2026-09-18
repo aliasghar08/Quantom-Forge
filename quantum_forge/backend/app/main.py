@@ -1,8 +1,8 @@
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from uuid import uuid4
-from .models.job import ReactionRequest, JobStatusResponse
-from .services.compute_worker import simulate_ts_search, get_job_status
+from .models.reaction import ReactionRequest, ReactionStatusResponse
+from .services.compute_worker import simulate_ts_search, get_reaction_status
 
 app = FastAPI(title="ColabReaction Compute API", version="1.0.0")
 
@@ -15,25 +15,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/jobs/submit", response_model=JobStatusResponse)
-async def submit_reaction_job(request: ReactionRequest, background_tasks: BackgroundTasks):
-    job_id = str(uuid4())
+@app.post("/reactions/submit", response_model=ReactionStatusResponse)
+async def submit_reaction_reaction(request: ReactionRequest, background_tasks: BackgroundTasks):
+    reaction_id = str(uuid4())
     
     # In a production app, we would enqueue this to Celery/Redis
     # Here we use FastAPI's BackgroundTasks to simulate async worker execution
     background_tasks.add_task(
         simulate_ts_search, 
-        job_id=job_id, 
+        reaction_id=reaction_id, 
         reactant_xyz=request.reactant_xyz, 
         product_xyz=request.product_xyz
     )
     
     # Return initial pending state immediately
-    return get_job_status(job_id)
+    return get_reaction_status(reaction_id)
 
-@app.get("/jobs/{job_id}", response_model=JobStatusResponse)
-async def get_job(job_id: str):
-    return get_job_status(job_id)
+@app.get("/reactions/{reaction_id}", response_model=ReactionStatusResponse)
+async def get_reaction(reaction_id: str):
+    return get_reaction_status(reaction_id)
 
 @app.get("/health")
 def health_check():

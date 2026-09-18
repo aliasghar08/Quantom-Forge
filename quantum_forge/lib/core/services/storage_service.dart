@@ -17,7 +17,7 @@ abstract class StorageService {
   /// Upload raw bytes and return a [StoredFile] with its locator.
   Future<StoredFile> uploadBytes({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required String fileName,
     required Uint8List bytes,
   });
@@ -25,7 +25,7 @@ abstract class StorageService {
   /// Upload from a filesystem path and return a [StoredFile].
   Future<StoredFile> uploadFile({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required String fileName,
     required String filePath,
   });
@@ -33,6 +33,6 @@ abstract class StorageService {
   /// Read the content of a stored file as a UTF-8 string.
   Future<String> readAsString(StoredFile file);
 
-  /// Delete all files for a given job.
-  Future<void> deleteJobFiles(String userId, String jobId);
+  /// Delete all files for a given reaction.
+  Future<void> deleteReactionFiles(String userId, String reactionId);
 }

@@ -16,11 +16,11 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-def process_job(doc_snapshot):
-    job_id = doc_snapshot.id
-    doc_ref = db.collection('queues/ts_searches').document(job_id)
+def process_reaction(doc_snapshot):
+    reaction_id = doc_snapshot.id
+    doc_ref = db.collection('queues/ts_searches').document(reaction_id)
     
-    print(f"Processing job {job_id}...")
+    print(f"Processing reaction {reaction_id}...")
     doc_ref.update({
         'state': 'optimizing',
         'message': 'Starting optimization via Modal Labs...',
@@ -83,7 +83,7 @@ def process_job(doc_snapshot):
         'trajectory_frames': mock_frames,
         'vibrational_modes': mock_vibrations
     })
-    print(f"Job {job_id} completed.")
+    print(f"Reaction {reaction_id} completed.")
 
 def on_snapshot(col_snapshot, changes, read_time):
     for change in changes:
@@ -92,7 +92,7 @@ def on_snapshot(col_snapshot, changes, read_time):
             data = doc.to_dict()
             if data and data.get('state') == 'pending':
                 # Process in a background thread so we don't block the listener
-                threading.Thread(target=process_job, args=(doc,)).start()
+                threading.Thread(target=process_reaction, args=(doc,)).start()
 
 def start_worker():
     print("Starting compute worker listener...")

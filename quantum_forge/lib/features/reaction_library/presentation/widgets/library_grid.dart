@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/reaction_card_widget.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class LibraryGrid extends StatelessWidget {
   final List<ReactionTemplate> items;
@@ -44,19 +45,32 @@ class LibraryGrid extends StatelessWidget {
           }
           
           return SingleChildScrollView(
-            child: Wrap(
-              spacing: 20,
-              runSpacing: 20,
-              children: items.map((item) {
-                return SizedBox(
-                  width: cardWidth,
-                  height: 250, // Fix height so all cards occupy same space
-                  child: ReactionCardWidget(
-                    template: item,
-                    onLoad: () => onTemplateSelected(item),
-                  ),
-                );
-              }).toList(),
+            child: AnimationLimiter(
+              child: Wrap(
+                spacing: 20,
+                runSpacing: 20,
+                children: items.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  return AnimationConfiguration.staggeredGrid(
+                    position: index,
+                    duration: const Duration(milliseconds: 500),
+                    columnCount: 3,
+                    child: ScaleAnimation(
+                      child: FadeInAnimation(
+                        child: SizedBox(
+                          width: cardWidth,
+                          height: 250, // Fix height so all cards occupy same space
+                          child: ReactionCardWidget(
+                            template: item,
+                            onLoad: () => onTemplateSelected(item),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           );
         },

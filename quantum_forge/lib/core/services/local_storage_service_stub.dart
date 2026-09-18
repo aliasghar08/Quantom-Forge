@@ -5,7 +5,7 @@ class LocalStorageService implements StorageService {
   @override
   Future<StoredFile> uploadBytes({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required String fileName,
     required Uint8List bytes,
   }) => throw UnsupportedError('Stub');
@@ -13,7 +13,7 @@ class LocalStorageService implements StorageService {
   @override
   Future<StoredFile> uploadFile({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required String fileName,
     required String filePath,
   }) => throw UnsupportedError('Stub');
@@ -22,11 +22,11 @@ class LocalStorageService implements StorageService {
   Future<String> readAsString(StoredFile file) => throw UnsupportedError('Stub');
 
   @override
-  Future<void> deleteJobFiles(String userId, String jobId) => throw UnsupportedError('Stub');
+  Future<void> deleteReactionFiles(String userId, String reactionId) => throw UnsupportedError('Stub');
 
   Future<String> exportResultsToZip({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required List<String> trajectoryFrames,
     required List<double> energyProfile,
   }) => throw UnsupportedError('Stub');

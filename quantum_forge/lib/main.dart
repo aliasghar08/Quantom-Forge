@@ -1,46 +1,56 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:quantum_forge/features/job_runner/presentation/screens/dashboard_screen.dart';
+import 'package:quantum_forge/features/reaction_runner/presentation/screens/dashboard_screen.dart';
 import 'package:quantum_forge/core/state/provider.dart';
 import 'package:quantum_forge/core/services/local_auth_service.dart';
 import 'package:quantum_forge/core/services/local_storage_service.dart';
-import 'package:quantum_forge/core/services/local_job_repository.dart';
-import 'package:quantum_forge/core/services/job_repository.dart';
+import 'package:quantum_forge/core/services/local_reaction_repository.dart';
+import 'package:quantum_forge/core/services/reaction_repository.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
-import 'package:quantum_forge/features/job_runner/providers/settings_provider.dart';
-import 'package:quantum_forge/features/job_runner/providers/job_provider.dart';
+import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
+import 'package:quantum_forge/features/reaction_runner/providers/reaction_provider.dart';
 import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:quantum_forge/firebase_options.dart';
 import 'package:quantum_forge/features/auth/presentation/screens/auth_screen.dart';
 import 'package:quantum_forge/core/services/firebase_auth_service.dart';
-import 'package:quantum_forge/core/services/firestore_job_repository.dart';
+import 'package:quantum_forge/core/services/firestore_reaction_repository.dart';
 import 'package:quantum_forge/core/services/auth_service.dart';
+import 'package:quantum_forge/features/reaction_library/data/firestore_library_repository.dart';
+import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  try {
+    print('Starting library seed...');
+    await FirestoreLibraryRepository().seedLibrary(kReactionTemplates);
+    print('Library seed completed');
+  } catch (e) {
+    print('Error during seeding: \$e');
+  }
+  
   final authService = FirebaseAuthService();
   final storageService = LocalStorageService();
-  final jobRepository = FirestoreJobRepository();
+  final reactionRepository = FirestoreReactionRepository();
   final filePickerService = FilePickerService();
   
   final settingsNotifier = QuantumSettingsNotifier();
-  final jobNotifier = JobNotifier(authService, storageService, jobRepository);
+  final reactionNotifier = ReactionNotifier(authService, storageService, reactionRepository);
   final chemicalResolverService = ChemicalResolverService();
   
   runApp(ProviderScope(
     dependencies: {
       AuthService: authService,
       QuantumSettingsNotifier: settingsNotifier,
-      JobNotifier: jobNotifier,
+      ReactionNotifier: reactionNotifier,
       FilePickerService: filePickerService,
-      JobRepository: jobRepository,
+      ReactionRepository: reactionRepository,
       ChemicalResolverService: chemicalResolverService,
     },
     child: const QuantumForgeApp(),

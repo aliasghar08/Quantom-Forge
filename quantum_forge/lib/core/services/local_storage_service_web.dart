@@ -8,11 +8,11 @@ class LocalStorageService implements StorageService {
   @override
   Future<StoredFile> uploadBytes({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required String fileName,
     required Uint8List bytes,
   }) async {
-    final locator = '$userId/$jobId/$fileName';
+    final locator = '$userId/$reactionId/$fileName';
     _memoryStorage[locator] = bytes;
     return StoredFile(locator: locator);
   }
@@ -20,12 +20,12 @@ class LocalStorageService implements StorageService {
   @override
   Future<StoredFile> uploadFile({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required String fileName,
     required String filePath,
   }) async {
     // Unsupported on web natively without html file inputs, stub it
-    final locator = '$userId/$jobId/$fileName';
+    final locator = '$userId/$reactionId/$fileName';
     _memoryStorage[locator] = Uint8List(0);
     return StoredFile(locator: locator);
   }
@@ -38,18 +38,18 @@ class LocalStorageService implements StorageService {
   }
 
   @override
-  Future<void> deleteJobFiles(String userId, String jobId) async {
-    final prefix = '$userId/$jobId/';
+  Future<void> deleteReactionFiles(String userId, String reactionId) async {
+    final prefix = '$userId/$reactionId/';
     _memoryStorage.removeWhere((k, v) => k.startsWith(prefix));
   }
 
   Future<String> exportResultsToZip({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required List<String> trajectoryFrames,
     required List<double> energyProfile,
   }) async {
     // Just return a dummy path for web debugging
-    return 'memory://results_$jobId.zip';
+    return 'memory://results_$reactionId.zip';
   }
 }

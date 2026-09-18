@@ -1,6 +1,6 @@
 // ============================================================================
 // LocalStorageService — path_provider based, fully offline.
-// Files are stored in <appDocumentsDir>/colabrxn/users/<userId>/jobs/<jobId>/
+// Files are stored in <appDocumentsDir>/colabrxn/users/<userId>/reactions/<reactionId>/
 // ============================================================================
 
 import 'dart:io';
@@ -13,20 +13,20 @@ import 'storage_service.dart';
 class LocalStorageService implements StorageService {
   static const _appFolder = 'colabrxn';
 
-  Future<String> _jobDir(String userId, String jobId) async {
+  Future<String> _reactionDir(String userId, String reactionId) async {
     final localAppData = Platform.environment['LOCALAPPDATA'];
     if (localAppData == null) throw UnsupportedError('Windows only');
-    return p.join(localAppData, _appFolder, 'users', userId, 'jobs', jobId);
+    return p.join(localAppData, _appFolder, 'users', userId, 'reactions', reactionId);
   }
 
   @override
   Future<StoredFile> uploadBytes({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required String fileName,
     required Uint8List bytes,
   }) async {
-    final dir = await _jobDir(userId, jobId);
+    final dir = await _reactionDir(userId, reactionId);
     await Directory(dir).create(recursive: true);
     final filePath = p.join(dir, fileName);
     await File(filePath).writeAsBytes(bytes);
@@ -36,11 +36,11 @@ class LocalStorageService implements StorageService {
   @override
   Future<StoredFile> uploadFile({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required String fileName,
     required String filePath,
   }) async {
-    final dir = await _jobDir(userId, jobId);
+    final dir = await _reactionDir(userId, reactionId);
     await Directory(dir).create(recursive: true);
     final destPath = p.join(dir, fileName);
     await File(filePath).copy(destPath);
@@ -53,15 +53,15 @@ class LocalStorageService implements StorageService {
   }
 
   @override
-  Future<void> deleteJobFiles(String userId, String jobId) async {
-    final dir = await _jobDir(userId, jobId);
+  Future<void> deleteReactionFiles(String userId, String reactionId) async {
+    final dir = await _reactionDir(userId, reactionId);
     final d = Directory(dir);
     if (await d.exists()) await d.delete(recursive: true);
   }
 
   Future<String> exportResultsToZip({
     required String userId,
-    required String jobId,
+    required String reactionId,
     required List<String> trajectoryFrames,
     required List<double> energyProfile,
   }) async {
@@ -85,10 +85,10 @@ class LocalStorageService implements StorageService {
     final zipEncoder = ZipEncoder();
     final zipData = zipEncoder.encode(archive);
     
-    // For simplicity, we just save to the job folder and return the path
-    final dir = await _jobDir(userId, jobId);
+    // For simplicity, we just save to the reaction folder and return the path
+    final dir = await _reactionDir(userId, reactionId);
     await Directory(dir).create(recursive: true);
-    final zipPath = p.join(dir, 'results_$jobId.zip');
+    final zipPath = p.join(dir, 'results_$reactionId.zip');
     
     await File(zipPath).writeAsBytes(zipData);
     
