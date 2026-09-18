@@ -211,7 +211,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           crossAxisCount: 3,
           crossAxisSpacing: 20,
           mainAxisSpacing: 20,
-          childAspectRatio: 0.88,
+          mainAxisExtent: 320, // Generous fixed height prevents overflow
         ),
         itemCount: items.length,
         itemBuilder: (_, i) => ReactionCardWidget(
