@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/reaction_animation_widget.dart';
-import 'package:quantum_forge/features/job_runner/presentation/widgets/molecular_viewer_widget.dart';
+import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/distinct_molecules_viewer.dart';
+import 'package:quantum_forge/core/utils/xyz_parser.dart';
 
 class TemplateDetailScreen extends StatelessWidget {
   final ReactionTemplate template;
@@ -132,50 +133,21 @@ class TemplateDetailScreen extends StatelessWidget {
 
             // ── Static Molecule Viewers ──────────────────────────────────
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Reactants', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      const SizedBox(height: 8),
-                      Container(
-                        height: 400,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF15151C),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white10),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: MolecularViewerWidget(currentXyzData: template.reactantXyz),
-                        ),
-                      )
-                    ],
-                  )
+                  child: DistinctMoleculesViewer(
+                    title: 'Reactants',
+                    atoms: XyzParser.parse(template.reactantXyz),
+                  ),
                 ),
                 const SizedBox(width: 24),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Products', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      const SizedBox(height: 8),
-                      Container(
-                        height: 400,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF15151C),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white10),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: MolecularViewerWidget(currentXyzData: template.productXyz),
-                        ),
-                      )
-                    ],
-                  )
-                )
+                  child: DistinctMoleculesViewer(
+                    title: 'Products',
+                    atoms: XyzParser.parse(template.productXyz),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 32),
