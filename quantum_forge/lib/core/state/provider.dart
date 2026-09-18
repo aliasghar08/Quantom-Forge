@@ -15,10 +15,11 @@ class ProviderScope extends InheritedWidget {
   bool updateShouldNotify(ProviderScope oldWidget) => false;
 
   static T read<T>(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<ProviderScope>();
-    if (scope == null) {
+    final element = context.getElementForInheritedWidgetOfExactType<ProviderScope>();
+    if (element == null) {
       throw FlutterError('No ProviderScope found in context');
     }
+    final scope = element.widget as ProviderScope;
     final dep = scope.dependencies[T];
     if (dep == null) {
       throw FlutterError('Dependency of type $T not found in ProviderScope');
