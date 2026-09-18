@@ -380,7 +380,7 @@ class _RxnPainterV3 extends CustomPainter {
   final ValueNotifier<Offset> rotNotifier;
   final List<double> energyProfile;
 
-  static const double _scale = 52.0;
+  static const double _scale = 90.0;
   static const double _t1 = 0.22;
   static const double _t2 = 0.48;
   static const double _t3 = 0.70;

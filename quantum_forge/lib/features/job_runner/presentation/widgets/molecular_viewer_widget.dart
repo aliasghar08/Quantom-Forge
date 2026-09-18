@@ -22,7 +22,7 @@ class MolecularViewerWidget extends StatefulWidget {
 class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
   double _rotationX = 0;
   double _rotationY = 0;
-  final double _scale = 20.0;
+  final double _scale = 45.0;
   bool _electronCloudMode = false;
   List<Atom> _atoms = [];
 
