@@ -688,7 +688,7 @@ class _RxnPainterV3 extends CustomPainter {
       glowExtra = 0.20 * math.sin(tsT * math.pi);
     }
 
-    final r = p.atom.radius * _scale * 0.42;
+    final r = p.atom.radius * _scale * 0.25;
     final c = Offset(p.sx, p.sy);
 
     if (p.atom.symbol != 'H') {

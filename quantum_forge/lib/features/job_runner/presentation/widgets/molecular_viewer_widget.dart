@@ -283,7 +283,7 @@ class _MolecularPainter extends CustomPainter {
           canvas.drawLine(Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
         }
       } else if (item is _ProjectedAtom) {
-        final radius = item.atom.radius * scale * 0.5;
+        final radius = item.atom.radius * scale * 0.28;
         final center = Offset(item.screenX, item.screenY);
 
         canvas.save();
