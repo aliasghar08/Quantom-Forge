@@ -47,12 +47,41 @@ def process_job(doc_snapshot):
         frame = f"3\nFrame {index}\nO {oX} {oY} {oZ}\nH {h1X} {h1Y} {h1Z}\nH {h2X} {h2Y} {h2Z}"
         mock_frames.append(frame)
         
+    # Mock vibrational modes (Top 3 imaginary modes for TS)
+    mock_vibrations = [
+        {
+            "frequency": -452.1,
+            "vectors": [
+                [0.0, 0.0, 0.0],         # O
+                [0.0, -0.4, 0.5],        # H1
+                [0.0, -0.6, -0.3]        # H2
+            ]
+        },
+        {
+            "frequency": -120.5,
+            "vectors": [
+                [0.0, 0.0, 0.0],
+                [0.2, 0.1, 0.0],
+                [-0.2, -0.1, 0.0]
+            ]
+        },
+        {
+            "frequency": -50.8,
+            "vectors": [
+                [0.0, 0.1, -0.1],
+                [0.0, -0.1, 0.2],
+                [0.0, 0.2, -0.1]
+            ]
+        }
+    ]
+
     doc_ref.update({
         'state': 'completed',
         'progress': 1.0,
         'message': "Transition state successfully isolated.",
         'energy_profile': mock_energy,
-        'trajectory_frames': mock_frames
+        'trajectory_frames': mock_frames,
+        'vibrational_modes': mock_vibrations
     })
     print(f"Job {job_id} completed.")
 

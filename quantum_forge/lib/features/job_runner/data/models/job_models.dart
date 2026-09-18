@@ -2,6 +2,24 @@
 
 enum JobState { idle, pending, optimizing, completed, error }
 
+class VibrationalMode {
+  final double frequency;
+  final List<List<double>> vectors;
+
+  VibrationalMode({required this.frequency, required this.vectors});
+
+  factory VibrationalMode.fromJson(Map<String, dynamic> json) {
+    return VibrationalMode(
+      frequency: (json['frequency'] as num).toDouble(),
+      vectors: (json['vectors'] as List<dynamic>)
+          .map((row) => (row as List<dynamic>)
+              .map((val) => (val as num).toDouble())
+              .toList())
+          .toList(),
+    );
+  }
+}
+
 class JobStatusResponse {
   final String jobId;
   final JobState state;
@@ -9,6 +27,7 @@ class JobStatusResponse {
   final String? message;
   final List<double>? energyProfile;
   final List<String>? trajectoryFrames;
+  final List<VibrationalMode>? vibrationalModes;
   final DateTime? createdAt;
 
   JobStatusResponse({
@@ -18,6 +37,7 @@ class JobStatusResponse {
     this.message,
     this.energyProfile,
     this.trajectoryFrames,
+    this.vibrationalModes,
     this.createdAt,
   });
 
@@ -52,6 +72,10 @@ class JobStatusResponse {
       trajectoryFrames: (json['trajectory_frames'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
+      vibrationalModes: (json['vibrational_modes'] as List<dynamic>?)
+          ?.map((e) => VibrationalMode.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
     );
   }
 }

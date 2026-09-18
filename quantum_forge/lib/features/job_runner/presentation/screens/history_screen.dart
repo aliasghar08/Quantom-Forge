@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/state/provider.dart';
 import 'package:quantum_forge/core/services/job_repository.dart';
+import 'package:quantum_forge/core/services/auth_service.dart';
 import 'package:quantum_forge/features/job_runner/data/models/job_models.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -23,8 +24,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _loadJobs() async {
     setState(() => _isLoading = true);
     try {
+      final auth = ProviderScope.read<AuthService>(context);
+      final userId = await auth.getUserId();
+      if (!mounted) return;
       final repo = ProviderScope.read<JobRepository>(context);
-      final jobs = await repo.listJobs('');
+      final jobs = await repo.listJobs(userId);
       if (mounted) {
         setState(() {
           _jobs = jobs;
@@ -64,7 +68,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Icon(Icons.history_toggle_off, size: 64, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 16),
             Text(
-              'No past jobs found.',
+              'No past reactions found.',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 16),
             ),
           ],
@@ -78,7 +82,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Job History',
+            'Reaction History',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const SizedBox(height: 24),
@@ -109,7 +113,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
                   title: Text(
-                    'Job ID: ${job.jobId.length > 8 ? '${job.jobId.substring(0, 8)}...' : job.jobId}',
+                    'Reaction: ${job.message != null && job.message!.isNotEmpty ? job.message : job.jobId.length > 8 ? '${job.jobId.substring(0, 8)}...' : job.jobId}',
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(
@@ -122,7 +126,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Job ${job.jobId} selected.')),
+                      SnackBar(content: Text('Reaction selected.')),
                     );
                   },
                 );

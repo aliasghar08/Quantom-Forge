@@ -13,18 +13,17 @@ class ReactionAnimationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final energyProfile = status.energyProfile ?? [];
+    final energyProfile    = status.energyProfile    ?? [];
     final trajectoryFrames = status.trajectoryFrames ?? [];
 
     return GlassCard(
       child: SizedBox(
-        height: 650,
+        height: 1300,               // owns total height, gives animation ~1250
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
               child: Row(
                 children: [
                   const Icon(Icons.animation,
@@ -39,11 +38,10 @@ class ReactionAnimationCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
-                      color:
-                          const Color(0xFF4FC3F7).withValues(alpha: 0.12),
+                      color: const Color(0xFF4FC3F7).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                           color: const Color(0xFF4FC3F7)
@@ -51,14 +49,13 @@ class ReactionAnimationCard extends StatelessWidget {
                     ),
                     child: const Text(
                       'Drag to rotate · Live interpolation',
-                      style:
-                          TextStyle(color: Color(0xFF4FC3F7), fontSize: 10),
+                      style: TextStyle(
+                          color: Color(0xFF4FC3F7), fontSize: 10),
                     ),
                   ),
                 ],
               ),
             ),
-            // Animation canvas
             Expanded(
               child: trajectoryFrames.length >= 3
                   ? ReactionAnimationWidget(

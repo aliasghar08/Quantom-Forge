@@ -5,6 +5,7 @@
 // All widgets are in separate files under dashboard_cards/.
 // ============================================================================
 
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/state/provider.dart';
@@ -22,7 +23,10 @@ import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard
 import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/arrhenius_plot_card.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/thermo_properties_grid.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/molecular_data_cards.dart';
+import 'package:quantum_forge/core/services/storage_service.dart';
+import 'package:quantum_forge/core/services/local_storage_service.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/distinct_molecules_viewer.dart';
+import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/vibrational_analysis_card.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/glass_card.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/job_status_card.dart';
 import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard_cards/job_error_card.dart';
@@ -31,6 +35,10 @@ import 'package:quantum_forge/features/job_runner/presentation/widgets/dashboard
 import 'history_screen.dart';
 import 'coordinate_editor_screen.dart';
 
+import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -38,20 +46,92 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
+class _MoleculeEntry {
+  final String id;
+  PickedFile? file;
+  final TextEditingController ctrl;
+  final FocusNode focus;
+  List<String> suggestions;
+  bool suggestionsLoading;
+  bool isResolving;
+  Timer? debounce;
+
+  _MoleculeEntry({required this.id})
+      : ctrl = TextEditingController(),
+        focus = FocusNode(),
+        suggestions = [],
+        suggestionsLoading = false,
+        isResolving = false;
+
+  bool get resolved => file != null;
+  String get displayName => file?.name.replaceAll('.xyz', '') ?? '';
+
+  void dispose() {
+    ctrl.dispose();
+    focus.dispose();
+    debounce?.cancel();
+  }
+}
+
 class _DashboardScreenState extends State<DashboardScreen> {
   NavDestination _navDest = NavDestination.newJob;
   int? _selectedFrameIndex;
-  PickedFile? _reactantFile;
-  PickedFile? _productFile;
   ReactionTemplate? _activeTemplate;
   bool _controlsPanelOpen = true;
 
+  // Multi-molecule lists (at least 1 entry each)
+  final List<_MoleculeEntry> _reactants = [_MoleculeEntry(id: 'r0')];
+  final List<_MoleculeEntry> _products  = [_MoleculeEntry(id: 'p0')];
+  int _entryCounter = 1;
+
+  @override
+  void dispose() {
+    for (final e in _reactants) {
+      e.dispose();
+    }
+    for (final e in _products) {
+      e.dispose();
+    }
+    super.dispose();
+  }
+
+  // ── Merge multiple XYZ files into one combined XYZ ────────────────────────
+  PickedFile _mergeXyz(List<_MoleculeEntry> entries, String label) {
+    final resolved = entries.where((e) => e.file != null).toList();
+    if (resolved.length == 1) return resolved.first.file!;
+
+    // Combine: sum atom counts, concatenate atom lines
+    int totalAtoms = 0;
+    final atomLines = <String>[];
+    for (final e in resolved) {
+      final raw = String.fromCharCodes(e.file!.bytes!);
+      final lines = raw.trim().split('\n');
+      if (lines.length < 3) continue;
+      final count = int.tryParse(lines[0].trim()) ?? 0;
+      totalAtoms += count;
+      atomLines.addAll(lines.skip(2).take(count));
+    }
+    final combined = '$totalAtoms\nCombined $label\n${atomLines.join('\n')}\n';
+    final bytes = Uint8List.fromList(utf8.encode(combined));
+    return PickedFile(name: 'combined_$label.xyz', size: bytes.length, bytes: bytes);
+  }
+
   // ── Template pre-fill ──────────────────────────────────────────────────────
   void _loadTemplate(ReactionTemplate template) {
+    for (final e in _reactants) {
+      e.dispose();
+    }
+    for (final e in _products) {
+      e.dispose();
+    }
+    _reactants
+      ..clear()
+      ..add(_MoleculeEntry(id: 'r0'));
+    _products
+      ..clear()
+      ..add(_MoleculeEntry(id: 'p0'));
     setState(() {
       _activeTemplate = template;
-      _reactantFile = null;
-      _productFile = null;
       _selectedFrameIndex = null;
       _navDest = NavDestination.newJob;
     });
@@ -63,19 +143,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ));
   }
 
-  Future<void> _pickFile(bool isReactant) async {
+  Future<void> _pickFileForEntry(_MoleculeEntry entry) async {
     final picker = ProviderScope.read<FilePickerService>(context);
     final result = await picker.pickStructureFile();
     if (result != null) {
       setState(() {
-        if (isReactant) {
-          _reactantFile = result;
-        } else {
-          _productFile = result;
-        }
+        entry.file = result;
+        entry.ctrl.text = result.name.replaceAll('.xyz', '');
+        entry.suggestions = [];
         _activeTemplate = null;
       });
     }
+  }
+
+  void _addMolecule(bool isReactant) {
+    setState(() {
+      final entry = _MoleculeEntry(id: '${isReactant ? 'r' : 'p'}${_entryCounter++}');
+      if (isReactant) {
+        _reactants.add(entry);
+      } else {
+        _products.add(entry);
+      }
+      _activeTemplate = null;
+    });
+  }
+
+  void _removeMolecule(bool isReactant, _MoleculeEntry entry) {
+    setState(() {
+      entry.dispose();
+      if (isReactant) {
+        _reactants.remove(entry);
+        if (_reactants.isEmpty) {
+          _reactants.add(_MoleculeEntry(id: 'r${_entryCounter++}'));
+        }
+      } else {
+        _products.remove(entry);
+        if (_products.isEmpty) {
+          _products.add(_MoleculeEntry(id: 'p${_entryCounter++}'));
+        }
+      }
+    });
   }
 
   bool get _canDispatch {
@@ -88,7 +195,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return false;
     }
     if (_activeTemplate != null) return true;
-    return _reactantFile != null && _productFile != null;
+    final rOk = _reactants.any((e) => e.resolved);
+    final pOk = _products.any((e) => e.resolved);
+    return rOk && pOk;
   }
 
   void _dispatch() {
@@ -98,8 +207,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ProviderScope.read<JobNotifier>(context)
           .dispatchFromTemplate(_activeTemplate!, settings);
     } else {
+      final reactantFile = _mergeXyz(_reactants, 'reactant');
+      final productFile  = _mergeXyz(_products,  'product');
       ProviderScope.read<JobNotifier>(context)
-          .dispatchJob(_reactantFile!, _productFile!, settings);
+          .dispatchJob(reactantFile, productFile, settings);
     }
   }
 
@@ -542,59 +653,433 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildFileUploadRow() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _uploadButton('Reactant (.xyz)', _reactantFile, true)),
+        // Reactants Column
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ..._reactants.asMap().entries.map((e) {
+                final i = e.key;
+                final entry = e.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _moleculeInputCard('Reactant ${i + 1}', entry, true),
+                      ),
+                      if (_reactants.length > 1) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, color: Colors.white38),
+                          onPressed: () => _removeMolecule(true, entry),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
+              TextButton.icon(
+                onPressed: () => _addMolecule(true),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add Reactant'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF4FC3F7),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
         const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           child: Icon(Icons.arrow_forward, color: Colors.white24, size: 20),
         ),
-        Expanded(child: _uploadButton('Product (.xyz)', _productFile, false)),
+        // Products Column
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ..._products.asMap().entries.map((e) {
+                final i = e.key;
+                final entry = e.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _moleculeInputCard('Product ${i + 1}', entry, false),
+                      ),
+                      if (_products.length > 1) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, color: Colors.white38),
+                          onPressed: () => _removeMolecule(false, entry),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
+              TextButton.icon(
+                onPressed: () => _addMolecule(false),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add Product'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF4FC3F7),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _uploadButton(String hint, PickedFile? file, bool isReactant) {
-    final uploaded = file != null;
-    return InkWell(
-      onTap: () => _pickFile(isReactant),
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
+  // ── Live-autocomplete molecule input ──────────────────────────────────────
+  Widget _moleculeInputCard(String label, _MoleculeEntry entry, bool isReactant) {
+    final uploaded = entry.resolved;
+    final isResolving = entry.isResolving;
+    final ctrl = entry.ctrl;
+    final focus = entry.focus;
+    final suggestions = entry.suggestions;
+    final suggestionsLoading = entry.suggestionsLoading;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: uploaded
+            ? Colors.greenAccent.withValues(alpha: 0.07)
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
           color: uploaded
-              ? Colors.greenAccent.withValues(alpha: 0.08)
-              : Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: uploaded
-                ? Colors.greenAccent.withValues(alpha: 0.4)
-                : Colors.white.withValues(alpha: 0.15),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              uploaded ? Icons.check_circle : Icons.upload_file_outlined,
-              color: uploaded ? Colors.greenAccent.shade200 : Colors.white38,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                file?.name ?? hint,
-                style: TextStyle(
-                    color: uploaded
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.4),
-                    fontSize: 13,
-                    overflow: TextOverflow.ellipsis),
-              ),
-            ),
-          ],
+              ? Colors.greenAccent.withValues(alpha: 0.45)
+              : Colors.white.withValues(alpha: 0.12),
+          width: 1.5,
         ),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Status header ────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 8, 0),
+            child: Row(
+              children: [
+                Icon(
+                  uploaded ? Icons.check_circle_rounded : Icons.science_outlined,
+                  color: uploaded
+                      ? Colors.greenAccent.shade200
+                      : const Color(0xFF4FC3F7),
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      if (uploaded)
+                        Text(
+                          entry.displayName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (uploaded) ...[
+                  // Source badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.greenAccent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '3D ready',
+                      style: TextStyle(
+                        color: Colors.greenAccent.shade200,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 15, color: Colors.white38),
+                    onPressed: () {
+                      setState(() {
+                        entry.file = null;
+                        entry.ctrl.clear();
+                        entry.suggestions = [];
+                      });
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Clear',
+                  ),
+                ] else if (isResolving)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 12),
+                    child: SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF4FC3F7),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // ── Search input + upload ──────────────────────────────────
+          if (!uploaded) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+              child: Row(
+                children: [
+                  const Icon(Icons.search, color: Color(0xFF4FC3F7), size: 17),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: ctrl,
+                      focusNode: focus,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: '$label name or SMILES…',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.28),
+                          fontSize: 12,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (val) => _onSearchChanged(val, entry),
+                      onSubmitted: (val) {
+                        if (val.trim().isNotEmpty) {
+                          _resolveChemical(entry, query: val.trim());
+                        }
+                      },
+                    ),
+                  ),
+                  // Divider
+                  Container(
+                    width: 1, height: 18,
+                    color: Colors.white12,
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                  ),
+                  // Upload xyz fallback
+                  GestureDetector(
+                    onTap: () => _pickFileForEntry(entry),
+                    child: Tooltip(
+                      message: 'Upload .xyz file',
+                      child: Icon(
+                        Icons.upload_file_rounded,
+                        color: Colors.white.withValues(alpha: 0.35),
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+              ),
+            ),
+            // Divider line
+            Container(
+              height: 1,
+              margin: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+              color: Colors.white.withValues(alpha: 0.07),
+            ),
+          ],
+
+          // ── Live suggestions dropdown ──────────────────────────────
+          if (!uploaded && (suggestions.isNotEmpty || suggestionsLoading)) ...[
+            if (suggestionsLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 12, height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF4FC3F7)),
+                    ),
+                    SizedBox(width: 10),
+                    Text('Searching PubChem…',
+                        style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  ],
+                ),
+              )
+            else
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: suggestions.asMap().entries.map((e) {
+                  final i = e.key;
+                  final suggestion = e.value;
+                  final isLast = i == suggestions.length - 1;
+                  return InkWell(
+                    onTap: () => _onSuggestionSelected(suggestion, entry),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: isLast ? const Radius.circular(10) : Radius.zero,
+                      bottomRight: isLast ? const Radius.circular(10) : Radius.zero,
+                    ),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        border: !isLast
+                            ? Border(bottom: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.05)))
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.science_outlined,
+                              size: 14,
+                              color: Colors.white.withValues(alpha: 0.35)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              suggestion,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Icon(Icons.north_west_rounded,
+                              size: 12,
+                              color: Colors.white.withValues(alpha: 0.2)),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            const SizedBox(height: 4),
+          ] else if (!uploaded)
+            const SizedBox(height: 10),
+        ],
+      ),
     );
+  }
+
+  // ── Debounced suggestion fetch ─────────────────────────────────────────────
+  void _onSearchChanged(String val, _MoleculeEntry entry) {
+    entry.debounce?.cancel();
+
+    if (val.trim().length < 2) {
+      setState(() {
+        entry.suggestions = [];
+        entry.suggestionsLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      entry.suggestionsLoading = true;
+    });
+
+    final timer = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted) return;
+      try {
+        final resolver = ProviderScope.read<ChemicalResolverService>(context);
+        final results = await resolver.getSuggestions(val.trim());
+        if (mounted) {
+          setState(() {
+            entry.suggestions = results;
+            entry.suggestionsLoading = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            entry.suggestionsLoading = false;
+          });
+        }
+      }
+    });
+
+    entry.debounce = timer;
+  }
+
+  // ── Suggestion selected: populate field + resolve immediately ─────────────
+  void _onSuggestionSelected(String suggestion, _MoleculeEntry entry) {
+    entry.ctrl.text = suggestion;
+    setState(() {
+      entry.suggestions = [];
+    });
+    _resolveChemical(entry, query: suggestion);
+  }
+
+  // ── XYZ resolution ────────────────────────────────────────────────────────
+  Future<void> _resolveChemical(_MoleculeEntry entry, {String? query}) async {
+    final q = query ?? entry.ctrl.text.trim();
+    if (q.isEmpty) return;
+
+    setState(() {
+      entry.isResolving = true;
+    });
+
+    try {
+      final resolver = ProviderScope.read<ChemicalResolverService>(context);
+      final xyzData = await resolver.resolveToXyz(q);
+
+      if (xyzData != null) {
+        final bytes = Uint8List.fromList(utf8.encode(xyzData));
+        final picked = PickedFile(
+          name: '${q.replaceAll(RegExp(r'[^\w\-.]'), '_')}.xyz',
+          size: bytes.length,
+          bytes: bytes,
+        );
+        setState(() {
+          entry.file = picked;
+          entry.suggestions = [];
+          _activeTemplate = null;
+        });
+      } else {
+        _showError('No 3D structure found for "$q". Try a different name or SMILES.');
+      }
+    } catch (e) {
+      _showError('Error resolving "$query": $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          entry.isResolving = false;
+        });
+      }
+    }
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: Colors.redAccent,
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   // ── Results area ───────────────────────────────────────────────────────────
@@ -673,6 +1158,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Column(
           children: [
+            // Export Button Row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final storage = ProviderScope.read<StorageService>(context);
+                    if (storage is LocalStorageService) {
+                      try {
+                        final path = await storage.exportResultsToZip(
+                          userId: 'local_user',
+                          jobId: status.jobId,
+                          trajectoryFrames: status.trajectoryFrames ?? [],
+                          energyProfile: status.energyProfile ?? [],
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Exported to: $path')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Export failed: $e')),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('Export Results (.zip)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4FC3F7).withValues(alpha: 0.15),
+                    foregroundColor: const Color(0xFF4FC3F7),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             // Energy profile
             SizedBox(
               height: 340,
@@ -733,6 +1259,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // Reaction animation card (extracted widget)
             ReactionAnimationCard(status: status),
             const SizedBox(height: 16),
+
+            // Vibrational Analysis Card
+            if (status.vibrationalModes != null && status.vibrationalModes!.isNotEmpty) ...[
+              VibrationalAnalysisCard(status: status),
+              const SizedBox(height: 16),
+            ],
           ],
         );
       },

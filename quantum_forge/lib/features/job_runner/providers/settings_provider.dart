@@ -20,9 +20,15 @@ class QuantumSettings {
   final String optimizerAlgorithm;
   final int maxSteps;
   final String convergence;
+  final String dmfConvergence;
+  final int nmove;
+  final bool updateTeval;
   final double maxForceNorm;
   final int nebImages;
   final double springConstant;
+
+  // --- Credentials ---
+  final String hfToken;
 
   // --- Catalyst ---
   final String catalyst;
@@ -48,9 +54,14 @@ class QuantumSettings {
     this.optimizerAlgorithm = 'NEB-CI',
     this.maxSteps = 300,
     this.convergence = 'Normal',
+    this.dmfConvergence = 'Normal',
+    this.nmove = 20,
+    this.updateTeval = false,
     this.maxForceNorm = 0.05,
     this.nebImages = 12,
     this.springConstant = 0.1,
+    // Credentials
+    this.hfToken = '',
     // Analysis
     this.zpeCorrection = true,
     this.computeThermochemistry = true,
@@ -74,9 +85,13 @@ class QuantumSettings {
       other.optimizerAlgorithm == optimizerAlgorithm &&
       other.maxSteps == maxSteps &&
       other.convergence == convergence &&
+      other.dmfConvergence == dmfConvergence &&
+      other.nmove == nmove &&
+      other.updateTeval == updateTeval &&
       other.maxForceNorm == maxForceNorm &&
       other.nebImages == nebImages &&
       other.springConstant == springConstant &&
+      other.hfToken == hfToken &&
       other.zpeCorrection == zpeCorrection &&
       other.computeThermochemistry == computeThermochemistry &&
       other.runIrc == runIrc &&
@@ -97,9 +112,13 @@ class QuantumSettings {
       optimizerAlgorithm,
       maxSteps,
       convergence,
+      dmfConvergence,
+      nmove,
+      updateTeval,
       maxForceNorm,
       nebImages,
       springConstant,
+      hfToken,
       zpeCorrection,
       computeThermochemistry,
       runIrc,
@@ -119,9 +138,13 @@ class QuantumSettings {
     String? optimizerAlgorithm,
     int? maxSteps,
     String? convergence,
+    String? dmfConvergence,
+    int? nmove,
+    bool? updateTeval,
     double? maxForceNorm,
     int? nebImages,
     double? springConstant,
+    String? hfToken,
     bool? zpeCorrection,
     bool? computeThermochemistry,
     bool? runIrc,
@@ -139,9 +162,13 @@ class QuantumSettings {
       optimizerAlgorithm: optimizerAlgorithm ?? this.optimizerAlgorithm,
       maxSteps: maxSteps ?? this.maxSteps,
       convergence: convergence ?? this.convergence,
+      dmfConvergence: dmfConvergence ?? this.dmfConvergence,
+      nmove: nmove ?? this.nmove,
+      updateTeval: updateTeval ?? this.updateTeval,
       maxForceNorm: maxForceNorm ?? this.maxForceNorm,
       nebImages: nebImages ?? this.nebImages,
       springConstant: springConstant ?? this.springConstant,
+      hfToken: hfToken ?? this.hfToken,
       zpeCorrection: zpeCorrection ?? this.zpeCorrection,
       computeThermochemistry: computeThermochemistry ?? this.computeThermochemistry,
       runIrc: runIrc ?? this.runIrc,
@@ -161,9 +188,13 @@ class QuantumSettings {
         'optimizer_algorithm': optimizerAlgorithm,
         'max_steps': maxSteps,
         'convergence': convergence,
+        'dmf_convergence': dmfConvergence,
+        'nmove': nmove,
+        'update_teval': updateTeval,
         'max_force_norm': maxForceNorm,
         'neb_images': nebImages,
         'spring_constant': springConstant,
+        'hf_token': hfToken,
         'zpe_correction': zpeCorrection,
         'compute_thermochemistry': computeThermochemistry,
         'run_irc': runIrc,
@@ -211,10 +242,14 @@ class QuantumSettingsNotifier extends ValueNotifier<QuantumSettings> {
       catalyst: prefs.getString(_keyCatalyst) ?? 'None',
       optimizerAlgorithm: prefs.getString(_keyAlgo) ?? 'NEB-CI',
       maxSteps: prefs.getInt(_keySteps) ?? 300,
-      convergence: prefs.getString(_keyConv) ?? 'Normal',
-      maxForceNorm: prefs.getDouble(_keyForce) ?? 0.05,
-      nebImages: prefs.getInt(_keyImages) ?? 12,
-      springConstant: prefs.getDouble(_keySpring) ?? 0.1,
+      convergence: prefs.getString('convergence') ?? 'Normal',
+      dmfConvergence: prefs.getString('dmfConvergence') ?? 'Normal',
+      nmove: prefs.getInt('nmove') ?? 20,
+      updateTeval: prefs.getBool('updateTeval') ?? false,
+      maxForceNorm: prefs.getDouble('maxForceNorm') ?? 0.05,
+      nebImages: prefs.getInt('nebImages') ?? 12,
+      springConstant: prefs.getDouble('springConstant') ?? 0.1,
+      hfToken: prefs.getString('hfToken') ?? '',
       zpeCorrection: prefs.getBool(_keyZpe) ?? true,
       computeThermochemistry: prefs.getBool(_keyThermo) ?? true,
       runIrc: prefs.getBool(_keyIrc) ?? false,
@@ -234,10 +269,14 @@ class QuantumSettingsNotifier extends ValueNotifier<QuantumSettings> {
     await prefs.setString(_keyCatalyst, s.catalyst);
     await prefs.setString(_keyAlgo, s.optimizerAlgorithm);
     await prefs.setInt(_keySteps, s.maxSteps);
-    await prefs.setString(_keyConv, s.convergence);
-    await prefs.setDouble(_keyForce, s.maxForceNorm);
-    await prefs.setInt(_keyImages, s.nebImages);
-    await prefs.setDouble(_keySpring, s.springConstant);
+    await prefs.setString('convergence', s.convergence);
+    await prefs.setString('dmfConvergence', s.dmfConvergence);
+    await prefs.setInt('nmove', s.nmove);
+    await prefs.setBool('updateTeval', s.updateTeval);
+    await prefs.setDouble('maxForceNorm', s.maxForceNorm);
+    await prefs.setInt('nebImages', s.nebImages);
+    await prefs.setDouble('springConstant', s.springConstant);
+    await prefs.setString('hfToken', s.hfToken);
     await prefs.setBool(_keyZpe, s.zpeCorrection);
     await prefs.setBool(_keyThermo, s.computeThermochemistry);
     await prefs.setBool(_keyIrc, s.runIrc);

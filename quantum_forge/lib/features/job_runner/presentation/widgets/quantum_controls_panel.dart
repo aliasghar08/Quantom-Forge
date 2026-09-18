@@ -386,6 +386,16 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel>
             ],
           ),
         ),
+        const SizedBox(height: 16),
+        _sectionLabel('Credentials'),
+        const SizedBox(height: 8),
+        TextFormField(
+          initialValue: s.hfToken,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+          obscureText: true,
+          decoration: _inputDecoration('Hugging Face API Token'),
+          onChanged: (v) => n.update((q) => q.copyWith(hfToken: v)),
+        ),
       ],
     );
   }
@@ -469,6 +479,13 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel>
           items: _convergences,
           onChanged: (v) => n.update((q) => q.copyWith(convergence: v)),
         ),
+        const SizedBox(height: 12),
+        _dropdownField(
+          label: 'DMF Convergence',
+          value: s.dmfConvergence,
+          items: const ['Loose', 'Normal', 'Tight'],
+          onChanged: (v) => n.update((q) => q.copyWith(dmfConvergence: v)),
+        ),
         const SizedBox(height: 16),
 
         _labeledWidget(
@@ -483,6 +500,26 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel>
             inactiveColor: Colors.white12,
             onChanged: (v) => n.update((q) => q.copyWith(maxSteps: v.round())),
           ),
+        ),
+        const SizedBox(height: 8),
+        _labeledWidget(
+          'nmove',
+          '${s.nmove}',
+          Slider(
+            value: s.nmove.toDouble(),
+            min: 1,
+            max: 100,
+            divisions: 99,
+            activeColor: const Color(0xFF4FC3F7),
+            inactiveColor: Colors.white12,
+            onChanged: (v) => n.update((q) => q.copyWith(nmove: v.round())),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _switchRow(
+          'Update Teval',
+          s.updateTeval,
+          (v) => n.update((q) => q.copyWith(updateTeval: v)),
         ),
         const SizedBox(height: 8),
 

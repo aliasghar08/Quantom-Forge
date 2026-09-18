@@ -8,6 +8,7 @@ import 'package:quantum_forge/core/services/job_repository.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
 import 'package:quantum_forge/features/job_runner/providers/settings_provider.dart';
 import 'package:quantum_forge/features/job_runner/providers/job_provider.dart';
+import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,7 @@ void main() async {
   
   final settingsNotifier = QuantumSettingsNotifier();
   final jobNotifier = JobNotifier(authService, storageService, jobRepository);
+  final chemicalResolverService = ChemicalResolverService();
   
   runApp(ProviderScope(
     dependencies: {
@@ -26,6 +28,7 @@ void main() async {
       JobNotifier: jobNotifier,
       FilePickerService: filePickerService,
       JobRepository: jobRepository,
+      ChemicalResolverService: chemicalResolverService,
     },
     child: const QuantumForgeApp(),
   ));

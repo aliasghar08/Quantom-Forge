@@ -22,7 +22,7 @@ class MolecularViewerWidget extends StatefulWidget {
 class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
   double _rotationX = 0;
   double _rotationY = 0;
-  final double _scale = 45.0;
+  final double _scale = 60.0;
   bool _electronCloudMode = false;
   bool _showBondData = false;
   List<Atom> _atoms = [];
@@ -118,10 +118,84 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
             ],
           ),
         ),
+        if (_showBondData) 
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _buildBondEnergiesPanel(),
+          ),
       ],
     );
   }
+
+  Widget _buildBondEnergiesPanel() {
+    final bonds = <_CalculatedBond>[];
+    int bondIdx = 1;
+    for (int i = 0; i < _atoms.length; i++) {
+      for (int j = i + 1; j < _atoms.length; j++) {
+        final a1 = _atoms[i], a2 = _atoms[j];
+        final dx = a1.x - a2.x, dy = a1.y - a2.y, dz = a1.z - a2.z;
+        final dist = math.sqrt(dx*dx + dy*dy + dz*dz);
+        final idealDist = a1.covalentRadius + a2.covalentRadius;
+        if (dist < idealDist * 1.6) {
+          bonds.add(_CalculatedBond(a1, a2, dist, idealDist, bondIdx++));
+        }
+      }
+    }
+
+    if (bonds.isEmpty) return const SizedBox.shrink();
+
+    double scaleFactor = widget.settings?.temperatureK != null ? (widget.settings!.temperatureK / 300.0) : 1.0;
+    if (widget.settings?.solventModel != null && widget.settings!.solventModel != 'Vacuum') scaleFactor *= 0.85;
+    if (widget.settings?.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
+    final chargeShift = (widget.settings?.charge ?? 0) * 1.5;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.3),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Bond Energies', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: bonds.map((b) {
+              final energy = 100 * math.exp(-2.0 * (b.dist - b.idealDist)) * scaleFactor + chargeShift;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle),
+                    child: Text('${b.index}', style: const TextStyle(color: Colors.black87, fontSize: 9, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 6),
+                  Text('${b.a1.symbol}–${b.a2.symbol}: ${energy.toStringAsFixed(1)} kcal/mol',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 11)),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
+class _CalculatedBond {
+  final Atom a1, a2;
+  final double dist, idealDist;
+  final int index;
+  _CalculatedBond(this.a1, this.a2, this.dist, this.idealDist, this.index);
+}
+
 
 class _MolecularPainter extends CustomPainter {
   final List<Atom> atoms;
@@ -213,10 +287,10 @@ class _MolecularPainter extends CustomPainter {
     double dynamicScale = scale;
     if (maxDistSq > 0.01) {
       final maxDist = math.sqrt(maxDistSq);
-      // Target 65% of the smallest screen dimension so it fits beautifully
-      final targetSize = math.min(size.width, size.height) * 0.65;
+      // Target 85% of the smallest screen dimension — gives atoms plenty of breathing room
+      final targetSize = math.min(size.width, size.height) * 0.85;
       dynamicScale = targetSize / (2 * maxDist);
-      dynamicScale = dynamicScale.clamp(10.0, 150.0);
+      dynamicScale = dynamicScale.clamp(25.0, 200.0);
     }
 
     // Project atoms
@@ -323,7 +397,7 @@ class _MolecularPainter extends CustomPainter {
           textPainter.paint(canvas, Offset(midX - textPainter.width / 2, midY - textPainter.height / 2));
         }
       } else if (item is _ProjectedAtom) {
-        final radius = item.atom.radius * scale * 0.15;
+        final radius = item.atom.radius * scale * 0.25;
         final center = Offset(item.screenX, item.screenY);
 
         canvas.save();
@@ -352,66 +426,8 @@ class _MolecularPainter extends CustomPainter {
         }
       }
     }
-
-    if (showBondData && projectedBonds.isNotEmpty) {
-      _drawBondLegend(canvas, size, projectedBonds);
-    }
   }
 
-  void _drawBondLegend(Canvas canvas, Size size, List<_ProjectedBond> bonds) {
-    const pad = 12.0;
-    double scaleFactor = settings?.temperatureK != null ? (settings!.temperatureK / 300.0) : 1.0;
-    if (settings?.solventModel != null && settings!.solventModel != 'Vacuum') scaleFactor *= 0.85;
-    if (settings?.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
-    final chargeShift = (settings?.charge ?? 0) * 1.5;
-
-    // Create sorted list of bonds by index
-    final sortedBonds = List<_ProjectedBond>.from(bonds)..sort((a, b) => a.index.compareTo(b.index));
-    
-    // Build text paragraphs
-    final spans = <TextSpan>[];
-    spans.add(const TextSpan(
-      text: 'Bond Energies\n',
-      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)
-    ));
-    
-    for (final b in sortedBonds) {
-      final energy = 100 * math.exp(-2.0 * (b.distance - b.idealDist)) * scaleFactor + chargeShift;
-      spans.add(TextSpan(
-        text: '  ${b.index}.  ',
-        style: const TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold)
-      ));
-      spans.add(TextSpan(
-        text: '${b.p1.atom.symbol}–${b.p2.atom.symbol}  :  ${energy.toStringAsFixed(1)} kcal/mol\n',
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 10)
-      ));
-    }
-    
-    final tp = TextPainter(
-      text: TextSpan(children: spans),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: size.width - 24);
-
-    final rect = Rect.fromLTWH(
-      pad, 
-      size.height - tp.height - pad, 
-      tp.width + pad * 2, 
-      tp.height + pad
-    );
-    
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(8)), 
-      Paint()..color = Colors.black.withValues(alpha: 0.7)
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(8)), 
-      Paint()..color = Colors.white.withValues(alpha: 0.15)..style = PaintingStyle.stroke
-    );
-    
-    tp.paint(canvas, Offset(pad * 2, size.height - tp.height - pad + 6));
-  }
-
-  
   void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Paint paint) {
     final dashWidth = 5.0;
     final dashSpace = 5.0;
