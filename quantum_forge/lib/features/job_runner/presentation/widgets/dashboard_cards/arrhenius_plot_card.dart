@@ -13,8 +13,8 @@ class ArrheniusPlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 220,
+    return AspectRatio(
+      aspectRatio: 2.5,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.03),
@@ -30,11 +30,14 @@ class ArrheniusPlotCard extends StatelessWidget {
                 children: [
                   const Icon(Icons.trending_down, color: Color(0xFF4FC3F7), size: 16),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Arrhenius Plot — ln(k) vs Temperature (200 K → 1000 K)',
-                    style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                  const Expanded(
+                    child: Text(
+                      'Arrhenius Plot — ln(k) vs Temperature (200 K → 1000 K)',
+                      style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(

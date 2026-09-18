@@ -12,4 +12,13 @@ abstract class AuthService {
 
   /// Sign out / clear session.
   Future<void> signOut();
+
+  /// Sign in with email and password
+  Future<void> signIn(String email, String password);
+
+  /// Sign up with email and password
+  Future<void> signUp(String email, String password);
+
+  /// Sign in with Google
+  Future<void> signInWithGoogle();
 }

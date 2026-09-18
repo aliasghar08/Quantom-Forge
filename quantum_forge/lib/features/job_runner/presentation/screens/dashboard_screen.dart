@@ -1200,8 +1200,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 16),
 
             // Energy profile
-            SizedBox(
-              height: 340,
+            AspectRatio(
+              aspectRatio: 1.8,
               child: EnergyProfileCard(
                 energyProfile: scaledProfile,
                 referenceEa: scaledRefEa,

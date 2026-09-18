@@ -29,11 +29,11 @@ class ThermoPropertiesGrid extends StatelessWidget {
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 220,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 2.4,
+                mainAxisExtent: 70, // Fixed height for tiles instead of aspect ratio
               ),
               itemCount: metrics.length,
               itemBuilder: (context, index) {

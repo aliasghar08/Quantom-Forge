@@ -1,5 +1,15 @@
 // ============================================================================
 // Reaction Animation Card — wraps ReactionAnimationWidget in a glass card
+//
+// v2 changes:
+//   * Removed SizedBox(height: 1300) — the card no longer caps its own height.
+//   * Removed Expanded around the child — no bounded box to fight against.
+//   * Column uses mainAxisSize.min so the card sizes to its content.
+//   * Wrapped the whole thing in a SingleChildScrollView as a safety net.
+//     If any ancestor hands us a bounded, small box, we scroll internally
+//     instead of overflowing. If the ancestor is unbounded (the normal case
+//     because the dashboard already has a page-level scroll view), the inner
+//     scroll view silently sizes to content and no scrollbar appears.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -17,11 +27,16 @@ class ReactionAnimationCard extends StatelessWidget {
     final trajectoryFrames = status.trajectoryFrames ?? [];
 
     return GlassCard(
-      child: SizedBox(
-        height: 1300,               // owns total height, gives animation ~1250
+      // SingleChildScrollView defends against any upstream height cap.
+      // Under normal conditions the parent is unbounded, so this is a
+      // pass-through and the page itself scrolls.
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ── Header ─────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
               child: Row(
@@ -56,21 +71,26 @@ class ReactionAnimationCard extends StatelessWidget {
                 ],
               ),
             ),
-            Expanded(
-              child: trajectoryFrames.length >= 3
-                  ? ReactionAnimationWidget(
-                      trajectoryFrames: trajectoryFrames,
-                      energyProfile:
-                          energyProfile.isEmpty ? null : energyProfile,
-                    )
-                  : const Center(
-                      child: Text(
-                        'Need ≥ 3 trajectory frames for animation',
-                        style:
-                            TextStyle(color: Colors.white38, fontSize: 13),
-                      ),
-                    ),
-            ),
+
+            // ── Animation ──────────────────────────────────────────
+            // No SizedBox, no Expanded — the widget owns its own height.
+            if (trajectoryFrames.length >= 3)
+              ReactionAnimationWidget(
+                trajectoryFrames: trajectoryFrames,
+                energyProfile:
+                    energyProfile.isEmpty ? null : energyProfile,
+              )
+            else
+              const AspectRatio(
+                aspectRatio: 1.5,
+                child: Center(
+                  child: Text(
+                    'Need ≥ 3 trajectory frames for animation',
+                    style:
+                        TextStyle(color: Colors.white38, fontSize: 13),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

@@ -11,11 +11,16 @@ class LibraryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 32, 32, 0),
-      child: Row(
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Expanded(
+          Container(
+            constraints: const BoxConstraints(minWidth: 200),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
                   'Reaction Library',
@@ -36,10 +41,10 @@ class LibraryHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 16),
           // Search field
-          SizedBox(
+          Container(
             width: 320,
+            constraints: const BoxConstraints(maxWidth: 320),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: BackdropFilter(

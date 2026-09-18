@@ -34,4 +34,13 @@ class LocalAuthService implements AuthService {
     final prefs = await LocalPrefs.getInstance();
     await prefs.remove(_keyUserId);
   }
+
+  @override
+  Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
+  Future<void> signInWithGoogle() async {}
 }

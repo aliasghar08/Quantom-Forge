@@ -1,26 +1,36 @@
 {
   "project_info": {
-    "project_number": "602102819037",
-    "project_id": "colab-reaction",
-    "storage_bucket": "colab-reaction.firebasestorage.app"
+    "project_number": "227207155336",
+    "project_id": "quantom-forge",
+    "storage_bucket": "quantom-forge.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:602102819037:android:43e6fc53b7ee2708551334",
+        "mobilesdk_app_id": "1:227207155336:android:5e88f11d1c63967fbd993d",
         "android_client_info": {
           "package_name": "com.example.quantum_forge"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "227207155336-qb7nr2ouk9668cl78s50u2cj29q1q0r2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyCn6t5T7dNWqQg7dBgLGuBtfO5O6t77g-g"
+          "current_key": "AIzaSyA_QQpqYcZSMgAtr5owEALLHdlqUKG7f7c"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "227207155336-qb7nr2ouk9668cl78s50u2cj29q1q0r2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

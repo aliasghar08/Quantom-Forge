@@ -36,7 +36,6 @@ class TemplateDetailScreen extends StatelessWidget {
           children: [
             // ── Animation Viewer Header ─────────────────────────────────────
             Container(
-              height: 350,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: const Color(0xFF15151C),

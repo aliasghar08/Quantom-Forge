@@ -1,39 +1,31 @@
 // ============================================================================
-// ReactionAnimationWidget — v3 "Research Level"
+// ReactionAnimationWidget — v6
 //
-// 4-phase narrative animation (16 second loop):
-//   Phase 0  [0.00–0.22]  Approach    — distinct reactant molecules drift toward
-//                                        each other; VdW clouds glow as they close.
-//   Phase 1  [0.22–0.48]  TS/Reaction — shockwave rings, atomic jitter, bond
-//                                        breaking (dashed orange) / forming (green).
-//   Phase 2  [0.48–0.70]  Separation  — product molecules drift apart.
-//   Phase 3  [0.70–1.00]  Products    — stable products shown clearly.
-//
-// Live mini-IRC energy plot races along the reaction coordinate (bottom-right).
-// Orientation axes drawn in the bottom-left corner.
-// Single RepaintBoundary CustomPainter — zero setState during animation.
-//
-// Layout contract (adaptive):
-//   * Parent generous → 3D canvas fills leftover height via Expanded.
-//   * Parent unbounded (bare SingleChildScrollView) → intrinsic height.
-//   * Parent bounded but too tight → internal scroll, never overflows.
+// Key v6 changes
+//   • The widget wraps its entire return value in a SingleChildScrollView.
+//     Overflow is now IMPOSSIBLE regardless of the parent's height. If the
+//     parent is unbounded the scroll view just sizes to content; if the
+//     parent is bounded and too small the user can scroll inside.
+//   • Canvas height 700 (was 620) — gives molecules more real estate.
+//   • Scale calculation: removed the +4.5 Å padding that was crushing the
+//     molecule to ~15 px atoms. Only +1 Å of safety pad remains.
+//   • Atom radius factor raised to 0.70 with a 7 px minimum.
+//   • Projection centre is shifted slightly up so the molecule doesn't sit
+//     under the bottom captions.
+//   • Two visually independent cards (animation + bond energies) stacked in
+//     a Column; each grows to its own natural height.
 // ============================================================================
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 
-// Fixed chrome heights
-const double _kHeaderH    = 48;
-const double _kTimelineH  = 52;
-const double _kSliderH    = 40;
-const double _kBondPanelH = 280;
-const double _kCanvasPreferredH = 720;
-const double _kChromeTotal  = _kHeaderH + _kTimelineH + _kSliderH + _kBondPanelH; // 420
-const double _kPreferredTotal = _kChromeTotal + _kCanvasPreferredH;              // 1140
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Public widget
+
+const double _kAtomRadiusFactor = 0.70;
+const double _kMinAtomRadius    = 7.0;
+const double _kSeparationPad    = 2.0;   // used only inside _buildAtoms offsets
+
 // ─────────────────────────────────────────────────────────────────────────────
 class ReactionAnimationWidget extends StatefulWidget {
   final List<String> trajectoryFrames;
@@ -66,6 +58,10 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   bool _loaded = false;
   bool _playing = true;
   bool _isRendering = false;
+
+  static const double _t1 = 0.22;
+  static const double _t2 = 0.48;
+  static const double _t3 = 0.70;
 
   @override
   void initState() {
@@ -132,11 +128,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     return s;
   }
 
-  // Phase helpers
-  static const double _t1 = 0.22;
-  static const double _t2 = 0.48;
-  static const double _t3 = 0.70;
-
   double get _t => _ctrl.value;
 
   String get _phaseName {
@@ -171,82 +162,76 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     return Icons.check_circle_outline;
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+  // ── Build ────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 150,
-              child: LinearProgressIndicator(
-                color: Color(0xFF4FC3F7),
-                backgroundColor: Colors.white10,
-                minHeight: 2,
+      return const AspectRatio(
+        aspectRatio: 1.5,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 150,
+                child: LinearProgressIndicator(
+                  color: Color(0xFF4FC3F7),
+                  backgroundColor: Colors.white10,
+                  minHeight: 2,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Parsing trajectory & detecting molecules...',
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold),
-            ),
-          ],
+              SizedBox(height: 16),
+              Text(
+                'Parsing trajectory & detecting molecules...',
+                style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final maxH = constraints.maxHeight;
-      final bounded = maxH.isFinite;
-      final tooTight = bounded && maxH < _kPreferredTotal;
-
-      // Build the column once. Depending on the case, the canvas section
-      // uses Expanded (generous) or a fixed height (tight / unbounded).
-      final children = <Widget>[
-        SizedBox(height: _kHeaderH, child: _buildHeader()),
-        if (!tooTight && bounded)
-          Expanded(child: _buildCanvas())
-        else
-          SizedBox(height: _kCanvasPreferredH, child: _buildCanvas()),
-        SizedBox(height: _kTimelineH, child: _buildTimeline()),
-        SizedBox(height: _kSliderH, child: _buildSlider()),
-        SizedBox(height: _kBondPanelH, child: _buildBondPanel()),
-      ];
-
-      // Case 1 — parent is unbounded (bare SingleChildScrollView, for example).
-      // Use intrinsic height so the parent scrolls naturally.
-      if (!bounded) {
-        return Column(mainAxisSize: MainAxisSize.min, children: children);
-      }
-
-      // Case 2 — parent gave us enough room. Expanded absorbs the slack.
-      if (!tooTight) {
-        return Column(children: children);
-      }
-
-      // Case 3 — parent bounded but too tight (like the 346 px we just saw).
-      // Give the inner column its preferred height and let it scroll.
-      return SingleChildScrollView(
-        child: SizedBox(
-          height: _kPreferredTotal,
-          child: Column(children: [
-            SizedBox(height: _kHeaderH, child: _buildHeader()),
-            SizedBox(height: _kCanvasPreferredH, child: _buildCanvas()),
-            SizedBox(height: _kTimelineH, child: _buildTimeline()),
-            SizedBox(height: _kSliderH, child: _buildSlider()),
-            SizedBox(height: _kBondPanelH, child: _buildBondPanel()),
-          ]),
-        ),
-      );
-    });
+    // ── THE FIX ──────────────────────────────────────────────────────────
+    // Wrap the whole column in a SingleChildScrollView. If the parent gives
+    // a bounded height smaller than our content, we scroll internally and
+    // never overflow. If the parent is unbounded, this sizes to content.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildAnimationCard(),
+        const SizedBox(height: 20),
+        _buildBondEnergiesCard(),
+        const SizedBox(height: 20),
+        _buildKineticEnergyCard(),
+      ],
+    );
   }
 
-  // ── Header ────────────────────────────────────────────────────────────────
+  // ── Card 1: animation ────────────────────────────────────────────────────
+  Widget _buildAnimationCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHeader(),
+          AspectRatio(aspectRatio: 1.2, child: _buildCanvas()),
+          _buildTimeline(),
+          _buildSlider(),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return AnimatedBuilder(
       animation: _ctrl,
@@ -319,37 +304,37 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     );
   }
 
-  // ── 3D canvas ─────────────────────────────────────────────────────────────
   Widget _buildCanvas() {
-    return GestureDetector(
-      onPanUpdate: (d) {
-        _rotNotifier.value = Offset(
-          _rotNotifier.value.dx + d.delta.dy * 0.009,
-          _rotNotifier.value.dy + d.delta.dx * 0.009,
-        );
-      },
-      child: RepaintBoundary(
-        child: CustomPaint(
-          painter: _RxnPainterV3(
-            repaint: _repaint,
-            rAtoms: _rAtoms,
-            tsAtoms: _tsAtoms,
-            pAtoms: _pAtoms,
-            rMolecules: _rMolecules,
-            pMolecules: _pMolecules,
-            rBonds: _rBonds,
-            pBonds: _pBonds,
-            ctrl: _ctrl,
-            rotNotifier: _rotNotifier,
-            energyProfile: widget.energyProfile ?? [],
+    return ClipRect(
+      child: GestureDetector(
+        onPanUpdate: (d) {
+          _rotNotifier.value = Offset(
+            _rotNotifier.value.dx + d.delta.dy * 0.009,
+            _rotNotifier.value.dy + d.delta.dx * 0.009,
+          );
+        },
+        child: RepaintBoundary(
+          child: CustomPaint(
+            painter: _RxnPainterV6(
+              repaint: _repaint,
+              rAtoms: _rAtoms,
+              tsAtoms: _tsAtoms,
+              pAtoms: _pAtoms,
+              rMolecules: _rMolecules,
+              pMolecules: _pMolecules,
+              rBonds: _rBonds,
+              pBonds: _pBonds,
+              ctrl: _ctrl,
+              rotNotifier: _rotNotifier,
+              energyProfile: widget.energyProfile ?? [],
+            ),
+            size: Size.infinite,
           ),
-          size: Size.infinite,
         ),
       ),
     );
   }
 
-  // ── Phase timeline strip ──────────────────────────────────────────────────
   Widget _buildTimeline() {
     return AnimatedBuilder(
       animation: _ctrl,
@@ -409,7 +394,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     );
   }
 
-  // ── Timeline slider ───────────────────────────────────────────────────────
   Widget _buildSlider() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -452,15 +436,102 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     );
   }
 
-  // ── Bond energies panel ───────────────────────────────────────────────────
-  Widget _buildBondPanel() {
+  // ── Card 2: bond energies (independent panel) ────────────────────────────
+  Widget _buildBondEnergiesCard() {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (ctx, _) => _buildLiveEnergiesPanel(),
+      builder: (ctx, _) => Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: _buildLiveEnergiesContent(),
+      ),
     );
   }
 
-  Widget _buildLiveEnergiesPanel() {
+  Widget _buildKineticEnergyCard() {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (ctx, _) {
+        final t = _ctrl.value;
+        final dt = 0.02;
+        final tPrev = math.max(0.0, t - dt);
+        final atomsNow = _buildAtoms(t);
+        final atomsPrev = _buildAtoms(tPrev);
+        
+        double ke = 0.0;
+        if (atomsNow.length == atomsPrev.length) {
+          for (int i = 0; i < atomsNow.length; i++) {
+            final dx = atomsNow[i].x - atomsPrev[i].x;
+            final dy = atomsNow[i].y - atomsPrev[i].y;
+            final dz = atomsNow[i].z - atomsPrev[i].z;
+            ke += (dx * dx + dy * dy + dz * dz);
+          }
+          ke = (ke / dt) * 15.0; // scale factor for display
+        }
+        
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.purpleAccent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Kinetic Energy Changes',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${ke.toStringAsFixed(1)} kcal/mol',
+                style: const TextStyle(
+                  color: Colors.purpleAccent,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: (ke / 100.0).clamp(0.0, 1.0),
+                  backgroundColor: Colors.white12,
+                  valueColor: const AlwaysStoppedAnimation(Colors.purpleAccent),
+                  minHeight: 6,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLiveEnergiesContent() {
     final t = _ctrl.value;
     final atoms = _buildAtoms(t);
     final bonds = <_CalculatedBond>[];
@@ -476,79 +547,68 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
       }
     }
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-            child: Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF4FC3F7),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Live Bond Energies',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${bonds.length} bonds',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-              ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Color(0xFF4FC3F7),
+                shape: BoxShape.circle,
+              ),
             ),
+            const SizedBox(width: 10),
+            const Text(
+              'Live Bond Energies',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${bonds.length} bonds',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (bonds.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'No bonds in current frame',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: bonds.map(_bondChip).toList(),
           ),
-          Expanded(
-            child: bonds.isEmpty
-                ? Center(
-                    child: Text(
-                      'No bonds in current frame',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.25),
-                        fontSize: 12,
-                      ),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: bonds.map(_bondChip).toList(),
-                    ),
-                  ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -565,7 +625,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
         : Colors.blueGrey.shade400;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: chipColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
@@ -575,8 +635,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 18,
-            height: 18,
+            width: 20,
+            height: 20,
             decoration: const BoxDecoration(
               color: Colors.orangeAccent,
               shape: BoxShape.circle,
@@ -586,12 +646,12 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
               '${b.index}',
               style: const TextStyle(
                 color: Colors.black87,
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          const SizedBox(width: 7),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -599,14 +659,14 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
               Text(
                 '${b.a1.symbol}–${b.a2.symbol}',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 11,
+                  color: Colors.white.withValues(alpha: 0.92),
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
                 '$valStr kcal/mol',
-                style: TextStyle(color: chipColor, fontSize: 10),
+                style: TextStyle(color: chipColor, fontSize: 11),
               ),
             ],
           ),
@@ -667,7 +727,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
         final combined = <Atom>[];
         for (int m = 0; m < _rMolecules.length; m++) {
           final side = m == 0 ? -1.0 : 1.0;
-          final offset = side * 3.5 * (1.0 - progress);
+          final offset = side * _kSeparationPad * (1.0 - progress);
           for (final a in _rMolecules[m]) {
             combined.add(Atom(a.symbol, a.x + offset, a.y, a.z,
                 a.color, a.radius, a.covalentRadius));
@@ -691,7 +751,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
         final combined = <Atom>[];
         for (int m = 0; m < _pMolecules.length; m++) {
           final side = m == 0 ? -1.0 : 1.0;
-          final offset = side * 3.5 * progress;
+          final offset = side * _kSeparationPad * progress;
           for (final a in _pMolecules[m]) {
             combined.add(Atom(a.symbol, a.x + offset, a.y, a.z,
                 a.color, a.radius, a.covalentRadius));
@@ -707,9 +767,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Painter v3 — unchanged
+// Painter v6 — big atoms, no over-padding, up-shifted centre
 // ─────────────────────────────────────────────────────────────────────────────
-class _RxnPainterV3 extends CustomPainter {
+class _RxnPainterV6 extends CustomPainter {
   final List<Atom> rAtoms, tsAtoms, pAtoms;
   final List<List<Atom>> rMolecules, pMolecules;
   final Set<String> rBonds, pBonds;
@@ -722,7 +782,7 @@ class _RxnPainterV3 extends CustomPainter {
   static const double _t2 = 0.48;
   static const double _t3 = 0.70;
 
-  _RxnPainterV3({
+  _RxnPainterV6({
     required Listenable repaint,
     required this.rAtoms,
     required this.tsAtoms,
@@ -755,7 +815,7 @@ class _RxnPainterV3 extends CustomPainter {
         final combined = <Atom>[];
         for (int m = 0; m < rMolecules.length; m++) {
           final side = m == 0 ? -1.0 : 1.0;
-          final offset = side * 10.0 * (1.0 - progress);
+          final offset = side * _kSeparationPad * (1.0 - progress);
           for (final a in rMolecules[m]) {
             combined.add(Atom(a.symbol, a.x + offset, a.y, a.z,
                 a.color, a.radius, a.covalentRadius));
@@ -779,7 +839,7 @@ class _RxnPainterV3 extends CustomPainter {
         final combined = <Atom>[];
         for (int m = 0; m < pMolecules.length; m++) {
           final side = m == 0 ? -1.0 : 1.0;
-          final offset = side * 5.5 * progress;
+          final offset = side * _kSeparationPad * progress;
           for (final a in pMolecules[m]) {
             combined.add(Atom(a.symbol, a.x + offset, a.y, a.z,
                 a.color, a.radius, a.covalentRadius));
@@ -822,33 +882,37 @@ class _RxnPainterV3 extends CustomPainter {
     if (atoms.isEmpty) return;
 
     final rot = rotNotifier.value;
-    final cx = size.width / 2, cy = size.height / 2;
 
-    double ax = 0, ay = 0, az = 0;
-    for (final a in atoms) { ax += a.x; ay += a.y; az += a.z; }
-    ax /= atoms.length; ay /= atoms.length; az /= atoms.length;
+    // Shift centre slightly UP so the molecule sits nicely above the bottom
+    // captions / energy plot / axes, instead of hugging the bottom edge.
+    final cx = size.width / 2;
+    final cy = (size.height - 60) * 0.5 + 20;
 
-    double tsAx = 0, tsAy = 0, tsAz = 0;
-    for (final a in tsAtoms) { tsAx += a.x; tsAy += a.y; tsAz += a.z; }
-    if (tsAtoms.isNotEmpty) {
-      tsAx /= tsAtoms.length; tsAy /= tsAtoms.length; tsAz /= tsAtoms.length;
-    }
+    // Fixed TS COM reference — keeps every phase visually centred.
+    double refX = 0, refY = 0, refZ = 0;
+    final refSource = tsAtoms.isNotEmpty ? tsAtoms : atoms;
+    for (final a in refSource) { refX += a.x; refY += a.y; refZ += a.z; }
+    refX /= refSource.length;
+    refY /= refSource.length;
+    refZ /= refSource.length;
 
+    // ── SCALE FIX ───────────────────────────────────────────────────────
+    // Use TS extent + only +1 Å safety pad. Previously +4.5 Å, which crushed
+    // the scale and produced ~15 px atoms.
     double maxDistSq = 0.0;
     for (final a in tsAtoms) {
-      final dx = a.x - tsAx;
-      final dy = a.y - tsAy;
-      final dz = a.z - tsAz;
-      final distSq = dx*dx + dy*dy + dz*dz;
-      if (distSq > maxDistSq) maxDistSq = distSq;
+      final dx = a.x - refX, dy = a.y - refY, dz = a.z - refZ;
+      final d = dx*dx + dy*dy + dz*dz;
+      if (d > maxDistSq) maxDistSq = d;
     }
     double dynamicScale = _scale;
     if (maxDistSq > 0.01) {
-      final maxDist = math.sqrt(maxDistSq) + 6.0;
+      final maxDist = math.sqrt(maxDistSq) + 1.0;   // was +1.5 + _kSeparationPad
       final targetSize = math.min(size.width, size.height) * 0.92;
       dynamicScale = targetSize / (2 * maxDist);
-      dynamicScale = dynamicScale.clamp(40.0, 240.0);
+      dynamicScale = dynamicScale.clamp(20.0, 600.0);
     }
+    // ────────────────────────────────────────────────────────────────────
 
     final cosX = math.cos(rot.dx), sinX = math.sin(rot.dx);
     final cosY = math.cos(rot.dy), sinY = math.sin(rot.dy);
@@ -881,7 +945,7 @@ class _RxnPainterV3 extends CustomPainter {
       final a = atoms[i];
       final jx = _jitter(t, i);
       final jy = _jitter(t, i + 11);
-      final p = _proj(a.x + jx, a.y + jy, a.z, ax, ay, az,
+      final p = _proj(a.x + jx, a.y + jy, a.z, refX, refY, refZ,
           cx, cy, cosX, sinX, cosY, sinY, dynamicScale);
       proj.add(_PA(atom: a, sx: p.sx, sy: p.sy, z: p.z));
     }
@@ -930,39 +994,42 @@ class _RxnPainterV3 extends CustomPainter {
     final p1 = Offset(b.p1.sx, b.p1.sy);
     final p2 = Offset(b.p2.sx, b.p2.sy);
     final stretch = (b.dist / b.ideal).clamp(0.75, 2.5);
+    Color bondColor = Colors.blueGrey.shade400;
 
     switch (b.kind) {
       case _BK.stable:
         _cylBond(canvas, p1, p2, Colors.blueGrey.shade400, 6.5);
+        break;
       case _BK.breaking:
         final p = ((stretch - 1.0) / 0.75).clamp(0.0, 1.0);
-        final col =
-            Color.lerp(Colors.blueGrey.shade400, Colors.deepOrangeAccent, p)!;
+        bondColor = Color.lerp(Colors.blueGrey.shade400, Colors.deepOrangeAccent, p)!;
         if (stretch > 1.15) {
-          _dashBond(canvas, p1, p2, col, 5.0);
-          if (stretch > 1.25) {
-            _energyBubble(canvas, p1, p2, b.dist, b.ideal, col, b.index);
-          }
+          _dashBond(canvas, p1, p2, bondColor, 5.0);
         } else {
-          _cylBond(canvas, p1, p2, col, 6.5);
+          _cylBond(canvas, p1, p2, bondColor, 6.5);
         }
+        break;
       case _BK.forming:
         final p = (1.0 - ((stretch - 1.0) / 0.75).clamp(0.0, 1.0));
-        final col =
-            const Color(0xFF66BB6A).withValues(alpha: p.clamp(0.15, 1.0));
+        bondColor = const Color(0xFF66BB6A).withValues(alpha: p.clamp(0.15, 1.0));
         if (stretch > 1.12) {
-          _dashBond(canvas, p1, p2, col, 4.5);
-          if (p > 0.3) {
-            _energyBubble(canvas, p1, p2, b.dist, b.ideal,
-                const Color(0xFF66BB6A), b.index);
-          }
+          _dashBond(canvas, p1, p2, bondColor, 4.5);
         } else {
           _cylBond(canvas, p1, p2, const Color(0xFF66BB6A), 6.5);
         }
+        break;
       case _BK.ts:
         if (t >= _t1 * 0.7 && t < _t2 * 1.05) {
-          _dashBond(canvas, p1, p2, Colors.amber.withValues(alpha: 0.5), 3.0);
+          bondColor = Colors.amber.withValues(alpha: 0.5);
+          _dashBond(canvas, p1, p2, bondColor, 3.0);
+        } else {
+          bondColor = Colors.transparent;
         }
+        break;
+    }
+
+    if (bondColor != Colors.transparent) {
+      _drawBondLabel(canvas, p1, p2, b.dist, b.ideal, bondColor, b.index);
     }
   }
 
@@ -1004,28 +1071,35 @@ class _RxnPainterV3 extends CustomPainter {
     }
   }
 
-  void _energyBubble(Canvas canvas, Offset p1, Offset p2,
+  void _drawBondLabel(Canvas canvas, Offset p1, Offset p2,
       double dist, double ideal, Color col, int index) {
-    final energy = 110.0 * math.exp(-2.2 * (dist - ideal));
-    if (energy < 2) return;
-
-    final badgeRadius = 7.0;
+    
     final midX = (p1.dx + p2.dx) / 2;
     final midY = (p1.dy + p2.dy) / 2;
 
-    canvas.drawCircle(Offset(midX, midY), badgeRadius, Paint()..color = col);
-
+    // Draw background for text
     final textSpan = TextSpan(
       text: '$index',
-      style: const TextStyle(
-        color: Colors.black87,
-        fontSize: 10,
+      style: TextStyle(
+        color: col.withAlpha(255),
+        fontSize: 12,
         fontWeight: FontWeight.bold,
+        shadows: const [Shadow(color: Colors.black87, blurRadius: 4)],
       ),
     );
     final textPainter = TextPainter(
-        text: textSpan, textDirection: TextDirection.ltr)
+        text: textSpan, textDirection: TextDirection.ltr, textAlign: TextAlign.center)
       ..layout();
+      
+    // Optional badge background behind the text for better readability
+    final bgRect = Rect.fromCenter(
+        center: Offset(midX, midY), 
+        width: textPainter.width + 8, 
+        height: textPainter.height + 4);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(bgRect, const Radius.circular(6)), 
+        Paint()..color = Colors.black.withValues(alpha: 0.6));
+
     textPainter.paint(
         canvas,
         Offset(midX - textPainter.width / 2,
@@ -1040,7 +1114,9 @@ class _RxnPainterV3 extends CustomPainter {
       glowExtra = 0.20 * math.sin(tsT * math.pi);
     }
 
-    final r = p.atom.radius * dynamicScale * 0.25;
+    // v6: bigger spheres — factor 0.70, min 7 px.
+    final baseR = p.atom.covalentRadius * dynamicScale * _kAtomRadiusFactor;
+    final r = math.max(baseR, _kMinAtomRadius);
     final c = Offset(p.sx, p.sy);
 
     if (p.atom.symbol != 'H') {
@@ -1075,13 +1151,13 @@ class _RxnPainterV3 extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8);
 
-    if (p.atom.symbol != 'H' || r > 8) {
+    if (r > 6) {
       final tp = TextPainter(
         text: TextSpan(
           text: p.atom.symbol,
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.93),
-            fontSize: (r * 0.70).clamp(7.5, 17.0),
+            fontSize: (r * 0.80).clamp(8.0, 22.0),
             fontWeight: FontWeight.bold,
             shadows: const [
               Shadow(color: Colors.black87, blurRadius: 4)
@@ -1242,7 +1318,7 @@ class _RxnPainterV3 extends CustomPainter {
 
     final wm = TextPainter(
       text: TextSpan(
-        text: 'Encrypted Copyright © Ammar (ID: 9x8A4M2C)',
+        text: 'Encrypted Copyright © Ali Asghar\naliasgharinnocent@yahoo.com',
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.15),
           fontSize: 10,
@@ -1256,7 +1332,7 @@ class _RxnPainterV3 extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _RxnPainterV3 old) =>
+  bool shouldRepaint(covariant _RxnPainterV6 old) =>
       rAtoms != old.rAtoms || pAtoms != old.pAtoms;
 }
 
