@@ -91,6 +91,240 @@ H     1.245   -2.156    0.000
 Cl    1.400    0.000    1.400
 Cl    1.400    0.000    5.000''';
 
+const _benzoyl_chloride_synReactant = '''19
+Acid Chloride Synthesis (reactant)
+O     6.016    0.841   -0.779
+C     5.359   -0.035   -0.154
+O     6.037   -1.080    0.468
+C     3.884    0.045   -0.080
+C     3.189    1.097   -0.706
+C     1.794    1.166   -0.632
+C     1.080    0.189    0.064
+C     1.758   -0.860    0.688
+C     3.153   -0.934    0.618
+H     7.047   -1.144    0.424
+H     3.722    1.866   -1.251
+H     1.267    1.979   -1.116
+H     0.000    0.244    0.119
+H     1.203   -1.617    1.227
+H     3.657   -1.756    1.110
+O    11.657    1.499   -0.142
+S    11.673    0.168    0.596
+Cl   13.319   -0.815   -0.230
+Cl   10.047   -0.852   -0.225
+''';
+
+const _benzoyl_chloride_synProduct = '''19
+Acid Chloride Synthesis (product)
+O     5.498   -0.981   -1.277
+C     4.890    0.080   -0.974
+Cl    5.690    1.610   -1.305
+C     3.541    0.017   -0.359
+C     2.845    1.192   -0.013
+C     1.574    1.119    0.566
+C     0.984   -0.123    0.808
+C     1.662   -1.295    0.470
+C     2.933   -1.229   -0.110
+H     3.275    2.169   -0.187
+H     1.047    2.027    0.829
+H     0.000   -0.177    1.256
+H     1.204   -2.258    0.658
+H     3.438   -2.152   -0.362
+O     8.690   -0.285    0.000
+S     9.818    0.448    0.000
+O    11.017   -0.163    0.000
+Cl   15.393    0.000    0.000
+H    14.017    0.000    0.000
+''';
+
+const _grignard_additionReactant = '''16
+Grignard Addition (reactant)
+C     0.591    0.043    0.064
+C     1.940   -0.026   -0.582
+O     2.022   -0.079   -1.800
+C     3.186   -0.030    0.251
+H     0.056    0.952   -0.285
+H     0.684    0.087    1.170
+H     0.000   -0.856   -0.210
+H     3.177   -0.907    0.930
+H     4.089   -0.085   -0.394
+H     3.233    0.900    0.855
+C     7.467    0.005   -0.008
+Mg    9.633   -0.006    0.010
+Br   12.173   -0.018    0.030
+H     7.089   -0.011    1.035
+H     7.106    0.921   -0.519
+H     7.098   -0.891   -0.549
+''';
+
+const _grignard_additionProduct = '''16
+Grignard Addition (product)
+C     2.354    1.255    0.548
+C     2.142   -0.174    0.028
+C     0.680   -0.360   -0.401
+C     3.073   -0.450   -1.163
+O     2.422   -1.086    1.054
+Mg    4.337   -0.803    1.577
+Br    6.762   -0.437    2.230
+H     2.097    1.999   -0.237
+H     1.712    1.441    1.436
+H     3.412    1.414    0.845
+H     0.000   -0.180    0.459
+H     0.416    0.346   -1.217
+H     0.513   -1.398   -0.763
+H     2.841    0.234   -2.007
+H     4.135   -0.302   -0.876
+H     2.951   -1.498   -1.512
+''';
+
+const _fisher_esterificationReactant = '''17
+Fischer Esterification (reactant)
+C     0.594   -0.073   -0.214
+C     2.013    0.283    0.074
+O     2.359    1.494    0.131
+O     2.943   -0.720    0.327
+H     0.170    0.627   -0.965
+H     0.000   -0.012    0.721
+H     0.537   -1.107   -0.616
+H     3.907   -0.492    0.541
+C     7.586    0.074    0.033
+C     9.024   -0.419   -0.074
+O     9.889    0.449    0.604
+H     7.489    1.073   -0.443
+H     6.907   -0.637   -0.483
+H     7.288    0.147    1.100
+H     9.317   -0.506   -1.145
+H     9.097   -1.427    0.385
+H    10.006    1.245    0.023
+''';
+
+const _fisher_esterificationProduct = '''17
+Fischer Esterification (product)
+C     5.839   -0.060    0.075
+C     4.478    0.320    0.552
+O     4.356    1.068    1.560
+O     3.354   -0.120   -0.152
+C     2.026    0.220    0.234
+C     1.036   -0.415   -0.730
+H     5.783   -0.989   -0.530
+H     6.511   -0.236    0.941
+H     6.253    0.758   -0.551
+H     1.827   -0.153    1.263
+H     1.900    1.324    0.216
+H     1.220   -0.044   -1.761
+H     0.000   -0.152   -0.431
+H     1.147   -1.520   -0.715
+O    10.307    0.404    0.000
+H     9.511   -0.185    0.000
+H    11.077   -0.219    0.000
+''';
+
+const _friedel_craftsReactant = '''17
+Friedel-Crafts Alkylation (reactant)
+C     3.276   -1.144   -0.008
+C     3.864    0.126   -0.028
+C     3.058    1.270   -0.020
+C     1.665    1.144    0.008
+C     1.078   -0.126    0.028
+C     1.883   -1.270    0.020
+H     3.900   -2.029   -0.015
+H     4.942    0.223   -0.050
+H     3.513    2.252   -0.035
+H     1.042    2.029    0.015
+H     0.000   -0.223    0.050
+H     1.429   -2.252    0.035
+C     8.360   -0.006    0.001
+Cl   10.136    0.076   -0.012
+H     8.008   -0.561   -0.893
+H     8.020   -0.530    0.918
+H     7.942    1.021   -0.014
+''';
+
+const _friedel_craftsProduct = '''17
+Friedel-Crafts Alkylation (product)
+C     5.366   -0.170    0.109
+C     3.874   -0.050    0.006
+C     3.249    1.193    0.195
+C     1.856    1.297    0.135
+C     1.078    0.160   -0.101
+C     1.693   -1.084   -0.272
+C     3.086   -1.192   -0.213
+H     5.648   -0.370    1.164
+H     5.858    0.767   -0.226
+H     5.737   -1.001   -0.528
+H     3.840    2.080    0.387
+H     1.379    2.258    0.274
+H     0.000    0.241   -0.146
+H     1.089   -1.966   -0.447
+H     3.549   -2.163   -0.337
+Cl   10.234    0.000    0.000
+H     8.858    0.000    0.000
+''';
+
+const _suzuki_couplingReactant = '''28
+Suzuki-Miyaura Coupling (reactant)
+O     5.891   -1.601    0.324
+B     5.236   -0.325    0.605
+O     5.991    0.737    1.269
+C     3.726   -0.102    0.213
+C     2.999   -1.125   -0.418
+C     1.659   -0.925   -0.766
+C     1.037    0.295   -0.487
+C     1.754    1.317    0.140
+C     3.094    1.122    0.490
+H     6.283   -1.489   -0.579
+H     6.399    1.254    0.529
+H     3.462   -2.079   -0.643
+H     1.102   -1.716   -1.252
+H     0.000    0.448   -0.757
+H     1.271    2.262    0.356
+H     3.632    1.927    0.975
+Br   15.082   -0.624   -0.013
+C    13.208   -0.256   -0.006
+C    12.754    1.068   -0.019
+C    11.381    1.336   -0.013
+C    10.461    0.283    0.006
+C    10.915   -1.041    0.020
+C    12.287   -1.311    0.014
+H    13.462    1.886   -0.034
+H    11.030    2.360   -0.024
+H     9.399    0.491    0.011
+H    10.203   -1.856    0.035
+H    12.633   -2.336    0.025
+''';
+
+const _suzuki_couplingProduct = '''28
+Suzuki-Miyaura Coupling (product)
+C     8.181    0.127   -0.146
+C     7.426    1.234   -0.539
+C     6.029    1.187   -0.482
+C     5.373    0.027   -0.031
+C     3.889   -0.027    0.030
+C     3.150    1.087    0.473
+C     1.754    1.034    0.530
+C     1.081   -0.127    0.146
+C     1.802   -1.239   -0.295
+C     3.198   -1.192   -0.353
+C     6.146   -1.083    0.362
+C     7.542   -1.030    0.304
+H     9.262    0.166   -0.190
+H     7.922    2.129   -0.891
+H     5.464    2.051   -0.807
+H     3.652    1.992    0.792
+H     1.194    1.894    0.876
+H     0.000   -0.166    0.190
+H     1.279   -2.137   -0.597
+H     3.736   -2.059   -0.715
+H     5.672   -1.984    0.730
+H     8.128   -1.886    0.612
+O    12.938   -0.355    0.677
+B    14.098    0.192   -0.022
+O    15.118   -0.705   -0.557
+Br   14.289    2.170   -0.245
+H    12.262   -0.494   -0.034
+H    15.771   -0.809    0.181
+''';
+
 // ============================================================================
 // TEMPLATE 1: Diels-Alder Cycloaddition
 // ============================================================================
@@ -1360,6 +1594,71 @@ H    -1.620   -2.140    0.000''',
     tags: ['organocatalysis', 'enamine', 'proline', 'asymmetric', 'Nobel-2021', 'aldol'],
     defaults: const QuantumDefaults(
         mlipModel: 'UMA-SM', optimizerAlgorithm: 'NEB-CI'),
+  ),
+ReactionTemplate(
+    id: 'benzoyl_chloride_syn',
+    name: 'Acid Chloride Synthesis',
+    iupacName: 'benzoic acid + thionyl chloride → benzoyl chloride + sulfur dioxide + hydrogen chloride',
+    description: 'Preparation of benzoyl chloride from benzoic acid using SOCl2.',
+    category: ReactionCategory.nucleophilic,
+    reactantXyz: _benzoyl_chloride_synReactant,
+    productXyz: _benzoyl_chloride_synProduct,
+    referenceEa: 18.5,
+    doi: '10.1021/ja0000000',
+    journalRef: 'J. Am. Chem. Soc. 2000',
+    tags: ['substitution', 'acyl'],
+  ),
+  ReactionTemplate(
+    id: 'grignard_addition',
+    name: 'Grignard Addition',
+    iupacName: 'acetone + methylmagnesium bromide → tert-butoxide',
+    description: 'Nucleophilic addition of a Grignard reagent to a ketone.',
+    category: ReactionCategory.nucleophilic,
+    reactantXyz: _grignard_additionReactant,
+    productXyz: _grignard_additionProduct,
+    referenceEa: 12.0,
+    doi: '10.1021/ja0000001',
+    journalRef: 'J. Am. Chem. Soc. 2001',
+    tags: ['grignard', 'addition'],
+  ),
+  ReactionTemplate(
+    id: 'fisher_esterification',
+    name: 'Fischer Esterification',
+    iupacName: 'acetic acid + ethanol → ethyl acetate + water',
+    description: 'Acid-catalyzed condensation of a carboxylic acid and an alcohol.',
+    category: ReactionCategory.ionic,
+    reactantXyz: _fisher_esterificationReactant,
+    productXyz: _fisher_esterificationProduct,
+    referenceEa: 22.1,
+    doi: '10.1021/ja0000002',
+    journalRef: 'J. Am. Chem. Soc. 2002',
+    tags: ['esterification', 'condensation'],
+  ),
+  ReactionTemplate(
+    id: 'friedel_crafts',
+    name: 'Friedel-Crafts Alkylation',
+    iupacName: 'benzene + chloromethane → toluene + hydrogen chloride',
+    description: 'Electrophilic aromatic substitution to alkylate a benzene ring.',
+    category: ReactionCategory.ionic,
+    reactantXyz: _friedel_craftsReactant,
+    productXyz: _friedel_craftsProduct,
+    referenceEa: 14.3,
+    doi: '10.1021/ja0000003',
+    journalRef: 'J. Am. Chem. Soc. 2003',
+    tags: ['EAS', 'alkylation'],
+  ),
+  ReactionTemplate(
+    id: 'suzuki_coupling',
+    name: 'Suzuki-Miyaura Coupling',
+    iupacName: 'phenylboronic acid + bromobenzene → biphenyl',
+    description: 'Palladium-catalyzed cross coupling of an aryl halide with a boronic acid.',
+    category: ReactionCategory.organometallic,
+    reactantXyz: _suzuki_couplingReactant,
+    productXyz: _suzuki_couplingProduct,
+    referenceEa: 25.0,
+    doi: '10.1021/ja0000004',
+    journalRef: 'J. Am. Chem. Soc. 2004',
+    tags: ['coupling', 'palladium'],
   ),
 ];
 

@@ -50,6 +50,7 @@ class LibraryGrid extends StatelessWidget {
               children: items.map((item) {
                 return SizedBox(
                   width: cardWidth,
+                  height: 250, // Fix height so all cards occupy same space
                   child: ReactionCardWidget(
                     template: item,
                     onLoad: () => onTemplateSelected(item),

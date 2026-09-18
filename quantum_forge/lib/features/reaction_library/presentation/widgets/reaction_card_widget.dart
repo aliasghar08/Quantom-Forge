@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
+import 'package:quantum_forge/features/reaction_library/presentation/screens/template_detail_screen.dart';
 
 class ReactionCardWidget extends StatelessWidget {
   final ReactionTemplate template;
@@ -58,13 +59,22 @@ class ReactionCardWidget extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: onLoad,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => TemplateDetailScreen(
+                template: template,
+                onLoad: onLoad,
+              ),
+            ),
+          );
+        },
         hoverColor: color.withValues(alpha: 0.06),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min, // ← key: don't expand
+            mainAxisSize: MainAxisSize.max, // Let it fill the fixed 250px height
             children: [
               // ── Top row: category chip + Ea badge ──────────────────────────
               Row(
@@ -131,15 +141,17 @@ class ReactionCardWidget extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
-              // ── Description (clamped, no Expanded needed) ───────────────────
-              Text(
-                template.description,
-                style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.68),
-                    fontSize: 12,
-                    height: 1.45),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+              // ── Description (Expanded to push footer down) ───────────────────
+              Expanded(
+                child: Text(
+                  template.description,
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.68),
+                      fontSize: 12,
+                      height: 1.45),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const SizedBox(height: 10),
 
