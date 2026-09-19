@@ -242,7 +242,7 @@ class _KineticChartPainter extends CustomPainter {
             ..style = PaintingStyle.stroke
             ..strokeWidth = 2);
       if (isHovered) {
-        final text = '${energyProfile[i].toStringAsFixed(1)} kcal/mol';
+        final text = '${energyProfile[i].toStringAsFixed(1)} kcal·mol⁻¹';
         textPainter.text = TextSpan(
           text: text,
           style: const TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold),

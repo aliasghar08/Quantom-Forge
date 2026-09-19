@@ -91,7 +91,7 @@ class TemplateDetailScreen extends StatelessWidget {
                       Icon(Icons.bolt, size: 16, color: Colors.amber.shade400),
                       const SizedBox(width: 4),
                       Text(
-                        'Ea: ${template.referenceEa} kcal/mol',
+                        'Ea: ${template.referenceEa} kcal·mol⁻¹',
                         style: TextStyle(color: Colors.amber.shade300, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ],

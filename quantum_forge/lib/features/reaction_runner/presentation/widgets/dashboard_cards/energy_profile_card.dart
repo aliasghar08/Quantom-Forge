@@ -8,7 +8,7 @@ class EnergyProfileCard extends StatelessWidget {
   final double? referenceEa;
   final ValueChanged<int> onPointSelected;
 
-  /// 1σ band width in kcal/mol.
+  /// 1σ band width in kcal·mol⁻¹.
   final double? uncertainty;
 
   const EnergyProfileCard({
@@ -46,7 +46,7 @@ class EnergyProfileCard extends StatelessWidget {
                 if (uncertainty != null)
                   _LegendDot(
                     color: palette.accent,
-                    label: '±${uncertainty!.toStringAsFixed(1)} kcal/mol (1σ)',
+                    label: '±${uncertainty!.toStringAsFixed(1)} kcal·mol⁻¹ (1σ)',
                   ),
                 if (referenceEa != null)
                   _LegendDot(

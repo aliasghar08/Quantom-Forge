@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:quantum_forge/core/utils/unicode_math.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/molecular_viewer_widget.dart';
 
@@ -109,7 +110,7 @@ class DistinctMoleculesViewer extends StatelessWidget {
                 final molAtoms = distinctMolecules[index];
                 final info = XyzParser.getMolecularInfo(molAtoms);
                 final formula =
-                    info.formula.isEmpty ? 'Unknown' : info.formula;
+                    info.formula.isEmpty ? 'Unknown' : subscriptFormula(info.formula);
 
                 // Colour the molecule index badge
                 final cardColor = _indexColor(index);

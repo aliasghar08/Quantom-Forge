@@ -320,7 +320,7 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
                     child: Text('${b.index}', style: const TextStyle(color: Colors.black87, fontSize: 9, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 6),
-                  Text('${b.a1.symbol}–${b.a2.symbol}: ${energy.toStringAsFixed(1)} kcal/mol',
+                  Text('${b.a1.symbol}–${b.a2.symbol}: ${energy.toStringAsFixed(1)} kcal·mol⁻¹',
                       style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 11)),
                 ],
               );

@@ -631,7 +631,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
               ),
               const SizedBox(height: 12),
               Text(
-                '${ke.toStringAsFixed(1)} kcal/mol',
+                '${ke.toStringAsFixed(1)} kcal·mol⁻¹',
                 style: const TextStyle(
                   color: Colors.purpleAccent,
                   fontSize: 22,
@@ -789,7 +789,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
                 ),
               ),
               Text(
-                '$valStr kcal/mol',
+                '$valStr kcal·mol⁻¹',
                 style: TextStyle(color: chipColor, fontSize: 11),
               ),
             ],
@@ -1746,7 +1746,7 @@ class _RxnPainterV6 extends CustomPainter {
 
     final valTp = TextPainter(
       text: TextSpan(
-        text: '${currentEnergy.toStringAsFixed(1)} kcal/mol',
+        text: '${currentEnergy.toStringAsFixed(1)} kcal·mol⁻¹',
         style: const TextStyle(
           color: Color(0xFFFFAB40),
           fontSize: 9,

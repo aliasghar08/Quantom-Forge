@@ -50,12 +50,16 @@ class ProfessionalDrawer extends StatelessWidget {
           ),
           border: Border(right: BorderSide(color: palette.border)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Header ───────────────────────────────────────────────────────
-            Container(
-              padding: EdgeInsets.fromLTRB(20, gap(40), 20, gap(20)),
+        child: CustomScrollView(
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Header ───────────────────────────────────────────────────────
+                  Container(
+                    padding: EdgeInsets.fromLTRB(20, gap(40), 20, gap(20)),
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: palette.border)),
               ),
@@ -335,6 +339,9 @@ class ProfessionalDrawer extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    ],
+  ),
       ),
     );
   }

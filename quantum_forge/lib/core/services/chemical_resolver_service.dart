@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:quantum_forge/core/services/web_services.dart';
+import 'package:http/http.dart' as http;
 
 /// Resolves chemical names and SMILES strings to 3D XYZ structures.
 ///
@@ -22,10 +22,12 @@ class ChemicalResolverService {
     if (_looksLikeSmiles(q)) return [];
 
     try {
-      final uri = 'https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound/${Uri.encodeComponent(q)}/json?limit=$limit';
-      final responseBody = await WebServices.fetchString(uri);
+      final uri = Uri.parse('https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound/${Uri.encodeComponent(q)}/json?limit=$limit');
+      final response = await http.get(uri);
+      
+      if (response.statusCode != 200) return [];
 
-      final data = jsonDecode(responseBody) as Map<String, dynamic>;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
       final total = data['total'] as int? ?? 0;
       if (total == 0) return [];
 
@@ -69,11 +71,11 @@ class ChemicalResolverService {
     try {
       // Decide lookup route: SMILES → 'smiles', name → 'name'
       final route = _looksLikeSmiles(query) ? 'smiles' : 'name';
-      final uri = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/$route/${Uri.encodeComponent(query)}/record/SDF/?record_type=3d';
-      final responseBody = await WebServices.fetchString(uri);
-      if (responseBody.trim().isEmpty) return null;
+      final uri = Uri.parse('https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/$route/${Uri.encodeComponent(query)}/record/SDF/?record_type=3d');
+      final response = await http.get(uri);
+      if (response.statusCode != 200 || response.body.trim().isEmpty) return null;
 
-      return _sdfToXyz(responseBody);
+      return _sdfToXyz(response.body);
     } catch (_) {
       return null;
     }
@@ -82,10 +84,10 @@ class ChemicalResolverService {
   // ── NCI Cactus ─────────────────────────────────────────────────────────────
   Future<String?> _resolveViaCactus(String query) async {
     try {
-      final uri = 'https://cactus.nci.nih.gov/chemical/structure/${Uri.encodeComponent(query.trim())}/file?format=xyz';
-      final responseBody = await WebServices.fetchString(uri);
-      if (responseBody.trim().isNotEmpty) {
-        return responseBody;
+      final uri = Uri.parse('https://cactus.nci.nih.gov/chemical/structure/${Uri.encodeComponent(query.trim())}/file?format=xyz');
+      final response = await http.get(uri);
+      if (response.statusCode == 200 && response.body.trim().isNotEmpty) {
+        return response.body;
       }
     } catch (_) {}
     return null;

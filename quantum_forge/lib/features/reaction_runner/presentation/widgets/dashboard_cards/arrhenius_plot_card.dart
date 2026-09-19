@@ -54,7 +54,7 @@ class ArrheniusPlotCard extends StatelessWidget {
                   ),
                   child: Text(
                     'Ea = ${ea.toStringAsFixed(1)}'
-                    '${eaUncertainty != null ? ' ± ${eaUncertainty!.toStringAsFixed(1)}' : ''} kcal/mol',
+                    '${eaUncertainty != null ? ' ± ${eaUncertainty!.toStringAsFixed(1)}' : ''} kcal·mol⁻¹',
                     style: TextStyle(color: palette.textSecondary, fontSize: 11),
                   ),
                 ),

@@ -53,7 +53,7 @@ class ReactionTemplate {
   final ReactionCategory category;
   final String reactantXyz;
   final String productXyz;
-  final double referenceEa; // kcal/mol
+  final double referenceEa; // kcal·mol⁻¹
   final String doi;
   final String journalRef;
   final List<String> tags;
@@ -1350,8 +1350,8 @@ H     0.000    1.400    0.000''',
         'Nucleophilic addition of a phosphorus ylide to an aldehyde, forming a 4-membered '
         'oxaphosphetane intermediate which undergoes retro-[2+2] cycloelimination. '
         'Non-stabilised ylides give Z-alkenes (kinetic control). The [2+2] pathway and concerted '
-        'mechanism are still debated. Ea for oxaphosphetane formation is ~8 kcal/mol; '
-        'retrocyclization Ea ~25 kcal/mol. Widely used for alkene synthesis.',
+        'mechanism are still debated. Ea for oxaphosphetane formation is ~8 kcal·mol⁻¹; '
+        'retrocyclization Ea ~25 kcal·mol⁻¹. Widely used for alkene synthesis.',
     category: ReactionCategory.pericyclic,
     reactantXyz: '''24
 Wittig reactant: methylenetriphenylphosphorane + formaldehyde
@@ -1421,7 +1421,7 @@ H     5.900   -2.400   -1.200''',
     description:
         'Copper(I)-catalyzed azide-alkyne cycloaddition — the prototypical "click" reaction. '
         'Cu(I) activates the alkyne via π-coordination, dramatically lowering the barrier '
-        'from ~26 kcal/mol (uncatalysed Huisgen) to ~15 kcal/mol. Proceeds through a '
+        'from ~26 kcal·mol⁻¹ (uncatalysed Huisgen) to ~15 kcal·mol⁻¹. Proceeds through a '
         'Cu-acetylide intermediate, then a 6-membered Cu-azide-alkyne metallacycle TS. '
         'Strictly regioselective for 1,4-substituted triazoles. Nobel Prize 2022 (click chemistry).',
     category: ReactionCategory.pericyclic,
@@ -1503,7 +1503,7 @@ H     2.344   -2.644    0.000''',
         'Monooxygenation of ethylene by the high-valent iron-oxo "Compound I" active species of '
         'cytochrome P450. Two-state reactivity on high-spin (quartet) and low-spin (doublet) '
         'surfaces. The radical rebound mechanism proceeds via a radical carbon intermediate after '
-        'initial O-atom transfer. Barrier heights: ~14 kcal/mol (doublet), ~17 kcal/mol (quartet). '
+        'initial O-atom transfer. Barrier heights: ~14 kcal·mol⁻¹ (doublet), ~17 kcal·mol⁻¹ (quartet). '
         'Key in drug metabolism and biosynthesis.',
     category: ReactionCategory.radical,
     reactantXyz: '''20

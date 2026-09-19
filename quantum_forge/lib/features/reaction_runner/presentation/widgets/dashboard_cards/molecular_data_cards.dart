@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:quantum_forge/core/utils/unicode_math.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 
 class MolecularDataCards extends StatelessWidget {
@@ -68,7 +69,7 @@ class MolecularDataCards extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Formula', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                Text(info.formula.isEmpty ? 'Unknown' : info.formula, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(info.formula.isEmpty ? 'Unknown' : subscriptFormula(info.formula), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 4),

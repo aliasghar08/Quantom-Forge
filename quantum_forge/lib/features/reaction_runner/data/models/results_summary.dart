@@ -12,14 +12,14 @@
 //     uncertainty, its method and a quality tier;
 //   • derived quantities are computed from physically correct relationships
 //     (ΔG = ΔH − TΔS, the Eyring equation, Ea ≈ ΔH‡ + RT, Arrhenius slope);
-//   • significant digits follow the uncertainty (so a ±2 kcal/mol barrier is
-//     never printed as "12.34 kcal/mol");
+//   • significant digits follow the uncertainty (so a ±2 kcal·mol⁻¹ barrier is
+//     never printed as "12.34 kcal·mol⁻¹");
 //   • a real accuracy metric is produced whenever a literature Ea is available
 //     (|Ea_est − Ea_ref| and the signed error).
 //
 // The uncertainty magnitudes below are order-of-magnitude values typical of a
 // machine-learned interatomic potential (MLIP) surrogate vs. a DFT reference
-// (≈1–2 kcal/mol energy error, ≈0.3 D dipole error, ≈0.2–0.3 eV gap error).
+// (≈1–2 kcal·mol⁻¹ energy error, ≈0.3 D dipole error, ≈0.2–0.3 eV gap error).
 // They are stated explicitly rather than implied, which is the whole point.
 // ============================================================================
 
@@ -27,6 +27,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:quantum_forge/core/utils/unicode_math.dart';
 import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
 
 // ── Quality tiers ───────────────────────────────────────────────────────────
@@ -91,9 +92,10 @@ class MetricEstimate {
   String get formattedValue {
     switch (format) {
       case ValueFormat.exponential:
-        return value.toStringAsExponential(2);
+        return scientificNotation(value, significant: 2);
       case ValueFormat.logScale:
-        return '10^(${value.toStringAsFixed(1)} ± ${uncertainty.toStringAsFixed(1)})';
+        return '10^(${unicodeMinus(value.toStringAsFixed(1))} ± '
+            '${unicodeMinus(uncertainty.toStringAsFixed(1))})';
       case ValueFormat.decimal:
         return value.toStringAsFixed(decimals);
     }
@@ -102,9 +104,9 @@ class MetricEstimate {
   String get formattedUncertainty {
     switch (format) {
       case ValueFormat.exponential:
-        return '± ${uncertainty.toStringAsExponential(1)}';
+        return '± ${scientificNotation(uncertainty, significant: 1)}';
       case ValueFormat.logScale:
-        return '± ${uncertainty.toStringAsFixed(1)} dex';
+        return '± ${unicodeMinus(uncertainty.toStringAsFixed(1))} dex';
       case ValueFormat.decimal:
         return '± ${uncertainty.toStringAsFixed(decimals)}';
     }
@@ -125,15 +127,15 @@ class MetricEstimate {
 // ── Uncertainty budget (documented, order-of-magnitude) ─────────────────────
 
 class _U {
-  // MLIP-vs-DFT energy error: ≈1–2 kcal/mol for barriers and ΔG‡.
-  static const double dH = 1.6; // kcal/mol
-  static const double dS = 2.0; // cal/mol·K
-  static const double dG = 1.6; // kcal/mol
+  // MLIP-vs-DFT energy error: ≈1–2 kcal·mol⁻¹ for barriers and ΔG‡.
+  static const double dH = 1.6; // kcal·mol⁻¹
+  static const double dS = 2.0; // cal·mol⁻¹·K⁻¹
+  static const double dG = 1.6; // kcal·mol⁻¹
   static const double freqRel = 0.10; // 10% of the imaginary frequency
-  static const double zpe = 0.3; // kcal/mol
+  static const double zpe = 0.3; // kcal·mol⁻¹
   static const double dipole = 0.3; // D
   static const double gap = 0.3; // eV
-  static const double polar = 4.0; // Bohr^3
+  static const double polar = 4.0; // Bohr³
   static const double grad = 0.0001; // a.u.
 }
 
@@ -148,10 +150,10 @@ class ResultsSummary {
   /// Literature activation energy, when the reaction came from a template.
   final double? referenceEa;
 
-  /// Estimated activation energy (kcal/mol).
+  /// Estimated activation energy (kcal·mol⁻¹).
   final double estimatedEa;
 
-  /// Signed error vs literature, in kcal/mol (negative = underestimate).
+  /// Signed error vs literature, in kcal·mol⁻¹ (negative = underestimate).
   final double? eaError;
 
   /// Signed error as a percentage of the literature value.
@@ -160,7 +162,7 @@ class ResultsSummary {
   /// Energy profile scaled to the current settings (used for the plot).
   final List<double> energyProfile;
 
-  /// 1σ band applied to the energy profile, in kcal/mol.
+  /// 1σ band applied to the energy profile, in kcal·mol⁻¹.
   final double profileUncertainty;
 
   /// Arrhenius series: ln(k/s⁻¹) over 200→1000 K.
@@ -270,7 +272,7 @@ ResultsSummary computeResultsSummary({
       label: 'Gibbs Free Energy (ΔG‡)',
       value: gibbs,
       uncertainty: _U.dG,
-      unit: 'kcal/mol',
+      unit: 'kcal·mol⁻¹',
       icon: Icons.bolt,
       accent: green,
       quality: MetricQuality.surrogate,
@@ -280,7 +282,7 @@ ResultsSummary computeResultsSummary({
       label: 'Activation Energy (Ea)',
       value: ea,
       uncertainty: _U.dH,
-      unit: 'kcal/mol',
+      unit: 'kcal·mol⁻¹',
       icon: Icons.local_fire_department,
       accent: red,
       quality: MetricQuality.surrogate,
@@ -301,7 +303,7 @@ ResultsSummary computeResultsSummary({
       label: 'Enthalpy (ΔH‡)',
       value: baseEnthalpy,
       uncertainty: _U.dH,
-      unit: 'kcal/mol',
+      unit: 'kcal·mol⁻¹',
       icon: Icons.thermostat,
       accent: blue,
       quality: MetricQuality.surrogate,
@@ -311,7 +313,7 @@ ResultsSummary computeResultsSummary({
       label: 'Entropy (ΔS‡)',
       value: baseEntropy,
       uncertainty: _U.dS,
-      unit: 'cal/mol·K',
+      unit: 'cal·mol⁻¹·K⁻¹',
       icon: Icons.shuffle,
       accent: const Color(0xFF80DEEA),
       quality: MetricQuality.surrogate,
@@ -331,7 +333,7 @@ ResultsSummary computeResultsSummary({
       label: 'ZPE Correction',
       value: zpe,
       uncertainty: _U.zpe,
-      unit: 'kcal/mol',
+      unit: 'kcal·mol⁻¹',
       icon: Icons.compress,
       accent: purple,
       quality: MetricQuality.surrogate,
@@ -382,7 +384,7 @@ ResultsSummary computeResultsSummary({
       label: 'Partition Func (q)',
       value: log10q,
       uncertainty: 0.5,
-      unit: '(10^log10)',
+      unit: 'dimensionless',
       icon: Icons.pie_chart,
       accent: rose,
       quality: MetricQuality.surrogate,
@@ -401,7 +403,7 @@ ResultsSummary computeResultsSummary({
       label: 'Ea Error vs Literature',
       value: eaError,
       uncertainty: _U.dH,
-      unit: 'kcal/mol',
+      unit: 'kcal·mol⁻¹',
       icon: Icons.verified_outlined,
       accent: const Color(0xFFE0C060),
       quality: eaError.abs() <= _U.dH

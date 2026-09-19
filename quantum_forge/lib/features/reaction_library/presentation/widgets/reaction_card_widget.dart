@@ -105,7 +105,7 @@ class ReactionCardWidget extends StatelessWidget {
                       Icon(Icons.bolt, size: 12, color: Colors.amber.shade300),
                       const SizedBox(width: 3),
                       Text(
-                        '${template.referenceEa} kcal/mol',
+                        '${template.referenceEa} kcal·mol⁻¹',
                         style: TextStyle(
                             color: Colors.amber.shade200,
                             fontSize: 10,

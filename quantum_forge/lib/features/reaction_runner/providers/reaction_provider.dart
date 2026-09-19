@@ -212,7 +212,7 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     List<double> energyProfile = [];
     for (int i = 0; i < 21; i++) {
       double x = (i - 10) / 5.0; // -2 to 2
-      double y = 25.0 * math.exp(-x * x / 2); // Gaussian curve up to ~25 kcal/mol
+      double y = 25.0 * math.exp(-x * x / 2); // Gaussian curve up to ~25 kcal·mol⁻¹
       energyProfile.add(y);
     }
 

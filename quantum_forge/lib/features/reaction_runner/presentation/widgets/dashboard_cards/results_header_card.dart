@@ -76,7 +76,7 @@ class ResultsHeaderCard extends StatelessWidget {
                   child: Text(
                     'Values are surrogate estimates (no ab initio engine) with '
                     '±1σ error bars. The energy profile carries a '
-                    '±${summary.profileUncertainty.toStringAsFixed(1)} kcal/mol band. '
+                    '±${summary.profileUncertainty.toStringAsFixed(1)} kcal·mol⁻¹ band. '
                     'Use for planning, not publication.',
                     style: TextStyle(
                       color: palette.textSecondary,
@@ -149,8 +149,8 @@ class _AccuracyRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'vs literature Ea ${summary.referenceEa!.toStringAsFixed(1)} kcal/mol: '
-              '${err >= 0 ? '+' : ''}${err.toStringAsFixed(1)} kcal/mol '
+              'vs literature Ea ${summary.referenceEa!.toStringAsFixed(1)} kcal·mol⁻¹: '
+              '${err >= 0 ? '+' : ''}${err.toStringAsFixed(1)} kcal·mol⁻¹ '
               '(${err >= 0 ? '+' : ''}${summary.eaErrorPct!.toStringAsFixed(0)}%)',
               style: TextStyle(color: palette.textPrimary, fontSize: 12, fontWeight: FontWeight.w600),
             ),

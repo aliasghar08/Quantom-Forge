@@ -47,7 +47,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             
             // Dynamic Thermodynamics
             double baseEnthalpy = 25.4 * scaleFactor + totalShift;
-            double baseEntropy = -12.3 + (settings.temperatureK / 300.0) * 1.5; // cal/mol*K, scaled by Temp
+            double baseEntropy = -12.3 + (settings.temperatureK / 300.0) * 1.5; // cal·mol⁻¹·K⁻¹, scaled by Temp
             if (settings.solventModel != 'Vacuum') baseEntropy += 2.0; // Solvent increases entropy
             
             double gibbs = baseEnthalpy - (settings.temperatureK * baseEntropy / 1000.0);
@@ -71,13 +71,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             double partFunc = exp(-gibbsJ / (8.314 * settings.temperatureK)) * 1e12; 
 
             final List<Map<String, dynamic>> metrics = [
-              {'title': 'Enthalpy (ΔH‡)', 'value': '${baseEnthalpy.toStringAsFixed(1)} kcal/mol', 'icon': Icons.thermostat},
-              {'title': 'Entropy (ΔS‡)', 'value': '${baseEntropy.toStringAsFixed(1)} cal/mol·K', 'icon': Icons.shuffle},
-              {'title': 'Gibbs Free Energy (ΔG‡)', 'value': '${gibbs.toStringAsFixed(1)} kcal/mol', 'icon': Icons.bolt},
+              {'title': 'Enthalpy (ΔH‡)', 'value': '${baseEnthalpy.toStringAsFixed(1)} kcal·mol⁻¹', 'icon': Icons.thermostat},
+              {'title': 'Entropy (ΔS‡)', 'value': '${baseEntropy.toStringAsFixed(1)} cal·mol⁻¹·K⁻¹', 'icon': Icons.shuffle},
+              {'title': 'Gibbs Free Energy (ΔG‡)', 'value': '${gibbs.toStringAsFixed(1)} kcal·mol⁻¹', 'icon': Icons.bolt},
               {'title': 'Imaginary Freq. (v‡)', 'value': '${imagFreq.toStringAsFixed(1)} cm⁻¹', 'icon': Icons.waves},
-              {'title': 'Activation Energy (Ea)', 'value': '${ea.toStringAsFixed(1)} kcal/mol', 'icon': Icons.local_fire_department},
+              {'title': 'Activation Energy (Ea)', 'value': '${ea.toStringAsFixed(1)} kcal·mol⁻¹', 'icon': Icons.local_fire_department},
               {'title': 'Rate Constant (k)', 'value': '${rateConst.toStringAsExponential(2)} s⁻¹', 'icon': Icons.speed},
-              {'title': 'ZPE Correction', 'value': '${zpe.toStringAsFixed(2)} kcal/mol', 'icon': Icons.compress},
+              {'title': 'ZPE Correction', 'value': '${zpe.toStringAsFixed(2)} kcal·mol⁻¹', 'icon': Icons.compress},
               {'title': 'Dipole Moment (μ)', 'value': '${dipole.toStringAsFixed(2)} D', 'icon': Icons.compare_arrows},
               {'title': 'HOMO-LUMO Gap', 'value': '${gap.toStringAsFixed(2)} eV', 'icon': Icons.swap_vert},
               {'title': 'Polarizability (α)', 'value': '${polar.toStringAsFixed(1)} Bohr³', 'icon': Icons.blur_on},

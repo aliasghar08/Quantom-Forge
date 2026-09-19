@@ -491,7 +491,7 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
           ),
           const SizedBox(height: 6),
           Text(
-            'ΔE‡ = ${t.referenceEa} kcal/mol',
+            'ΔE‡ = ${t.referenceEa} kcal·mol⁻¹',
             style: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
           ),
