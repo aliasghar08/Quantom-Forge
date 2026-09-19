@@ -14,6 +14,7 @@ import 'package:quantum_forge/features/reaction_runner/providers/reaction_provid
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
 import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
+import 'package:quantum_forge/core/utils/avogadro_export.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/quantum_controls_panel.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/screens/library_screen.dart';
@@ -1057,6 +1058,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4FC3F7).withValues(alpha: 0.15),
                     foregroundColor: const Color(0xFF4FC3F7),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    if (status.trajectoryFrames != null && status.trajectoryFrames!.isNotEmpty) {
+                      final combinedXyz = status.trajectoryFrames!.join('\n');
+                      try {
+                        await exportForAvogadro('avogadro_${status.reactionId}.xyz', combinedXyz);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Downloaded .xyz for Avogadro!')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Export failed: $e')),
+                          );
+                        }
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('No trajectory frames available to export')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.science, size: 16),
+                  label: const Text('Export for Avogadro (.xyz)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.greenAccent.withValues(alpha: 0.15),
+                    foregroundColor: Colors.greenAccent,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
