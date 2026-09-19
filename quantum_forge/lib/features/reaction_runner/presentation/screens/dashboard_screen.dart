@@ -5,16 +5,21 @@
 // All widgets are in separate files under dashboard_cards/.
 // ============================================================================
 
-import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:quantum_forge/core/state/provider.dart';
+import 'package:provider/provider.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
 import 'package:quantum_forge/features/reaction_runner/providers/reaction_provider.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
 import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
+import 'package:quantum_forge/core/settings/app_settings_provider.dart';
+import 'package:quantum_forge/core/theme/theme_provider.dart';
+import 'package:quantum_forge/core/utils/avogadro_bridge.dart';
+import 'package:quantum_forge/core/utils/avogadro_codec.dart';
+import 'package:quantum_forge/core/utils/avogadro_deep_link.dart';
+import 'package:quantum_forge/core/utils/avogadro_interchange.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
-import 'package:quantum_forge/core/utils/avogadro_export.dart';
+import 'package:quantum_forge/core/utils/zip_writer.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/quantum_controls_panel.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/screens/library_screen.dart';
@@ -24,8 +29,6 @@ import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dash
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/arrhenius_plot_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/thermo_properties_grid.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/molecular_data_cards.dart';
-import 'package:quantum_forge/core/services/storage_service.dart';
-import 'package:quantum_forge/core/services/local_storage_service.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/distinct_molecules_viewer.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/vibrational_analysis_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/glass_card.dart';
@@ -36,11 +39,10 @@ import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dash
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/left_nav_rail.dart';
 import 'history_screen.dart';
 import 'coordinate_editor_screen.dart';
+import 'package:quantum_forge/features/settings/presentation/screens/settings_screen.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/viewmodels/dashboard_viewmodel.dart';
 
 import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
-import 'dart:convert';
-import 'dart:typed_data';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -52,46 +54,76 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   late DashboardViewModel _viewModel;
   int? _selectedFrameIndex;
-  
+
+  /// Set when a deep link arrived but auto-load is disabled (or was rejected),
+  /// so the user still gets told what happened instead of silence.
+  AvogadroDeepLink? _pendingLink;
+
   @override
   void initState() {
     super.initState();
     _viewModel = DashboardViewModel();
-    _checkForDeepLinkImport();
+    _viewModel.addListener(_onViewModelChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleIncomingStructure());
   }
 
-  void _checkForDeepLinkImport() {
-    // Flutter Web allows reading the current URL from Uri.base
-    try {
-      final queryParams = Uri.base.queryParameters;
-      if (queryParams.containsKey('import_xyz')) {
-        final encodedXyz = queryParams['import_xyz']!;
-        // Decode URL-safe Base64
-        String normalized = encodedXyz.replaceAll('-', '+').replaceAll('_', '/');
-        // Pad if needed
-        while (normalized.length % 4 != 0) {
-          normalized += '=';
-        }
-        final bytes = base64Decode(normalized);
-        final xyzString = utf8.decode(bytes);
-        
-        // Add to first reactant
-        if (_viewModel.reactants.isNotEmpty) {
-          final firstReactant = _viewModel.reactants.first;
-          firstReactant.ctrl.text = 'Avogadro Import';
-          _viewModel.setManualFile(
-            firstReactant, 
-            PickedFile(
-              name: 'avogadro_import.xyz', 
-              size: bytes.length, 
-              bytes: Uint8List.fromList(bytes)
-            )
-          );
-        }
+  void _onViewModelChanged() {
+    if (_viewModel.shouldAutoRun) {
+      _viewModel.consumeAutoRun();
+      if (_canDispatch) {
+        // Need to wait for frame to render the new state before dispatching
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _dispatch();
+        });
       }
-    } catch (e) {
-      debugPrint('Deep link import failed: $e');
     }
+  }
+
+  /// Handles a structure pushed in from Avogadro through the URL.
+  ///
+  /// The previous implementation decoded the payload by hand, dropped it into
+  /// the first reactant slot and swallowed every failure in a debugPrint — the
+  /// user saw nothing at all when a payload was malformed. It now decodes
+  /// through [AvogadroCodec] (CJSON *and* legacy XYZ), reports failures in the
+  /// UI, honours the bridge preferences, and opens the editor.
+  void _handleIncomingStructure() {
+    final settings = context.read<AppSettingsNotifier>().settings;
+    if (!settings.avogadroBridgeEnabled) return;
+
+    final link = AvogadroDeepLinkCodec.fromCurrentUrl();
+    if (link.isAbsent) return;
+
+    if (link.isInvalid) {
+      setState(() => _pendingLink = link);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Avogadro import failed: ${link.error}'),
+          duration: const Duration(seconds: 8),
+        ),
+      );
+      _cleanUrl(settings);
+      return;
+    }
+
+    final structure = link.structure!;
+    if (settings.autoImportDeepLink) {
+      _viewModel.loadStructure(structure);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Loaded from Avogadro — ${link.summary}'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      _cleanUrl(settings);
+    } else {
+      // Auto-load off: keep the banner so the work is not lost on refresh.
+      setState(() => _pendingLink = link);
+    }
+  }
+
+  void _cleanUrl(AppSettings settings) {
+    if (!settings.cleanUrlAfterImport) return;
+    AvogadroBridge.stripImportParams(Uri.base);
   }
 
   @override
@@ -101,7 +133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   bool get _canDispatch {
-    final reactionNotifier = ProviderScope.read<ReactionNotifier>(context);
+    final reactionNotifier = context.read<ReactionNotifier>();
     return _viewModel.canDispatch(
       reactionNotifier.isLoading,
       reactionNotifier.value?.state == ReactionState.optimizing || reactionNotifier.value?.state == ReactionState.pending
@@ -110,69 +142,131 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _dispatch() {
     setState(() => _selectedFrameIndex = null);
-    final settings = ProviderScope.read<QuantumSettingsNotifier>(context).value;
+    final settings = context.read<QuantumSettingsNotifier>().value;
     if (_viewModel.activeTemplate != null) {
-      ProviderScope.read<ReactionNotifier>(context)
+      context.read<ReactionNotifier>()
           .dispatchFromTemplate(_viewModel.activeTemplate!, settings);
     } else {
       final rList = [..._viewModel.reactants, ..._viewModel.catalysts];
       final pList = [..._viewModel.products, ..._viewModel.catalysts];
       final reactantFile = _viewModel.mergeXyz(rList, 'reactant');
       final productFile  = _viewModel.mergeXyz(pList,  'product');
-      ProviderScope.read<ReactionNotifier>(context)
+      context.read<ReactionNotifier>()
           .dispatchReaction(reactantFile, productFile, settings);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.watch<ThemeNotifier>().palette;
+    final settings = context.watch<AppSettingsNotifier>().settings;
+
     return ListenableBuilder(
       listenable: _viewModel,
       builder: (context, _) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            
-            return Scaffold(
-              backgroundColor: const Color(0xFF0F2027),
-              drawer: ProfessionalDrawer(
-                current: _viewModel.navDest,
-                onDestinationSelected: (d) {
-                  _viewModel.setNavDestination(d);
-                  if (!isDesktop) Navigator.pop(context); // Close drawer on mobile
-                },
-                controlsPanelOpen: _viewModel.controlsPanelOpen,
-                onToggleControls: () {
-                   _viewModel.toggleControlsPanel();
-                },
+        return Scaffold(
+          backgroundColor: palette.scaffold,
+          drawer: ProfessionalDrawer(
+            current: _viewModel.navDest,
+            onDestinationSelected: (d) {
+              _viewModel.setNavDestination(d);
+              Navigator.pop(context); // Close drawer
+            },
+            controlsPanelOpen: _viewModel.controlsPanelOpen,
+            onToggleControls: () {
+              _viewModel.toggleControlsPanel();
+            },
+          ),
+          appBar: AppBar(
+            backgroundColor: palette.scaffold,
+            title: Text(
+              'Quantum Forge',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                color: palette.textPrimary,
               ),
-              appBar: AppBar(
-                backgroundColor: const Color(0xFF0F2027),
-                title: const Text('Quantom Forge', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white)),
-                iconTheme: const IconThemeData(color: Colors.white),
-                elevation: 0,
-                bottom: PreferredSize(
-                  preferredSize: const Size.fromHeight(1.0),
-                  child: Container(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    height: 1.0,
-                  ),
-                ),
+            ),
+            iconTheme: IconThemeData(color: palette.textPrimary),
+            elevation: 0,
+            actions: [
+              IconButton(
+                tooltip: settings.showTooltips ? 'Settings' : null,
+                icon: Icon(Icons.settings_outlined, color: palette.textSecondary),
+                onPressed: () => Navigator.of(context).push(SettingsScreen.route()),
               ),
-              body: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
-                  ),
-                ),
-                child: _buildCenter(),
+              const SizedBox(width: 4),
+            ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(1.0),
+              child: Container(color: palette.border, height: 1.0),
+            ),
+          ),
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: palette.backgroundGradient,
               ),
-            );
-          }
+            ),
+            child: Column(
+              children: [
+                if (_pendingLink != null) _buildImportBanner(palette),
+                Expanded(child: _buildCenter()),
+              ],
+            ),
+          ),
         );
-      }
+      },
+    );
+  }
+
+  /// Shown when a structure arrived by deep link but was not auto-loaded.
+  Widget _buildImportBanner(QuantumTheme palette) {
+    final link = _pendingLink!;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: palette.accent.withValues(alpha: 0.12),
+        border: Border(bottom: BorderSide(color: palette.border)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.hub_outlined, size: 18, color: palette.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              link.isReady
+                  ? 'Structure received from Avogadro — ${link.summary}'
+                  : 'Avogadro payload could not be read: ${link.error}',
+              style: TextStyle(color: palette.textPrimary, fontSize: 12.5),
+            ),
+          ),
+          if (link.isReady)
+            FilledButton.icon(
+              onPressed: () {
+                final structure = link.structure!;
+                final settings = context.read<AppSettingsNotifier>().settings;
+                setState(() => _pendingLink = null);
+                _viewModel.loadStructure(structure);
+                _cleanUrl(settings);
+              },
+              icon: const Icon(Icons.edit_document, size: 16),
+              label: const Text('Open in editor'),
+              style: FilledButton.styleFrom(
+                backgroundColor: palette.accent,
+                foregroundColor: palette.onAccent,
+              ),
+            ),
+          IconButton(
+            tooltip: 'Dismiss',
+            icon: Icon(Icons.close, size: 18, color: palette.textMuted),
+            onPressed: () => setState(() => _pendingLink = null),
+          ),
+        ],
+      ),
     );
   }
 
@@ -183,7 +277,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: switch (_viewModel.navDest) {
         NavDestination.library  => LibraryScreen(onTemplateSelected: _viewModel.loadTemplate),
         NavDestination.history  => const HistoryScreen(),
-        NavDestination.editor   => const CoordinateEditorScreen(),
+        NavDestination.editor   => CoordinateEditorScreen(
+            // Keyed on the import revision, not on the structure's hashCode:
+            // a new import rebuilds the editor, anything else leaves the user's
+            // in-progress coordinates untouched.
+            key: ValueKey('editor-${_viewModel.structureRevision}'),
+            initialStructure: _viewModel.pendingStructure,
+          ),
         NavDestination.newReaction   => _buildReactionWorkspace(),
       },
     );
@@ -191,7 +291,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ── Reaction workspace ──────────────────────────────────────────────────────────
   Widget _buildReactionWorkspace() {
-    final reactionNotifier = ProviderScope.read<ReactionNotifier>(context);
+    final reactionNotifier = context.read<ReactionNotifier>();
 
     return ValueListenableBuilder<ReactionStatusResponse?>(
       valueListenable: reactionNotifier,
@@ -380,7 +480,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildVitalsSummary(BuildContext context) {
     return ValueListenableBuilder<QuantumSettings>(
-      valueListenable: ProviderScope.read<QuantumSettingsNotifier>(context),
+      valueListenable: context.read<QuantumSettingsNotifier>(),
       builder: (context, settings, _) {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -456,7 +556,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: InkWell(
                         onTap: () {
                           _viewModel.loadTemplate(t);
-                          ProviderScope.read<QuantumSettingsNotifier>(context).update((q) => q.copyWith(
+                          context.read<QuantumSettingsNotifier>().update((q) => q.copyWith(
                             charge: t.defaults.charge,
                             spinMultiplicity: t.defaults.spinMultiplicity,
                             mlipModel: t.defaults.mlipModel,
@@ -863,10 +963,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
                       ),
-                      onChanged: (val) => _viewModel.onSearchChanged(val, entry, ProviderScope.read<ChemicalResolverService>(context)),
+                      onChanged: (val) => _viewModel.onSearchChanged(val, entry, context.read<ChemicalResolverService>()),
                       onSubmitted: (val) {
                         if (val.trim().isNotEmpty) {
-                          _viewModel.resolveChemical(entry, ProviderScope.read<ChemicalResolverService>(context), query: val.trim());
+                          _viewModel.resolveChemical(entry, context.read<ChemicalResolverService>(), query: val.trim());
                         }
                       },
                     ),
@@ -879,7 +979,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   // Upload xyz fallback
                   GestureDetector(
-                    onTap: () => _viewModel.pickFileForEntry(entry, ProviderScope.read<FilePickerService>(context)),
+                    onTap: () => _viewModel.pickFileForEntry(entry, context.read<FilePickerService>()),
                     child: Tooltip(
                       message: 'Upload .xyz file',
                       child: Icon(
@@ -926,7 +1026,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   final suggestion = e.value;
                   final isLast = i == suggestions.length - 1;
                   return InkWell(
-                    onTap: () => _viewModel.onSuggestionSelected(suggestion, entry, ProviderScope.read<ChemicalResolverService>(context)),
+                    onTap: () => _viewModel.onSuggestionSelected(suggestion, entry, context.read<ChemicalResolverService>()),
                     borderRadius: BorderRadius.only(
                       bottomLeft: isLast ? const Radius.circular(10) : Radius.zero,
                       bottomRight: isLast ? const Radius.circular(10) : Radius.zero,
@@ -978,13 +1078,177 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: Colors.redAccent,
+      backgroundColor: context.read<ThemeNotifier>().palette.danger,
       behavior: SnackBarBehavior.floating,
     ));
   }
 
+  void _notify(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  /// Writes the converged structure (final frame) to a file.
+  ///
+  /// The old "Export Results (.zip)" button called a web stub that returned a
+  /// fake `memory://` path and never produced a file — it told the user
+  /// "Exported to: memory://results_….zip" and nothing was downloaded.
+  void _exportResults(ReactionStatusResponse status) {
+    final frames = status.trajectoryFrames ?? const <String>[];
+    if (frames.isEmpty) {
+      _notify('No trajectory frames available to export yet.');
+      return;
+    }
+    final settings = context.read<AppSettingsNotifier>().settings;
+    final finalFrame = XyzParser.parse(frames.last);
+    if (finalFrame.isEmpty) {
+      _showError('The final frame could not be parsed as an XYZ structure.');
+      return;
+    }
+    try {
+      downloadAtoms(
+        atoms: finalFrame,
+        title: 'Quantum Forge ${status.reactionId} — final structure',
+        format: settings.defaultExportFormat.extension,
+        precision: settings.exportPrecision,
+        includeTitleLine: settings.includeTitleLine,
+        bondTolerance: settings.bondTolerance,
+      );
+      _notify(
+        'Exported the final structure (${finalFrame.length} atoms) as '
+        '.${settings.defaultExportFormat.extension}',
+      );
+    } catch (e) {
+      _showError('Export failed: $e');
+    }
+  }
+
+  /// Downloads every trajectory frame plus a manifest as a real ZIP archive.
+  void _exportArchive(ReactionStatusResponse status) {
+    final frames = status.trajectoryFrames ?? const <String>[];
+    if (frames.isEmpty) {
+      _notify('No trajectory frames available to archive yet.');
+      return;
+    }
+    final settings = context.read<AppSettingsNotifier>().settings;
+    final energies = status.energyProfile ?? const <double>[];
+
+    final entries = <ZipEntry>[
+      ZipEntry(
+        'README.txt',
+        'Quantum Forge export\n'
+            '====================\n'
+            'Reaction id : ${status.reactionId}\n'
+            'State       : ${status.state.name}\n'
+            'Frames      : ${frames.length}\n'
+            'Atoms/frame : ${XyzParser.parse(frames.first).length}\n'
+            'Generated   : ${DateTime.now().toIso8601String()}\n\n'
+            'trajectory.xyz  — every image of the reaction path (multi-XYZ).\n'
+            'final.xyz       — the converged structure.\n'
+            'manifest.csv    — image index, energy, atom count.\n',
+      ),
+    ];
+
+    final structures = <AvogadroStructure>[];
+    final manifest = StringBuffer('image,energy_kcal_per_mol,atoms\n');
+    for (var i = 0; i < frames.length; i++) {
+      final atoms = XyzParser.parse(frames[i]);
+      if (atoms.isEmpty) continue;
+      structures.add(AvogadroInterchange.structure(
+        atoms,
+        title: 'Image ${i + 1}/${frames.length}',
+        bondTolerance: settings.bondTolerance,
+      ));
+      final energy = i < energies.length ? energies[i].toStringAsFixed(4) : '';
+      manifest.writeln('${i + 1},$energy,${atoms.length}');
+    }
+
+    if (structures.isEmpty) {
+      _showError('None of the trajectory frames could be parsed.');
+      return;
+    }
+
+    entries.add(ZipEntry(
+      'trajectory.xyz',
+      AvogadroInterchange.toMultiXyz(
+        structures,
+        precision: settings.exportPrecision,
+        includeTitleLine: settings.includeTitleLine,
+      ),
+    ));
+    entries.add(ZipEntry('final.xyz', AvogadroInterchange.toXyz(
+      structures.last,
+      precision: settings.exportPrecision,
+      includeTitleLine: settings.includeTitleLine,
+    )));
+    entries.add(ZipEntry('final.cjson', AvogadroInterchange.toCjson(structures.last)));
+    entries.add(ZipEntry('manifest.csv', manifest.toString()));
+
+    try {
+      final archive = ZipWriter.build(entries);
+      AvogadroBridge.downloadBytes(
+        'quantum_forge_${status.reactionId}.zip',
+        archive,
+        mimeType: 'application/zip',
+      );
+      _notify(
+        'Downloaded ${entries.length} files '
+        '(${(archive.length / 1024).toStringAsFixed(1)} kB) as a ZIP archive.',
+      );
+    } catch (e) {
+      _showError('Archive export failed: $e');
+    }
+  }
+
+  /// Exports the whole NEB trajectory for inspection in Avogadro.
+  void _exportTrajectoryForAvogadro(
+    ReactionStatusResponse status,
+    QuantumTheme palette,
+  ) {
+    final frames = status.trajectoryFrames ?? const <String>[];
+    if (frames.isEmpty) {
+      _notify('No trajectory frames available to export.');
+      return;
+    }
+    final settings = context.read<AppSettingsNotifier>().settings;
+    final structures = <AvogadroStructure>[];
+    for (var i = 0; i < frames.length; i++) {
+      final atoms = XyzParser.parse(frames[i]);
+      if (atoms.isEmpty) continue;
+      structures.add(AvogadroInterchange.structure(
+        atoms,
+        title: 'Image ${i + 1}/${frames.length}',
+        bondTolerance: settings.bondTolerance,
+      ));
+    }
+    if (structures.isEmpty) {
+      _showError('None of the trajectory frames could be parsed.');
+      return;
+    }
+    try {
+      AvogadroBridge.downloadTrajectory(
+        structures,
+        filename: 'quantum_forge_${status.reactionId}_path.xyz',
+        precision: settings.exportPrecision,
+        includeTitleLine: settings.includeTitleLine,
+      );
+      _notify(
+        'Exported ${structures.length} images as a multi-XYZ trajectory — open '
+        'it in Avogadro to animate the path.',
+      );
+    } catch (e) {
+      _showError('Trajectory export failed: $e');
+    }
+  }
+
   // ── Results area ───────────────────────────────────────────────────────────
   Widget _buildResultsArea(ReactionStatusResponse status) {
+    final palette = context.watch<ThemeNotifier>().palette;
+    final appSettings = context.watch<AppSettingsNotifier>().settings;
+
     if (status.state != ReactionState.completed) {
       return ReactionStatusCard(
         message: status.message ?? 'Ready to begin.',
@@ -1001,7 +1265,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return ValueListenableBuilder<QuantumSettings>(
-      valueListenable: ProviderScope.read<QuantumSettingsNotifier>(context),
+      valueListenable: context.read<QuantumSettingsNotifier>(),
       builder: (context, settings, _) {
         // Scaling
         double scaleFactor = settings.temperatureK / 300.0;
@@ -1064,68 +1328,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 ElevatedButton.icon(
-                  onPressed: () async {
-                    final storage = ProviderScope.read<StorageService>(context);
-                    if (storage is LocalStorageService) {
-                      try {
-                        final path = await storage.exportResultsToZip(
-                          userId: 'local_user',
-                          reactionId: status.reactionId,
-                          trajectoryFrames: status.trajectoryFrames ?? [],
-                          energyProfile: status.energyProfile ?? [],
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Exported to: $path')),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Export failed: $e')),
-                          );
-                        }
-                      }
-                    }
-                  },
+                  onPressed: () => _exportResults(status),
                   icon: const Icon(Icons.download, size: 16),
-                  label: const Text('Export Results (.zip)'),
+                  label: const Text('Export results (.xyz)'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4FC3F7).withValues(alpha: 0.15),
-                    foregroundColor: const Color(0xFF4FC3F7),
+                    backgroundColor: palette.accent.withValues(alpha: 0.15),
+                    foregroundColor: palette.accent,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton.icon(
-                  onPressed: () async {
-                    if (status.trajectoryFrames != null && status.trajectoryFrames!.isNotEmpty) {
-                      final combinedXyz = status.trajectoryFrames!.join('\n');
-                      try {
-                        await AvogadroExporter.exportForAvogadro('avogadro_${status.reactionId}.xyz', combinedXyz);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Downloaded .xyz for Avogadro!')),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Export failed: $e')),
-                          );
-                        }
-                      }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('No trajectory frames available to export')),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.science, size: 16),
-                  label: const Text('Export for Avogadro (.xyz)'),
+                  onPressed: () => _exportArchive(status),
+                  icon: const Icon(Icons.folder_zip_outlined, size: 16),
+                  label: const Text('Export bundle (.zip)'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.greenAccent.withValues(alpha: 0.15),
-                    foregroundColor: Colors.greenAccent,
+                    backgroundColor: palette.warning.withValues(alpha: 0.15),
+                    foregroundColor: palette.warning,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () => _exportTrajectoryForAvogadro(status, palette),
+                  icon: const Icon(Icons.science, size: 16),
+                  label: Text('Export trajectory (.${appSettings.defaultExportFormat.extension})'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: palette.success.withValues(alpha: 0.15),
+                    foregroundColor: palette.success,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),

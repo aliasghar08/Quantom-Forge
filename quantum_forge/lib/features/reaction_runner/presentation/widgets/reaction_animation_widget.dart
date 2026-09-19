@@ -26,6 +26,39 @@ const double _kAtomRadiusFactor = 0.70;
 const double _kMinAtomRadius    = 7.0;
 const double _kSeparationPad    = 2.0;   // used only inside _buildAtoms offsets
 
+// ── Electron-transfer / mechanism overlay ──────────────────────────────────
+// Pauling electronegativities for the elements that appear in reaction
+// templates. Used to place partial charges and to decide the direction of
+// electron flow (electrons move to the more electronegative atom).
+const Map<String, double> _electronegativity = {
+  'H': 2.20, 'Li': 0.98, 'Be': 1.57, 'B': 2.04, 'C': 2.55, 'N': 3.04,
+  'O': 3.44, 'F': 3.98, 'Na': 0.93, 'Mg': 1.31, 'Al': 1.61, 'Si': 1.90,
+  'P': 2.19, 'S': 2.58, 'Cl': 3.16, 'K': 0.82, 'Ca': 1.00, 'Fe': 1.83,
+  'Cu': 1.90, 'Zn': 1.65, 'Br': 2.96, 'I': 2.66, 'Se': 2.55, 'As': 2.18,
+  'Sn': 1.96, 'Pd': 2.20, 'Pt': 2.28, 'Au': 2.54,
+};
+
+/// Approximate number of lone pairs a neutral heteroatom carries.
+int _lonePairCount(String symbol) {
+  switch (symbol) {
+    case 'O':
+    case 'S':
+    case 'Se':
+      return 2;
+    case 'N':
+    case 'P':
+    case 'As':
+      return 1;
+    case 'F':
+    case 'Cl':
+    case 'Br':
+    case 'I':
+      return 3;
+    default:
+      return 0;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 class ReactionAnimationWidget extends StatefulWidget {
   final List<String> trajectoryFrames;
@@ -59,6 +92,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   bool _playing = true;
   bool _isRendering = false;
   bool _showEnergies = false;
+  bool _showMechanism = false;
 
   static const double _t1 = 0.22;
   static const double _t2 = 0.48;
@@ -300,6 +334,10 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
               setState(() => _showEnergies = !_showEnergies);
             }, tooltip: 'Toggle Bond Energies'),
             const SizedBox(width: 4),
+            _btn(_showMechanism ? Icons.electric_bolt : Icons.electric_bolt_outlined, () {
+              setState(() => _showMechanism = !_showMechanism);
+            }, tooltip: 'Toggle electron flow / mechanism'),
+            const SizedBox(width: 4),
             _btn(Icons.replay_rounded, () {
               _ctrl.reset();
               _ctrl.repeat();
@@ -335,6 +373,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
               rotNotifier: _rotNotifier,
               energyProfile: widget.energyProfile ?? [],
               showBondEnergies: _showEnergies,
+              showMechanism: _showMechanism,
             ),
             size: Size.infinite,
           ),
@@ -790,6 +829,7 @@ class _RxnPainterV6 extends CustomPainter {
   final ValueNotifier<Offset> rotNotifier;
   final List<double> energyProfile;
   final bool showBondEnergies;
+  final bool showMechanism;
 
   static const double _scale = 120.0;
   static const double _t1 = 0.22;
@@ -809,6 +849,7 @@ class _RxnPainterV6 extends CustomPainter {
     required this.rotNotifier,
     required this.energyProfile,
     required this.showBondEnergies,
+    required this.showMechanism,
   }) : super(repaint: repaint);
 
   double _s(double t) => t * t * (3 - 2 * t);
@@ -986,7 +1027,7 @@ class _RxnPainterV6 extends CustomPainter {
         bonds.add(_BD(p1: proj[i], p2: proj[j],
             z: (proj[i].z + proj[j].z) / 2,
             dist: dist, ideal: ideal, kind: kind, animT: t,
-            index: bondIndexCounter++));
+            index: bondIndexCounter++, i1: i, i2: j));
       }
     }
 
@@ -998,6 +1039,14 @@ class _RxnPainterV6 extends CustomPainter {
       } else if (item is _PA) {
         _drawAtom(canvas, item, t, dynamicScale);
       }
+    }
+
+    // Electron-transfer / mechanism overlay — layered above the structure so
+    // curved arrows, charges and lone pairs read clearly.
+    if (showMechanism) {
+      _drawElectronFlow(canvas, bonds, t);
+      _drawCharges(canvas, atoms, proj, bonds, dynamicScale);
+      _drawLonePairs(canvas, atoms, proj, bonds, dynamicScale);
     }
 
     _drawAxes(canvas, size, cosX, sinX, cosY, sinY);
@@ -1013,7 +1062,11 @@ class _RxnPainterV6 extends CustomPainter {
 
     switch (b.kind) {
       case _BK.stable:
-        _cylBond(canvas, p1, p2, Colors.blueGrey.shade400, 6.5);
+        if (showMechanism) {
+          _multiBond(canvas, p1, p2, Colors.blueGrey.shade400, 6.5, _bondOrder(b));
+        } else {
+          _cylBond(canvas, p1, p2, Colors.blueGrey.shade400, 6.5);
+        }
         break;
       case _BK.breaking:
         final p = ((stretch - 1.0) / 0.75).clamp(0.0, 1.0);
@@ -1083,6 +1136,218 @@ class _RxnPainterV6 extends CustomPainter {
         ..strokeWidth = w
         ..strokeCap = StrokeCap.round);
       cur += dash + gap;
+    }
+  }
+
+  // ── Bond order / multi-bond rendering ─────────────────────────────────────
+  /// Rough bond order from the bond-length / covalent-sum ratio. Short bonds
+  /// are drawn as double or triple bonds in mechanism mode.
+  int _bondOrder(_BD b) {
+    final ratio = b.dist / b.ideal;
+    if (ratio < 0.80) return 3;
+    if (ratio < 0.92) return 2;
+    return 1;
+  }
+
+  /// Draws 1–3 parallel cylinders for single/double/triple bonds.
+  void _multiBond(Canvas canvas, Offset p1, Offset p2, Color col, double w,
+      int order) {
+    final dir = p2 - p1;
+    final len = dir.distance;
+    if (len < 2.0) {
+      _cylBond(canvas, p1, p2, col, w);
+      return;
+    }
+    final perp = Offset(-dir.dy, dir.dx) / len * (w * 0.55);
+    if (order >= 3) {
+      for (final off in const [0.0, 1.0, -1.0]) {
+        _cylBond(canvas, p1 + perp * off, p2 + perp * off, col, w * 0.62);
+      }
+    } else if (order == 2) {
+      for (final off in const [0.5, -0.5]) {
+        _cylBond(canvas, p1 + perp * off, p2 + perp * off, col, w * 0.72);
+      }
+    } else {
+      _cylBond(canvas, p1, p2, col, w);
+    }
+  }
+
+  // ── Electron-transfer overlay ─────────────────────────────────────────────
+  /// Draws research-style curved arrows showing electron-pair movement: from a
+  /// breaking bond to the more electronegative atom, and from the donor atom
+  /// into a forming bond. Animated "electron packets" travel along each arrow.
+  void _drawElectronFlow(Canvas canvas, List<_BD> bonds, double t) {
+    const flowColor = Color(0xFF2CE0C8);
+    for (final b in bonds) {
+      if (b.kind != _BK.breaking && b.kind != _BK.forming) continue;
+      final a1 = b.p1, a2 = b.p2;
+      final en1 = _electronegativity[a1.atom.symbol] ?? 2.0;
+      final en2 = _electronegativity[a2.atom.symbol] ?? 2.0;
+
+      Offset from, to;
+      if (b.kind == _BK.breaking) {
+        // Electron pair retreats onto the more electronegative atom.
+        final sink = en1 >= en2 ? a1 : a2;
+        from = Offset((a1.sx + a2.sx) / 2, (a1.sy + a2.sy) / 2);
+        to = Offset(sink.sx, sink.sy);
+      } else {
+        // Electron pair flows from the donor into the new bond.
+        final donor = en1 <= en2 ? a1 : a2;
+        from = Offset(donor.sx, donor.sy);
+        to = Offset((a1.sx + a2.sx) / 2, (a1.sy + a2.sy) / 2);
+      }
+      _curvedArrow(canvas, from, to, flowColor, t + b.index * 0.137);
+    }
+  }
+
+  Offset _bez2(Offset p0, Offset p1, Offset p2, double u) {
+    final inv = 1 - u;
+    return p0 * (inv * inv) + p1 * (2 * inv * u) + p2 * (u * u);
+  }
+
+  void _curvedArrow(
+      Canvas canvas, Offset from, Offset to, Color color, double phase) {
+    final dir = to - from;
+    final len = dir.distance;
+    if (len < 8.0) return;
+
+    final mid = Offset((from.dx + to.dx) / 2, (from.dy + to.dy) / 2);
+    final perp = Offset(-dir.dy, dir.dx) / len;
+    final ctrl = mid + perp * (len * 0.30);
+
+    final path = Path()..moveTo(from.dx, from.dy);
+    const steps = 24;
+    for (int i = 1; i <= steps; i++) {
+      final p = _bez2(from, ctrl, to, i / steps);
+      path.lineTo(p.dx, p.dy);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color.withValues(alpha: 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Arrowhead tangent at the target.
+    final tangent = to - ctrl;
+    final tl = tangent.distance;
+    final tn = tl > 0 ? tangent / tl : const Offset(1, 0);
+    final base = to - tn * 7;
+    final ap = Offset(-tn.dy, tn.dx);
+    final headPaint = Paint()
+      ..color = color
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(to, base + ap * 4.2, headPaint);
+    canvas.drawLine(to, base - ap * 4.2, headPaint);
+
+    // Two travelling electron packets.
+    for (int k = 0; k < 2; k++) {
+      final u = (phase * 1.6 + k * 0.5) % 1.0;
+      final p = _bez2(from, ctrl, to, u);
+      canvas.drawCircle(p, 4.2,
+          Paint()
+            ..color = color.withValues(alpha: 0.30)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      canvas.drawCircle(p, 2.3, Paint()..color = Colors.white.withValues(alpha: 0.95));
+    }
+  }
+
+  /// Electronegativity-difference partial charges (δ+/δ−) per atom.
+  List<double> _charges(List<Atom> atoms, List<_BD> bonds) {
+    final n = atoms.length;
+    final en = List.generate(n, (i) => _electronegativity[atoms[i].symbol] ?? 2.0);
+    final neigh = List.generate(n, (_) => <int>[]);
+    for (final b in bonds) {
+      if (b.i1 >= 0 && b.i1 < n && b.i2 >= 0 && b.i2 < n) {
+        neigh[b.i1].add(b.i2);
+        neigh[b.i2].add(b.i1);
+      }
+    }
+    final delta = List<double>.filled(n, 0.0);
+    for (int i = 0; i < n; i++) {
+      if (atoms[i].symbol == 'H' || neigh[i].isEmpty) continue;
+      double sum = 0;
+      for (final j in neigh[i]) {
+        sum += en[j];
+      }
+      delta[i] = (en[i] - sum / neigh[i].length).clamp(-1.2, 1.2);
+    }
+    return delta;
+  }
+
+  void _drawCharges(Canvas canvas, List<Atom> atoms, List<_PA> proj,
+      List<_BD> bonds, double dynamicScale) {
+    final delta = _charges(atoms, bonds);
+    for (int i = 0; i < proj.length; i++) {
+      final d = delta[i];
+      if (d.abs() < 0.18) continue;
+      final p = proj[i];
+      final r = math.max(
+          p.atom.covalentRadius * dynamicScale * _kAtomRadiusFactor, _kMinAtomRadius);
+      final positive = d > 0;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: positive ? 'δ+' : 'δ−',
+          style: TextStyle(
+            color: positive ? const Color(0xFFFF5252) : const Color(0xFF448AFF),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            shadows: const [Shadow(color: Colors.black, blurRadius: 3)],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(p.sx - tp.width / 2, p.sy - r - tp.height - 2));
+    }
+  }
+
+  /// Draws lone-pair electron dots on heteroatoms, oriented away from bonds.
+  void _drawLonePairs(Canvas canvas, List<Atom> atoms, List<_PA> proj,
+      List<_BD> bonds, double dynamicScale) {
+    final n = atoms.length;
+    final dirs = List.generate(n, (_) => <Offset>[]);
+    for (final b in bonds) {
+      final v = Offset(b.p2.sx - b.p1.sx, b.p2.sy - b.p1.sy);
+      final l = v.distance;
+      if (l < 0.01) continue;
+      dirs[b.i1].add(v / l);
+      dirs[b.i2].add(-(v / l));
+    }
+
+    for (int i = 0; i < n; i++) {
+      final lp = _lonePairCount(atoms[i].symbol);
+      if (lp == 0) continue;
+      final p = proj[i];
+      final r = math.max(
+          p.atom.covalentRadius * dynamicScale * _kAtomRadiusFactor, _kMinAtomRadius);
+
+      // Candidate directions, ordered by angular distance from existing bonds,
+      // so lone pairs sit in the least-crowded pocket around the atom.
+      final candidates = <Offset>[
+        for (int k = 0; k < 12; k++)
+          Offset(math.cos(k * math.pi / 6), math.sin(k * math.pi / 6)),
+      ];
+      double minAngle(Offset o) {
+        double m = 1e9;
+        for (final d in dirs[i]) {
+          final dot = (o.dx * d.dx + o.dy * d.dy).clamp(-1.0, 1.0);
+          m = math.min(m, math.acos(dot));
+        }
+        return m;
+      }
+
+      candidates.sort((a, b) => minAngle(b).compareTo(minAngle(a)));
+      for (int k = 0; k < lp && k < candidates.length; k++) {
+        final d = candidates[k];
+        final base = Offset(p.sx + d.dx * (r + 7), p.sy + d.dy * (r + 7));
+        final perp = Offset(-d.dy, d.dx);
+        final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.90);
+        canvas.drawCircle(base + perp * 2.2, 2.2, dotPaint);
+        canvas.drawCircle(base - perp * 2.2, 2.2, dotPaint);
+      }
     }
   }
 
@@ -1331,6 +1596,23 @@ class _RxnPainterV6 extends CustomPainter {
     tp.paint(canvas,
         Offset((size.width - tp.width) / 2, size.height - 28));
 
+    if (showMechanism) {
+      final legend = TextPainter(
+        text: const TextSpan(
+          text: 'curved arrow = electron pair · δ± = partial charge · ●● = lone pair',
+          style: TextStyle(
+            color: Color(0xFF2CE0C8),
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      legend.paint(
+          canvas, Offset((size.width - legend.width) / 2, size.height - 44));
+    }
+
     final wm = TextPainter(
       text: TextSpan(
         text: 'Encrypted Copyright © Ali Asghar\naliasgharinnocent@yahoo.com',
@@ -1374,9 +1656,11 @@ class _BD implements _Item {
   final _BK kind;
   final double animT;
   final int index;
+  final int i1, i2;
   _BD({required this.p1, required this.p2, required this.z,
        required this.dist, required this.ideal, required this.kind,
-       required this.animT, required this.index});
+       required this.animT, required this.index, required this.i1,
+       required this.i2});
 }
 
 class _CalculatedBond {

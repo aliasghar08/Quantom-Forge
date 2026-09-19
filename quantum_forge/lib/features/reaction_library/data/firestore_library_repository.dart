@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 
 class FirestoreLibraryRepository {
@@ -16,12 +17,16 @@ class FirestoreLibraryRepository {
         return ReactionTemplate.fromJson(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
     } catch (e) {
-      print('Error fetching library templates: $e');
+      debugPrint('Error fetching library templates: $e');
       return [];
     }
   }
 
-  Future<void> seedLibrary(List<ReactionTemplate> templates) async {
+  /// Uploads [kReactionTemplates] to Firestore.
+  ///
+  /// Returns the number of documents written, or 0 when the write failed. The
+  /// caller can therefore report a truthful result instead of assuming success.
+  Future<int> seedLibrary(List<ReactionTemplate> templates) async {
     try {
       final batch = _firestore.batch();
       for (final template in templates) {
@@ -29,9 +34,11 @@ class FirestoreLibraryRepository {
         batch.set(docRef, template.toJson());
       }
       await batch.commit();
-      print('Successfully seeded \${templates.length} templates to Firestore.');
+      debugPrint('Seeded ${templates.length} templates to Firestore.');
+      return templates.length;
     } catch (e) {
-      print('Error seeding library: $e');
+      debugPrint('Error seeding library: $e');
+      return 0;
     }
   }
 }

@@ -1,12 +1,18 @@
 // ============================================================================
 // Quantum Settings Provider
 // Persistent state for all researcher-controlled computation parameters.
-// Saved to SharedPreferences so settings survive app restarts.
+// Saved through shared_preferences so settings survive app restarts.
 // Includes: catalyst selection, solvent, MLIP model, optimizer, analysis flags.
+//
+// Storage note: this used to go through `LocalPrefs`, a bespoke localStorage
+// wrapper built on `dart:js_interop`. That made the module — and every widget
+// importing it — uncompilable off the web, so none of it could be unit-tested.
+// It now uses the same `shared_preferences` backend as the workspace settings,
+// which also means one storage story instead of two.
 // ============================================================================
 
 import 'package:flutter/foundation.dart';
-import 'package:quantum_forge/core/utils/local_prefs.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class QuantumSettings {
   // --- System ---
@@ -212,81 +218,127 @@ class QuantumSettingsNotifier extends ValueNotifier<QuantumSettings> {
     _load();
   }
 
-  static const _keyCharge = 'qs_charge';
-  static const _keySpin = 'qs_spin';
-  static const _keyMlip = 'qs_mlip';
-  static const _keySolvent = 'qs_solvent';
-  static const _keyTemp = 'qs_temp';
-  static const _keyAlgo = 'qs_algo';
-  static const _keySteps = 'qs_steps';
-  static const _keyConv = 'qs_conv';
-  static const _keyForce = 'qs_force';
-  static const _keyImages = 'qs_images';
-  static const _keySpring = 'qs_spring';
-  static const _keyZpe = 'qs_zpe';
-  static const _keyThermo = 'qs_thermo';
-  static const _keyIrc = 'qs_irc';
-  static const _keyFreq = 'qs_freq';
-  static const _keyExport = 'qs_export';
-  static const _keyConf = 'qs_conf';
-  static const _keyCatalyst = 'qs_catalyst';
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
+  /// The in-flight persistence write, if any (see [flush]).
+  Future<void>? _pendingWrite;
+
+  static const _k = 'qs_';
+  static const _keyCharge = '${_k}charge';
+  static const _keySpin = '${_k}spin';
+  static const _keyMlip = '${_k}mlip';
+  static const _keySolvent = '${_k}solvent';
+  static const _keyTemp = '${_k}temp';
+  static const _keyAlgo = '${_k}algo';
+  static const _keySteps = '${_k}steps';
+  static const _keyConv = '${_k}conv';
+  static const _keyDmfConv = '${_k}dmf_conv';
+  static const _keyNmove = '${_k}nmove';
+  static const _keyUpdateTeval = '${_k}update_teval';
+  static const _keyForce = '${_k}force';
+  static const _keyImages = '${_k}images';
+  static const _keySpring = '${_k}spring';
+  static const _keyToken = '${_k}hf_token';
+  static const _keyZpe = '${_k}zpe';
+  static const _keyThermo = '${_k}thermo';
+  static const _keyIrc = '${_k}irc';
+  static const _keyFreq = '${_k}freq';
+  static const _keyExport = '${_k}export';
+  static const _keyConf = '${_k}conf';
+  static const _keyCatalyst = '${_k}catalyst';
 
   Future<void> _load() async {
-    final prefs = await LocalPrefs.getInstance();
-    value = QuantumSettings(
-      charge: prefs.getInt(_keyCharge) ?? 0,
-      spinMultiplicity: prefs.getInt(_keySpin) ?? 1,
-      mlipModel: prefs.getString(_keyMlip) ?? 'MACE-MP-0',
-      solventModel: prefs.getString(_keySolvent) ?? 'Vacuum',
-      temperatureK: prefs.getDouble(_keyTemp) ?? 298.15,
-      catalyst: prefs.getString(_keyCatalyst) ?? 'None',
-      optimizerAlgorithm: prefs.getString(_keyAlgo) ?? 'NEB-CI',
-      maxSteps: prefs.getInt(_keySteps) ?? 300,
-      convergence: prefs.getString('convergence') ?? 'Normal',
-      dmfConvergence: prefs.getString('dmfConvergence') ?? 'Normal',
-      nmove: prefs.getInt('nmove') ?? 20,
-      updateTeval: prefs.getBool('updateTeval') ?? false,
-      maxForceNorm: prefs.getDouble('maxForceNorm') ?? 0.05,
-      nebImages: prefs.getInt('nebImages') ?? 12,
-      springConstant: prefs.getDouble('springConstant') ?? 0.1,
-      hfToken: prefs.getString('hfToken') ?? '',
-      zpeCorrection: prefs.getBool(_keyZpe) ?? true,
-      computeThermochemistry: prefs.getBool(_keyThermo) ?? true,
-      runIrc: prefs.getBool(_keyIrc) ?? false,
-      frequencyAnalysis: prefs.getBool(_keyFreq) ?? true,
-      exportFormat: prefs.getString(_keyExport) ?? 'XYZ',
-      conformationalSearch: prefs.getBool(_keyConf) ?? false,
-    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      value = QuantumSettings(
+        charge: prefs.getInt(_keyCharge) ?? 0,
+        spinMultiplicity: prefs.getInt(_keySpin) ?? 1,
+        mlipModel: prefs.getString(_keyMlip) ?? 'MACE-MP-0',
+        solventModel: prefs.getString(_keySolvent) ?? 'Vacuum',
+        temperatureK: prefs.getDouble(_keyTemp) ?? 298.15,
+        catalyst: prefs.getString(_keyCatalyst) ?? 'None',
+        optimizerAlgorithm: prefs.getString(_keyAlgo) ?? 'NEB-CI',
+        maxSteps: prefs.getInt(_keySteps) ?? 300,
+        convergence: prefs.getString(_keyConv) ?? 'Normal',
+        dmfConvergence: prefs.getString(_keyDmfConv) ?? 'Normal',
+        nmove: prefs.getInt(_keyNmove) ?? 20,
+        updateTeval: prefs.getBool(_keyUpdateTeval) ?? false,
+        maxForceNorm: prefs.getDouble(_keyForce) ?? 0.05,
+        nebImages: prefs.getInt(_keyImages) ?? 12,
+        springConstant: prefs.getDouble(_keySpring) ?? 0.1,
+        hfToken: prefs.getString(_keyToken) ?? '',
+        zpeCorrection: prefs.getBool(_keyZpe) ?? true,
+        computeThermochemistry: prefs.getBool(_keyThermo) ?? true,
+        runIrc: prefs.getBool(_keyIrc) ?? false,
+        frequencyAnalysis: prefs.getBool(_keyFreq) ?? true,
+        exportFormat: prefs.getString(_keyExport) ?? 'XYZ',
+        conformationalSearch: prefs.getBool(_keyConf) ?? false,
+      );
+    } catch (e) {
+      debugPrint('QuantumSettingsNotifier: could not load settings — $e');
+    } finally {
+      _isInitialized = true;
+      notifyListeners();
+    }
   }
 
   Future<void> _save(QuantumSettings s) async {
-    final prefs = await LocalPrefs.getInstance();
-    await prefs.setInt(_keyCharge, s.charge);
-    await prefs.setInt(_keySpin, s.spinMultiplicity);
-    await prefs.setString(_keyMlip, s.mlipModel);
-    await prefs.setString(_keySolvent, s.solventModel);
-    await prefs.setDouble(_keyTemp, s.temperatureK);
-    await prefs.setString(_keyCatalyst, s.catalyst);
-    await prefs.setString(_keyAlgo, s.optimizerAlgorithm);
-    await prefs.setInt(_keySteps, s.maxSteps);
-    await prefs.setString('convergence', s.convergence);
-    await prefs.setString('dmfConvergence', s.dmfConvergence);
-    await prefs.setInt('nmove', s.nmove);
-    await prefs.setBool('updateTeval', s.updateTeval);
-    await prefs.setDouble('maxForceNorm', s.maxForceNorm);
-    await prefs.setInt('nebImages', s.nebImages);
-    await prefs.setDouble('springConstant', s.springConstant);
-    await prefs.setString('hfToken', s.hfToken);
-    await prefs.setBool(_keyZpe, s.zpeCorrection);
-    await prefs.setBool(_keyThermo, s.computeThermochemistry);
-    await prefs.setBool(_keyIrc, s.runIrc);
-    await prefs.setBool(_keyFreq, s.frequencyAnalysis);
-    await prefs.setString(_keyExport, s.exportFormat);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_keyCharge, s.charge);
+      await prefs.setInt(_keySpin, s.spinMultiplicity);
+      await prefs.setString(_keyMlip, s.mlipModel);
+      await prefs.setString(_keySolvent, s.solventModel);
+      await prefs.setDouble(_keyTemp, s.temperatureK);
+      await prefs.setString(_keyCatalyst, s.catalyst);
+      await prefs.setString(_keyAlgo, s.optimizerAlgorithm);
+      await prefs.setInt(_keySteps, s.maxSteps);
+      await prefs.setString(_keyConv, s.convergence);
+      await prefs.setString(_keyDmfConv, s.dmfConvergence);
+      await prefs.setInt(_keyNmove, s.nmove);
+      await prefs.setBool(_keyUpdateTeval, s.updateTeval);
+      await prefs.setDouble(_keyForce, s.maxForceNorm);
+      await prefs.setInt(_keyImages, s.nebImages);
+      await prefs.setDouble(_keySpring, s.springConstant);
+      await prefs.setString(_keyToken, s.hfToken);
+      await prefs.setBool(_keyZpe, s.zpeCorrection);
+      await prefs.setBool(_keyThermo, s.computeThermochemistry);
+      await prefs.setBool(_keyIrc, s.runIrc);
+      await prefs.setBool(_keyFreq, s.frequencyAnalysis);
+      await prefs.setString(_keyExport, s.exportFormat);
+      await prefs.setBool(_keyConf, s.conformationalSearch);
+    } catch (e) {
+      debugPrint('QuantumSettingsNotifier: could not persist settings — $e');
+    }
   }
 
   void update(QuantumSettings Function(QuantumSettings) updater) {
-    value = updater(value);
-    _save(value);
+    final updated = updater(value);
+    if (updated == value) return;
+    value = updated;
+    _pendingWrite = _save(updated);
+  }
+
+  /// Completes when the queued write has reached storage.
+  ///
+  /// Writes stay fire-and-forget for the UI; this handle exists so callers that
+  /// need durability (tests, "save before unload") can await it.
+  Future<void> flush() async {
+    while (_pendingWrite != null) {
+      final pending = _pendingWrite;
+      await pending;
+      if (identical(pending, _pendingWrite)) {
+        _pendingWrite = null;
+      }
+    }
+  }
+
+  /// Factory defaults — used by the "Reset" affordance in the controls panel.
+  void resetToDefaults() {
+    if (value == const QuantumSettings()) return;
+    value = const QuantumSettings();
+    _pendingWrite = _save(value);
   }
 }
 

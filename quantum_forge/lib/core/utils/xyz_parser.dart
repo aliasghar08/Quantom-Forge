@@ -1,32 +1,17 @@
+// ============================================================================
+// XYZ parser / writer
+// ----------------------------------------------------------------------------
+// `Atom` and `MolecularInfo` now live in `molecular.dart`; they are re-exported
+// here so the many existing `import '.../xyz_parser.dart'` call sites keep
+// working unchanged.
+// ============================================================================
+
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:quantum_forge/core/utils/element_data.dart';
 
-class Atom {
-  final String symbol;
-  double x;
-  double y;
-  double z;
-  final Color color;
-  final double radius;
-  final double covalentRadius;
+import 'molecular.dart';
 
-  Atom(this.symbol, this.x, this.y, this.z, this.color, this.radius, this.covalentRadius);
-}
+export 'molecular.dart' show Atom, MolecularInfo, hillFormula, molarMass, atomFor;
 
-class MolecularInfo {
-  final String formula;
-  final double weight;
-  final int numAtoms;
-  final Map<String, int> elementCounts;
-
-  MolecularInfo({
-    required this.formula,
-    required this.weight,
-    required this.numAtoms,
-    required this.elementCounts,
-  });
-}
 class XyzParser {
   static final RegExp _whitespaceRegExp = RegExp(r'\s+');
 
@@ -34,60 +19,76 @@ class XyzParser {
     return parse(xyz);
   }
 
+  /// Parses an XYZ document.
+  ///
+  /// The declared atom count on the first line is honoured when present, so a
+  /// multi-frame XYZ (an NEB trajectory, for example) yields its first frame
+  /// instead of silently concatenating every frame into one "molecule".
   static List<Atom> parse(String xyz) {
-    final lines = const LineSplitter().convert(xyz).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
-    if (lines.length < 3) return [];
+    final lines = const LineSplitter().convert(xyz).map((l) => l.trim()).toList();
+
+    var cursor = 0;
+    while (cursor < lines.length && lines[cursor].isEmpty) {
+      cursor++;
+    }
+    if (cursor >= lines.length) return const [];
+
+    final declared = int.tryParse(lines[cursor].split(_whitespaceRegExp).first);
+    cursor++; // count line
+    if (cursor < lines.length) cursor++; // comment line (may be empty)
 
     final atoms = <Atom>[];
-    for (int i = 2; i < lines.length; i++) {
-      final parts = lines[i].split(_whitespaceRegExp);
-      if (parts.length >= 4) {
-        final symbol = parts[0];
-        final x = double.tryParse(parts[1]) ?? 0.0;
-        final y = double.tryParse(parts[2]) ?? 0.0;
-        final z = double.tryParse(parts[3]) ?? 0.0;
-        
-        atoms.add(Atom(
-          symbol,
-          x,
-          y,
-          z,
-          ElementData.colors[symbol] ?? Colors.pinkAccent,
-          ElementData.vdwRadii[symbol] ?? 1.5,
-          ElementData.covalentRadii[symbol] ?? 0.7,
-        ));
-      }
+    final limit = declared != null && declared > 0 ? declared : -1;
+    for (var i = cursor; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.isEmpty) continue;
+      if (limit > 0 && atoms.length >= limit) break;
+      final parts = line.split(_whitespaceRegExp);
+      if (parts.length < 4) continue;
+      final x = double.tryParse(parts[1]) ?? 0.0;
+      final y = double.tryParse(parts[2]) ?? 0.0;
+      final z = double.tryParse(parts[3]) ?? 0.0;
+      atoms.add(atomFor(parts[0], x, y, z));
     }
     return atoms;
   }
 
-  static MolecularInfo getMolecularInfo(List<Atom> atoms) {
-    double weight = 0.0;
-    final counts = <String, int>{};
+  /// Serialises atoms back to a single-frame XYZ document.
+  ///
+  /// The count line is generated from [atoms], so it can never disagree with
+  /// the atom block (the interactive builder previously hand-wrote this and
+  /// could emit a mismatched header).
+  static String serialize(
+    List<Atom> atoms, {
+    String title = 'Quantum Forge structure',
+    int precision = 5,
+  }) {
+    final buffer = StringBuffer()
+      ..writeln(atoms.length)
+      ..writeln(title);
+    for (final atom in atoms) {
+      buffer
+        ..write(atom.symbol.padRight(2))
+        ..write(' ')
+        ..write(atom.x.toStringAsFixed(precision).padLeft(precision + 5))
+        ..write(' ')
+        ..write(atom.y.toStringAsFixed(precision).padLeft(precision + 5))
+        ..write(' ')
+        ..write(atom.z.toStringAsFixed(precision).padLeft(precision + 5))
+        ..writeln();
+    }
+    return buffer.toString();
+  }
 
+  static MolecularInfo getMolecularInfo(List<Atom> atoms) {
+    final counts = <String, int>{};
     for (final atom in atoms) {
       counts[atom.symbol] = (counts[atom.symbol] ?? 0) + 1;
-      weight += ElementData.atomicMasses[atom.symbol] ?? 0.0;
-    }
-
-    // Build Hill formula
-    final formulaBuffer = StringBuffer();
-    if (counts.containsKey('C')) {
-      formulaBuffer.write('C${counts['C']! > 1 ? counts['C'] : ''}');
-      if (counts.containsKey('H')) {
-        formulaBuffer.write('H${counts['H']! > 1 ? counts['H'] : ''}');
-      }
-    }
-
-    final sortedKeys = counts.keys.toList()..sort();
-    for (final key in sortedKeys) {
-      if (counts.containsKey('C') && (key == 'C' || key == 'H')) continue;
-      formulaBuffer.write('$key${counts[key]! > 1 ? counts[key] : ''}');
     }
 
     return MolecularInfo(
-      formula: formulaBuffer.toString(),
-      weight: weight,
+      formula: hillFormula(atoms),
+      weight: molarMass(atoms),
       numAtoms: atoms.length,
       elementCounts: counts,
     );
@@ -105,7 +106,7 @@ class XyzParser {
         final dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
         final distSq = dx * dx + dy * dy + dz * dz;
         final idealDist = a.covalentRadius + b.covalentRadius;
-        
+
         // 1.18 is a typical bond length tolerance factor
         if (distSq < (idealDist * 1.18) * (idealDist * 1.18)) {
           adjacency[i].add(j);

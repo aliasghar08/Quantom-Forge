@@ -7,82 +7,152 @@
   <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase" />
 </p>
 
-**Quantom Forge** is a cutting-edge, AI-powered quantum chemistry optimization and visualization platform built **exclusively for the Web** using Flutter. Designed for researchers and students, it provides an intuitive, high-performance web dashboard for visualizing molecular structures, modeling transition states, and calculating complex thermodynamic properties entirely in the browser.
+**Quantom Forge** is an AI-assisted quantum chemistry optimisation and visualisation
+workstation built **for the web** with Flutter. It gives researchers and students a
+single browser dashboard for building molecules, modelling transition states, and
+inspecting thermodynamic and kinetic results — with a two-way bridge to desktop
+**Avogadro 2**.
 
-## 🌐 Web-First Platform
+## 🌐 Web-first platform
 
-Quantom Forge is optimized specifically for web browsers. By leveraging WebGL and Flutter Web, it delivers a heavy-duty computational chemistry suite without requiring any desktop installations. Whether you are on Windows, macOS, or Linux, you can simply open your browser and access the full suite of tools.
+Quantom Forge targets the browser. WebGL and Flutter Web deliver the whole
+computational-chemistry surface without a desktop install, on Windows, macOS or
+Linux.
 
-## 🚀 Comprehensive Feature List
+## 🚀 Features
 
-### 1. 3D Interactive Physics Engine & Molecular Builder
-*   **Inverse Raycasting**: A highly advanced custom 3D drawing engine built from scratch. Click and drag in the 3D void to draw molecules!
-*   **Covalent Distance Calculation**: Automatically calculates optimal bond lengths and standard geometries when placing new atoms.
-*   **Element Selector**: Easily switch between common elements (H, C, N, O, F, P, S, Cl).
-*   **Dynamic Orbiting & Panning**: Complete mouse and touch control over the 3D molecular canvas.
+### 1. 3D interactive builder
+* **Inverse raycasting** — click into the 3D void to place atoms; drag from an atom
+  to grow a bond at the ideal covalent distance.
+* **Element picker** over the full periodic table with CPK colours and covalent /
+  van-der-Waals radii.
+* **Force-field relaxation** while you draw (toggleable), plus orbit/zoom camera
+  controls and three atom representations (ball & stick, space filling, wireframe).
 
-### 2. Deep File Format Parsing
-*   **Multi-Format Support**: Natively parses `.mol`, `.sdf`, `.cml`, and `.xyz` files directly in the browser without any backend processing.
-*   **Avogadro Compatibility**: Fully supports loading structure files exported directly from Avogadro.
+### 2. Structure I/O — Avogadro 2 native
+* **Reads** CJSON (Avogadro's native Chemical JSON), CML, XYZ, SDF and MOL.
+* **Writes** CJSON, CML, SDF (V2000 connection table) and XYZ, with configurable
+  coordinate precision and title lines.
+* **Perceives bonds** from covalent radii with a valence-aware order refinement, so
+  exported connection tables are chemically sensible rather than a flat atom list.
+* **Multi-XYZ trajectories** — the whole NEB path exports as one file Avogadro
+  animates image by image.
 
-### 3. Transition State (TS) Modeling & Animation
-*   **Reaction Path Interpolation**: Smoothly animates chemical reactions, transitioning atoms from their Reactant state through the Transition State (TS), and finally into the Product state.
-*   **Play/Pause Controls**: Detailed timeline scrubber to pause animations exactly at the transition state to study bond-breaking and bond-forming geometries.
+### 3. Transition-state modelling & animation
+* Interpolates reactants → transition state → products with a timeline scrubber that
+  can be parked exactly on the saddle point.
+* Energy-profile, Arrhenius and IR-spectrum plots drawn with the active theme's
+  colour palette.
 
-### 4. Advanced Analytics & Reaction Dashboards
-*   **Energy Profile Graphs**: Interactive 2D line charts plotting the reaction coordinate against relative energy (Activation Energy and Enthalpy).
-*   **Arrhenius Kinetics Plots**: Interactive $ln(k)$ vs $1/T$ graphs for evaluating reaction rates.
-*   **Vibrational Analysis Spectrums**: Simulated IR spectrum graphs to analyze the dominant vibrational modes of transition states.
-*   **Thermodynamic Metrics**: Live-updating cards displaying Gibbs Free Energy, Enthalpy, Entropy, and calculated reaction rates.
+### 4. Reaction dashboards
+* Energy profile (ΔE‡, ΔH‡), Arrhenius kinetics, simulated IR sticks.
+* Live thermodynamic cards: Gibbs energy, enthalpy, entropy, rate constant, ZPE,
+  dipole, HOMO–LUMO gap, polarisability, RMS gradient.
 
-### 5. Quantum Render Modes & Aesthetics
-*   **Electron Clouds & VDW Surfaces**: High-performance gradient painters simulate electron density and Van der Waals surfaces.
-*   **Visual Modes**: Toggle between Standard (Ball & Stick), Glassmorphism, and Metallic rendering styles.
-*   **Dynamic Lighting**: Custom 3D shading, specular highlights, and ambient occlusion applied to 2D canvas drawing.
+### 5. Cloud reaction library
+* Firestore-backed library of textbook reactions (Grignard, Fischer esterification,
+  Friedel–Crafts, Suzuki) with real-time search and filtering.
 
-### 6. Cloud-Connected Reaction Library
-*   **Firestore Database**: A sprawling, centralized database of pre-calculated textbook chemical reactions (Grignard Additions, Fischer Esterifications, Friedel-Crafts, Suzuki Couplings).
-*   **Real-time Search & Filtering**: Instantly search reactions by IUPAC name, reaction type (Addition, Substitution, Elimination), or chemical tags.
+### 6. Scientific theming
+Seven presets, each grounded in a real convention rather than a colour preference.
+A theme is not just a `ColorScheme` — it also supplies the palette used by the
+hand-written 2D/3D painters and the chart series colours.
 
-### 7. Seamless Avogadro 2 Integration
-*   Quantom Forge acts as the perfect companion to desktop Avogadro software. 
-*   Includes a native Avogadro 2 Python Command Plugin to instantly pipe your active desktop molecules directly into the web dashboard.
+| Preset | Family | Idea |
+| --- | --- | --- |
+| Dark Matter | Deep field | Low-glare default for long optimisation runs |
+| Quantum Blue | Orbital | Cherenkov blue, metallic renderer |
+| Neon Synth | Spectroscopy | Laser pink + cyan on violet, translucent atoms |
+| Electron Cloud | Density | Teal isosurface palette, high VDW opacity |
+| Spectroscopy | Spectroscopy | Low-glare slate with warm IR / violet UV-Vis accents |
+| Scientific Light | Publication | Print-quality light theme for figures and projectors |
+| Journal Mono | Publication | Greyscale-first, Okabe–Ito colour-blind-safe plots |
 
-### 8. User Management & Security
-*   **Firebase Authentication**: Secure user login displaying real-time user profiles and emails in the application drawer.
+Themes persist across sessions; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> cycles
+them.
 
-## 🛠️ Tools & Platforms Used
+### 7. Settings that actually apply
+*Settings* is a real screen (drawer gear icon, or the app-bar gear) with five tabs —
+Appearance, Editor, Export, Avogadro, Compute. Every control writes through to
+storage immediately and takes effect without a restart:
 
-This project leverages modern frameworks and cloud platforms to deliver a robust web experience:
+* **Appearance** — theme presets, compact mode, reduce motion, tooltips.
+* **Editor** — default element, auto-optimise, atom representation, bond drawing,
+  hydrogen visibility, bond-perception tolerance, auto-save interval.
+* **Export** — default format, coordinate precision, title line, plus a live preview
+  of what those settings actually produce.
+* **Avogadro** — bridge endpoint (hosted / localhost / custom), deep-link import
+  toggles, and the per-platform plugin install path.
+* **Compute** — temperature, step count, NEB images, convergence, and the analysis
+  switches, mirroring the Quantum Controls panel.
 
-*   **Frontend Framework**: Flutter (Web-Targeted)
-*   **Language**: Dart (with `dart:html` for native web APIs)
-*   **Backend as a Service (BaaS)**: Google Firebase
-    *   **Firebase Authentication**: Secure user login and identity management.
-    *   **Cloud Firestore**: Real-time NoSQL database for the centralized reaction library.
-    *   **Firebase Hosting**: Global CDN deployment for the web application.
-*   **State Management**: Custom Riverpod-style architecture utilizing Providers and `ValueNotifier`.
-*   **UI/UX Libraries**: `flutter_staggered_animations` for dynamic transitions, Material 3 design system.
-*   **Computational Chemistry Tools**: Avogadro 2 (via Python Command Plugin integration).
+### 8. Avogadro 2 bridge
+Two directions, because Avogadro 2 has no URL-open hook:
 
-## ⚙️ How to Run
+* **Avogadro → web.** The bundled plugin (`avogadro_plugin/`) sends the open molecule
+  as CJSON through a deep link; the editor opens with it pre-loaded (or a banner
+  offers to, if auto-load is off). The payload is stripped from the address bar
+  afterwards so a refresh does not re-import it.
+* **Web → Avogadro.** *Export* writes CJSON/CML/SDF/XYZ files, *Export trajectory*
+  writes the multi-XYZ path, and *Export bundle (.zip)* packages trajectory, final
+  structure (XYZ + CJSON) and an energy manifest. See
+  [`avogadro_plugin/README.md`](quantum_forge/avogadro_plugin/README.md).
 
-1.  Ensure you have the [Flutter SDK](https://flutter.dev/docs/get-started/install) installed.
-2.  Clone the repository and install dependencies:
-    ```bash
-    git clone https://github.com/aliasghar08/Quantum-Forge.git
-    cd quantum_forge
-    flutter pub get
-    ```
-3.  Run the application locally **on Chrome**:
-    ```bash
-    flutter run -d chrome
-    ```
+### 9. Accounts
+Firebase Authentication with profile and email shown in the drawer.
+
+## 🛠️ Stack
+
+* **Frontend**: Flutter (web) · Dart · `dart:js_interop` for browser APIs
+* **State**: `provider` (`ChangeNotifier` + `ValueNotifier`)
+* **Backend as a service**: Firebase Auth · Cloud Firestore · Firebase Hosting
+* **Chemistry**: custom format writers/parsers; Avogadro 2 via a Python plugin
+* **UI**: Material 3, `flutter_staggered_animations`, hand-written `CustomPainter` charts
+
+## ⚙️ Running it
+
+```bash
+git clone https://github.com/aliasghar08/Quantum-Forge.git
+cd Quantum-Forge/quantum_forge
+flutter pub get
+flutter run -d chrome
+```
+
+Quality gates:
+
+```bash
+flutter analyze   # must be clean
+flutter test      # 93 tests
+```
+
+### Pointing the plugin at a local build
+
+```bash
+export QUANTUM_FORGE_URL=http://localhost:8080   # or $env: on PowerShell
+```
+
+The same value can be set in *Settings ▸ Avogadro ▸ Bridge endpoint*.
 
 ## 🌐 Deployment
 
-Quantom Forge is currently deployed and live via Firebase Hosting:
-[https://quantom-forge.web.app](https://quantom-forge.web.app)
+Hosted via Firebase Hosting: [quantom-forge.web.app](https://quantom-forge.web.app)
+
+## 📁 Layout
+
+```
+quantum_forge/
+├── lib/
+│   ├── core/
+│   │   ├── settings/     # AppSettings (workspace prefs) + persistence
+│   │   ├── theme/        # scientific theme presets
+│   │   ├── services/     # auth, storage, Firestore, file picking
+│   │   └── utils/        # Avogadro interchange, codec, deep links, parsers, ZIP
+│   ├── features/
+│   │   ├── auth/ reaction_library/ reaction_runner/ settings/
+│   └── main.dart
+├── avogadro_plugin/      # Avogadro 2 plugin + installer
+└── test/                 # interchange, codec, settings, theme, parser, ZIP
+```
 
 ## 👤 Author
 

@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:quantum_forge/core/state/provider.dart';
+import 'package:provider/provider.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
 import 'package:quantum_forge/features/reaction_runner/providers/reaction_provider.dart';
 import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
@@ -26,10 +26,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<QuantumSettings>(
-      valueListenable: ProviderScope.read<QuantumSettingsNotifier>(context),
+      valueListenable: context.read<QuantumSettingsNotifier>(),
       builder: (context, settings, _) {
         return ValueListenableBuilder<ReactionStatusResponse?>(
-          valueListenable: ProviderScope.read<ReactionNotifier>(context),
+          valueListenable: context.read<ReactionNotifier>(),
           builder: (context, reactionStatus, _) {
             final baseProfile = (reactionStatus?.energyProfile?.isNotEmpty == true)
                 ? reactionStatus!.energyProfile! 

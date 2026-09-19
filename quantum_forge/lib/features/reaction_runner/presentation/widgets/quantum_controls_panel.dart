@@ -3,12 +3,11 @@
 // Right-rail collapsible panel with System / Optimizer / Analysis tabs
 // ============================================================================
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
-import 'package:quantum_forge/core/state/provider.dart';
+import 'package:provider/provider.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
+import 'package:quantum_forge/core/services/web_services.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/screens/publication_details_screen.dart';
 
 class QuantumControlsPanel extends StatefulWidget {
@@ -49,7 +48,7 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final notifier = ProviderScope.read<QuantumSettingsNotifier>(context);
+    final notifier = context.read<QuantumSettingsNotifier>();
 
     return ValueListenableBuilder<QuantumSettings>(
       valueListenable: notifier,
@@ -108,7 +107,7 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
           ),
           const Spacer(),
           TextButton(
-            onPressed: () => n.update((_) => const QuantumSettings()),
+            onPressed: () => n.resetToDefaults(),
             style: TextButton.styleFrom(
               foregroundColor: Colors.white38,
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -235,6 +234,7 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
           label: 'Solvent',
           value: s.solventModel,
           items: _solventModels,
+          tooltip: 'The implicit solvation model used to simulate solvent effects on the reaction.',
           onChanged: (v) => n.update((q) => q.copyWith(solventModel: v)),
         ),
         const SizedBox(height: 16),
@@ -271,7 +271,7 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
   // ---------------------------------------------------------------------------
   List<Widget> _buildOptimizerContent(QuantumSettings s, QuantumSettingsNotifier n) {
     return [
-        _sectionLabel('Algorithm'),
+        _sectionLabel('Search Algorithm', tooltip: 'Algorithm used to locate the transition state structure.'),
         const SizedBox(height: 12),
         _dropdownField(
           label: 'Method',
@@ -335,12 +335,13 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
           const SizedBox(height: 8),
         ],
 
-        _sectionLabel('Convergence'),
+        _sectionLabel('Convergence', tooltip: 'Threshold for the RMS force gradient to consider the TS found.'),
         const SizedBox(height: 12),
         _dropdownField(
           label: 'Threshold',
           value: s.convergence,
           items: _convergences,
+          tooltip: 'Threshold for the RMS force gradient to consider the TS found.',
           onChanged: (v) => n.update((q) => q.copyWith(convergence: v)),
         ),
         const SizedBox(height: 12),
@@ -410,10 +411,18 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
     return [
         _sectionLabel('Thermochemistry'),
         const SizedBox(height: 12),
-        _switchRow('ZPE Correction', s.zpeCorrection,
-            (v) => n.update((q) => q.copyWith(zpeCorrection: v))),
-        _switchRow('ΔH / ΔG at T', s.computeThermochemistry,
-            (v) => n.update((q) => q.copyWith(computeThermochemistry: v))),
+        _switchRow(
+          'ZPE Correction',
+          s.zpeCorrection,
+          (v) => n.update((q) => q.copyWith(zpeCorrection: v)),
+          tooltip: 'Zero-point vibrational energy correction.',
+        ),
+        _switchRow(
+          'ΔH / ΔG at T',
+          s.computeThermochemistry,
+          (v) => n.update((q) => q.copyWith(computeThermochemistry: v)),
+          tooltip: 'Verify exactly one imaginary frequency corresponding to the reaction coordinate.',
+        ),
         const SizedBox(height: 16),
 
         _sectionLabel('Post-TS Analysis'),
@@ -495,6 +504,24 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
           Row(
             children: [
               Expanded(
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.code),
+                  label: const Text('View Source'),
+                  onPressed: () {
+                    WebServices.openUrl('https://github.com/aliasgharinnocent/Quantom-Forge');
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white12,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
                 child: SelectableText(
                   'DOI: ${t.doi}',
                   style: TextStyle(
@@ -531,35 +558,71 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
   // ---------------------------------------------------------------------------
   // HELPERS
   // ---------------------------------------------------------------------------
-  Widget _sectionLabel(String label) => Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.4),
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-        ),
+  Widget _infoTooltip(String message) {
+    return Tooltip(
+      message: message,
+      textStyle: const TextStyle(fontSize: 12, color: Colors.white),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white24),
+      ),
+      triggerMode: TooltipTriggerMode.tap,
+      child: const Padding(
+        padding: EdgeInsets.only(left: 4.0),
+        child: Icon(Icons.info_outline, size: 14, color: Colors.white54),
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String label, {String? tooltip}) => Row(
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+            ),
+          ),
+          if (tooltip != null) _infoTooltip(tooltip),
+        ],
       );
 
-  Widget _labeledRow(String label, Widget trailing) => Row(
+  Widget _labeledRow(String label, Widget trailing, {String? tooltip}) => Row(
         children: [
           Expanded(
-            child: Text(label,
-                style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(label,
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+                ),
+                if (tooltip != null) _infoTooltip(tooltip),
+              ],
+            ),
           ),
           trailing,
         ],
       );
 
-  Widget _labeledWidget(String label, String value, Widget control) => Column(
+  Widget _labeledWidget(String label, String value, Widget control, {String? tooltip}) => Column(
         children: [
           Row(
             children: [
               Expanded(
-                child: Text(label,
-                    style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(label,
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+                    ),
+                    if (tooltip != null) _infoTooltip(tooltip),
+                  ],
+                ),
               ),
               Text(value,
                   style: const TextStyle(
@@ -572,15 +635,22 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
         ],
       );
 
-  Widget _switchRow(String label, bool value, ValueChanged<bool> onChanged) =>
+  Widget _switchRow(String label, bool value, ValueChanged<bool> onChanged, {String? tooltip}) =>
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
             Expanded(
-              child: Text(label,
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(label,
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+                  ),
+                  if (tooltip != null) _infoTooltip(tooltip),
+                ],
+              ),
             ),
             Switch(
               value: value,
@@ -597,19 +667,30 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
     required String value,
     required List<String> items,
     required ValueChanged<String> onChanged,
+    String? tooltip,
   }) =>
-      DropdownButtonFormField<String>(
-        initialValue: value,
-        dropdownColor: const Color(0xFF1A2E3A),
-        style: const TextStyle(color: Colors.white, fontSize: 13),
-        iconEnabledColor: const Color(0xFF4FC3F7),
-        decoration: _inputDecoration(label),
-        items: items
-            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-            .toList(),
-        onChanged: (v) {
-          if (v != null) onChanged(v);
-        },
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+              if (tooltip != null) _infoTooltip(tooltip),
+            ],
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            initialValue: value,
+            dropdownColor: const Color(0xFF1A2E3A),
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            iconEnabledColor: const Color(0xFF4FC3F7),
+            decoration: _inputDecoration(label),
+            items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+            onChanged: (v) {
+              if (v != null) onChanged(v);
+            },
+          ),
+        ],
       );
 
   Widget _iconButton(IconData icon, VoidCallback onPressed) => InkWell(

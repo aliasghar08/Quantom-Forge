@@ -88,4 +88,40 @@ class ElementData {
     'Db': 268.0, 'Sg': 269.0, 'Bh': 270.0, 'Hs': 270.0, 'Mt': 278.0, 'Ds': 281.0, 'Rg': 282.0, 'Cn': 285.0,
     'Nh': 286.0, 'Fl': 289.0, 'Mc': 290.0, 'Lv': 293.0, 'Ts': 294.0, 'Og': 294.0,
   };
+
+  /// Element symbols ordered by atomic number (Z = index + 1).
+  ///
+  /// This mirrors the key order of [colors], which is already Z-ordered; it is
+  /// materialised once so CJSON/SDF writers can map symbol ⇄ Z without a second
+  /// lookup table drifting out of sync.
+  static final List<String> symbolsByAtomicNumber = colors.keys.toList(growable: false);
+
+  /// Atomic number for an element symbol, or 0 when unknown.
+  static int atomicNumber(String symbol) {
+    final index = symbolsByAtomicNumber.indexOf(_canonical(symbol));
+    return index < 0 ? 0 : index + 1;
+  }
+
+  /// Element symbol for an atomic number, or `'X'` when out of range.
+  static String symbolForAtomicNumber(int z) {
+    if (z < 1 || z > symbolsByAtomicNumber.length) return 'X';
+    return symbolsByAtomicNumber[z - 1];
+  }
+
+  /// `c` / `CL` → `C` / `Cl` (first letter upper case, rest lower case).
+  static String _canonical(String symbol) {
+    final trimmed = symbol.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.length == 1) return trimmed.toUpperCase();
+    return trimmed[0].toUpperCase() + trimmed.substring(1).toLowerCase();
+  }
+
+  /// Normalises an element symbol, falling back to hydrogen for garbage input.
+  static String canonicalSymbol(String symbol) {
+    final canonical = _canonical(symbol);
+    if (canonical.isEmpty) return 'H';
+    if (colors.containsKey(canonical)) return canonical;
+    // Avogadro occasionally emits "*" for dummy atoms.
+    return canonical == '*' ? 'H' : canonical;
+  }
 }

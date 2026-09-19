@@ -1,9 +1,18 @@
 // ============================================================================
 // Professional Navigation Drawer
+// ----------------------------------------------------------------------------
+// Now theme-aware and settings-aware: colours come from the active quantum
+// theme instead of hard-coded navy, the theme picker rebuilds live, and the
+// gear icon opens the real settings screen rather than a single-dropdown dialog.
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+
+import 'package:quantum_forge/core/settings/app_settings_provider.dart';
+import 'package:quantum_forge/core/theme/theme_provider.dart';
+import 'package:quantum_forge/features/settings/presentation/screens/settings_screen.dart';
 
 enum NavDestination { library, newReaction, editor, history }
 
@@ -23,30 +32,31 @@ class ProfessionalDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.watch<ThemeNotifier>().palette;
+    final settings = context.watch<AppSettingsNotifier>().settings;
+    final showTooltips = settings.showTooltips;
+    final gap = settings.gap;
+
     return Drawer(
-      backgroundColor: const Color(0xFF0D1B2A), // Darker, more professional hue
+      backgroundColor: palette.drawer,
+      width: 288,
       child: Container(
         decoration: BoxDecoration(
-          border: Border(
-            right: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 1),
-          ),
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFF0D1B2A),
-              const Color(0xFF1B263B),
-            ],
+            colors: palette.drawerGradient,
           ),
+          border: Border(right: BorderSide(color: palette.border)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Professional Header
+            // ── Header ───────────────────────────────────────────────────────
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
+              padding: EdgeInsets.fromLTRB(20, gap(40), 20, gap(20)),
               decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+                border: Border(bottom: BorderSide(color: palette.border)),
               ),
               child: Row(
                 children: [
@@ -54,40 +64,40 @@ class ProfessionalDrawer extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF4FC3F7), Color(0xFF0288D1)],
+                      gradient: LinearGradient(
+                        colors: [palette.accent, palette.accentAlt],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0288D1).withValues(alpha: 0.3),
+                          color: palette.accent.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.science, color: Colors.white, size: 20),
+                    child: Icon(Icons.science, color: palette.onAccent, size: 20),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'QuantomForge',
+                          'QuantumForge',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: palette.textPrimary,
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.5,
                           ),
                         ),
                         Text(
-                          'Enterprise Edition',
+                          palette.family,
                           style: TextStyle(
-                            color: Color(0xFF4FC3F7),
+                            color: palette.accent,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -99,16 +109,15 @@ class ProfessionalDrawer extends StatelessWidget {
                 ],
               ),
             ),
-            
-            const SizedBox(height: 16),
-            
-            // Section Title
+
+            SizedBox(height: gap(16)),
+
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: gap(8)),
               child: Text(
                 'MAIN MENU',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: palette.textMuted,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,
@@ -116,122 +125,208 @@ class ProfessionalDrawer extends StatelessWidget {
               ),
             ),
 
-          _navItem(Icons.auto_stories_outlined, 'Library', NavDestination.library),
-          _navItem(Icons.add_circle_outline, 'New Reaction', NavDestination.newReaction),
-          _navItem(Icons.edit_document, 'Editor', NavDestination.editor),
-          _navItem(Icons.history, 'History', NavDestination.history),
+            _navItem(context, Icons.auto_stories_outlined, 'Library',
+                NavDestination.library, showTooltips,
+                'Browse the cloud reaction template library.'),
+            _navItem(context, Icons.add_circle_outline, 'New Reaction',
+                NavDestination.newReaction, showTooltips,
+                'Set up reactants/products and dispatch an optimisation.'),
+            _navItem(context, Icons.edit_document, 'Editor',
+                NavDestination.editor, showTooltips,
+                'Draw, import and export structures — including Avogadro 2 exchange.'),
+            _navItem(context, Icons.history, 'History',
+                NavDestination.history, showTooltips,
+                'Previously dispatched reactions and their results.'),
 
-          const Spacer(),
+            const Spacer(),
 
-          // Professional Footer (User Profile & Controls)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.15),
-              border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
-            ),
-            child: Column(
-              children: [
-                InkWell(
-                  onTap: onToggleControls,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: controlsPanelOpen 
-                          ? const Color(0xFF4FC3F7).withValues(alpha: 0.1)
-                          : Colors.white.withValues(alpha: 0.03),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: controlsPanelOpen
-                            ? const Color(0xFF4FC3F7).withValues(alpha: 0.3)
-                            : Colors.white.withValues(alpha: 0.05),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.tune, 
-                             color: controlsPanelOpen ? const Color(0xFF4FC3F7) : Colors.white54, 
-                             size: 18),
-                        const SizedBox(width: 12),
-                        Text(
-                          controlsPanelOpen ? 'Hide Parameters' : 'Show Parameters',
-                          style: TextStyle(
-                            color: controlsPanelOpen ? Colors.white : Colors.white54,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+            // ── Quick theme switcher ─────────────────────────────────────────
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: gap(16)),
+              padding: EdgeInsets.symmetric(horizontal: gap(12), vertical: gap(8)),
+              decoration: BoxDecoration(
+                color: palette.panel.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: palette.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.palette_outlined, size: 16, color: palette.textMuted),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      context.watch<ThemeNotifier>().currentTheme.label,
+                      style: TextStyle(color: palette.textSecondary, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                StreamBuilder<User?>(
-                  stream: FirebaseAuth.instance.authStateChanges(),
-                  builder: (context, snapshot) {
-                    final user = snapshot.data;
-                    final name = user?.displayName ?? 'Researcher';
-                    final email = user?.email ?? 'Unauthenticated';
-
-                    return Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.white.withValues(alpha: 0.1),
-                          child: const Icon(Icons.person, color: Colors.white70, size: 18),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                              ),
-                              Text(
-                                email,
-                                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
+                  IconButton(
+                    tooltip: showTooltips ? 'Next scientific theme' : null,
+                    onPressed: context.read<ThemeNotifier>().cycleTheme,
+                    icon: const Icon(Icons.arrow_forward, size: 16),
+                    color: palette.textSecondary,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            SizedBox(height: gap(12)),
+
+            // ── Footer ───────────────────────────────────────────────────────
+            Container(
+              padding: EdgeInsets.all(gap(16)),
+              decoration: BoxDecoration(
+                color: palette.panel.withValues(alpha: 0.4),
+                border: Border(top: BorderSide(color: palette.border)),
+              ),
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: onToggleControls,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: gap(16), vertical: gap(12)),
+                      decoration: BoxDecoration(
+                        color: controlsPanelOpen
+                            ? palette.accent.withValues(alpha: 0.1)
+                            : palette.panelAlt.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: controlsPanelOpen
+                              ? palette.accent.withValues(alpha: 0.3)
+                              : palette.border,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.tune,
+                            color: controlsPanelOpen
+                                ? palette.accent
+                                : palette.textMuted,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            controlsPanelOpen
+                                ? 'Hide Parameters'
+                                : 'Show Parameters',
+                            style: TextStyle(
+                              color: controlsPanelOpen
+                                  ? palette.textPrimary
+                                  : palette.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: gap(14)),
+                  StreamBuilder<User?>(
+                    stream: FirebaseAuth.instance.authStateChanges(),
+                    builder: (context, snapshot) {
+                      final user = snapshot.data;
+                      final name = user?.displayName ?? 'Researcher';
+                      final email = user?.email ?? 'Unauthenticated';
+
+                      return Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: palette.panelAlt,
+                            child: Icon(Icons.person,
+                                color: palette.textSecondary, size: 18),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: TextStyle(
+                                    color: palette.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  email,
+                                  style: TextStyle(
+                                    color: palette.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: showTooltips
+                                ? 'Settings — themes, editor, export, Avogadro'
+                                : null,
+                            icon: Icon(Icons.settings,
+                                color: palette.textSecondary, size: 20),
+                            onPressed: () {
+                              Navigator.pop(context); // close the drawer
+                              Navigator.of(context).push(SettingsScreen.route());
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 
-  Widget _navItem(IconData icon, String label, NavDestination dest) {
+  Widget _navItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    NavDestination dest,
+    bool showTooltips,
+    String hint,
+  ) {
+    final palette = context.watch<ThemeNotifier>().palette;
+    final settings = context.watch<AppSettingsNotifier>().settings;
     final active = current == dest;
-    return InkWell(
+
+    final tile = InkWell(
       onTap: () => onDestinationSelected(dest),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutQuint,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        margin: EdgeInsets.symmetric(
+          horizontal: settings.gap(16),
+          vertical: settings.gap(4),
+        ),
+        padding: EdgeInsets.symmetric(
+          horizontal: settings.gap(16),
+          vertical: settings.gap(12),
+        ),
         decoration: BoxDecoration(
-          color: active
-              ? const Color(0xFF4FC3F7).withValues(alpha: 0.15)
-              : Colors.transparent,
+          color: active ? palette.accent.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: active
-                ? const Color(0xFF4FC3F7).withValues(alpha: 0.4)
+                ? palette.accent.withValues(alpha: 0.4)
                 : Colors.transparent,
           ),
           boxShadow: active
               ? [
                   BoxShadow(
-                    color: const Color(0xFF4FC3F7).withValues(alpha: 0.1),
+                    color: palette.accent.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   )
@@ -241,20 +336,22 @@ class ProfessionalDrawer extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon,
-                color: active ? const Color(0xFF4FC3F7) : Colors.white38,
-                size: 20),
+                color: active ? palette.accent : palette.textMuted, size: 20),
             const SizedBox(width: 14),
             Text(
               label,
               style: TextStyle(
-                  color: active ? Colors.white : Colors.white54,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                  fontSize: 14,
-                  letterSpacing: 0.3),
+                color: active ? palette.textPrimary : palette.textSecondary,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 14,
+                letterSpacing: 0.3,
+              ),
             ),
           ],
         ),
       ),
     );
+
+    return showTooltips ? Tooltip(message: hint, child: tile) : tile;
   }
 }

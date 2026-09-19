@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 
 enum BuilderTool { navigate, draw, delete }
@@ -12,6 +13,20 @@ class InteractiveBuilderWidget extends StatefulWidget {
   final bool autoOptimize;
   final ValueChanged<List<Atom>> onAtomsChanged;
 
+  /// How spheres are sized — mirrors Settings ▸ Editor ▸ Atom representation.
+  final AtomScale atomScale;
+
+  /// Whether the perceived connectivity is drawn at all.
+  final bool showBonds;
+
+  /// When false, hydrogens are hidden from the painter but kept in the model
+  /// (and therefore in every export).
+  final bool showHydrogens;
+
+  final Color bondColor;
+  final Color highlightColor;
+  final Color background;
+
   const InteractiveBuilderWidget({
     super.key,
     required this.initialAtoms,
@@ -19,6 +34,12 @@ class InteractiveBuilderWidget extends StatefulWidget {
     required this.currentElement,
     required this.autoOptimize,
     required this.onAtomsChanged,
+    this.atomScale = AtomScale.ballAndStick,
+    this.showBonds = true,
+    this.showHydrogens = true,
+    this.bondColor = const Color(0xFFB0BEC5),
+    this.highlightColor = const Color(0xFF4FC3F7),
+    this.background = const Color(0xFF0A1519),
   });
 
   @override
@@ -28,7 +49,7 @@ class InteractiveBuilderWidget extends StatefulWidget {
 class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> with SingleTickerProviderStateMixin {
   double _rotationX = 0;
   double _rotationY = 0;
-  double _scale = 60.0;
+  final double _scale = 60.0;
   List<Atom> _atoms = [];
   
   Atom? _dragStartAtom;
@@ -40,6 +61,10 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> wit
   double _lastAvgX = 0;
   double _lastAvgY = 0;
   double _lastAvgZ = 0;
+
+  /// Canvas size captured during layout. `context.size` is null before the
+  /// first layout pass, which used to throw when a gesture arrived early.
+  Size _canvasSize = Size.zero;
 
   late final Ticker _ticker;
   final Map<Atom, _Velocity> _velocities = {};
@@ -273,10 +298,15 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> wit
     projected.sort((a, b) => b.zDepth.compareTo(a.zDepth)); // Highest Z first (closest to camera)
 
     for (final p in projected) {
+      // Hydrogens hidden by preference must not be clickable either.
+      if (!widget.showHydrogens && p.atom.symbol == 'H') continue;
       final dx = p.screenX - screenPos.dx;
       final dy = p.screenY - screenPos.dy;
       final distSq = dx*dx + dy*dy;
-      final radius = p.atom.radius * _lastDynamicScale * 0.25;
+      // Hit radius follows the same representation the painter uses, with a
+      // floor so wireframe atoms stay reachable.
+      final radius =
+          math.max(p.atom.radius * _lastDynamicScale * widget.atomScale.radiusFactor, 8.0);
       if (distSq <= radius * radius) {
         return p.atom;
       }
@@ -285,8 +315,8 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> wit
   }
 
   List<_ProjectedAtom> _projectAllAtoms() {
-    final cx = context.size!.width / 2;
-    final cy = context.size!.height / 2;
+    final cx = _canvasSize.width / 2;
+    final cy = _canvasSize.height / 2;
     final cosX = math.cos(_rotationX);
     final sinX = math.sin(_rotationX);
     final cosY = math.cos(_rotationY);
@@ -314,8 +344,8 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> wit
   }
 
   _WorldPos _unproject(Offset screenPos) {
-    final cx = context.size!.width / 2;
-    final cy = context.size!.height / 2;
+    final cx = _canvasSize.width / 2;
+    final cy = _canvasSize.height / 2;
 
     double sx = (screenPos.dx - cx) / _lastDynamicScale;
     double sy = (screenPos.dy - cy) / _lastDynamicScale;
@@ -332,14 +362,6 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> wit
     return _WorldPos(rx + _lastAvgX, ry + _lastAvgY, rz2 + _lastAvgZ);
   }
 
-  void _onScaleUpdate(ScaleUpdateDetails details) {
-    if (widget.currentTool == BuilderTool.navigate) {
-      setState(() {
-        _scale = (_scale * details.scale).clamp(10.0, 300.0);
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -347,9 +369,13 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> wit
       onPanUpdate: _handlePanUpdate,
       onPanEnd: _handlePanEnd,
       onTapDown: _handleTapDown,
-      // onScaleUpdate: _onScaleUpdate, // Scale causes gesture conflicts with pan, using slider instead usually
+      // NOTE: pinch-to-zoom is deliberately not wired up — a scale recogniser
+      // competes with the pan recogniser for the same pointers, which made
+      // drawing unreliable. Use the camera buttons instead.
       child: LayoutBuilder(
         builder: (context, constraints) {
+          _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+
           // Calculate Center of Mass
           double avgX = 0, avgY = 0, avgZ = 0;
           if (_atoms.isNotEmpty) {
@@ -394,6 +420,12 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> wit
               avgZ: avgZ,
               dragStartAtom: _dragStartAtom,
               currentDragPos: _currentDragPos,
+              atomScale: widget.atomScale,
+              showBonds: widget.showBonds,
+              showHydrogens: widget.showHydrogens,
+              bondColor: widget.bondColor,
+              highlightColor: widget.highlightColor,
+              background: widget.background,
             ),
           );
         },
@@ -431,12 +463,24 @@ class _BuilderPainter extends CustomPainter {
   final List<Atom> atoms;
   final double rotationX, rotationY, dynamicScale;
   final double avgX, avgY, avgZ;
-  
+
   final Atom? dragStartAtom;
   final Offset? currentDragPos;
 
+  /// Presentation settings coming from the theme and the app settings.
+  final AtomScale atomScale;
+  final bool showBonds;
+  final bool showHydrogens;
+  final Color bondColor;
+  final Color highlightColor;
+  final Color background;
+
   static final Map<Color, Paint> _basePaints = {};
-  static final Paint _borderPaint = Paint()..color = Colors.black87..style = PaintingStyle.stroke..strokeWidth = 1.0;
+  static final Map<Color, Paint> _bondPaints = {};
+  static final Paint _borderPaint = Paint()
+    ..color = Colors.black87
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.0;
   static final Paint _darkeningPaint = Paint()..style = PaintingStyle.fill;
   static final Rect _unitRect = const Rect.fromLTWH(-1, -1, 2, 2);
 
@@ -450,6 +494,12 @@ class _BuilderPainter extends CustomPainter {
     required this.avgZ,
     this.dragStartAtom,
     this.currentDragPos,
+    this.atomScale = AtomScale.ballAndStick,
+    this.showBonds = true,
+    this.showHydrogens = true,
+    this.bondColor = const Color(0xFFB0BEC5),
+    this.highlightColor = const Color(0xFF4FC3F7),
+    this.background = const Color(0xFF0A1519),
   });
 
   Paint _getBasePaint(Color color) {
@@ -464,8 +514,27 @@ class _BuilderPainter extends CustomPainter {
     return paint;
   }
 
+  Paint _bondPaint() {
+    if (_bondPaints.containsKey(bondColor)) return _bondPaints[bondColor]!;
+    final paint = Paint()
+      ..color = bondColor.withValues(alpha: 0.85)
+      ..strokeWidth = 6.0
+      ..strokeCap = StrokeCap.round;
+    _bondPaints[bondColor] = paint;
+    return paint;
+  }
+
+  /// Sphere radius in logical pixels for [atom].
+  double _radiusFor(Atom atom) =>
+      atom.radius * dynamicScale * atomScale.radiusFactor;
+
+  bool get _hydrogensHidden => !showHydrogens;
+
   @override
   void paint(Canvas canvas, Size size) {
+    // Theme-aware backdrop: the viewport colour replaces the hard-coded void.
+    canvas.drawRect(Offset.zero & size, Paint()..color = background);
+
     final cx = size.width / 2;
     final cy = size.height / 2;
 
@@ -474,8 +543,13 @@ class _BuilderPainter extends CustomPainter {
     final cosY = math.cos(rotationY);
     final sinY = math.sin(rotationY);
 
+    // Indices of atoms that are actually painted, so bonds never dangle.
+    final visible = <int>[];
     final projected = <_ProjectedAtom>[];
-    for (final atom in atoms) {
+    for (var i = 0; i < atoms.length; i++) {
+      final atom = atoms[i];
+      if (_hydrogensHidden && atom.symbol == 'H') continue;
+
       final dx = atom.x - avgX;
       final dy = atom.y - avgY;
       final dz = atom.z - avgZ;
@@ -485,6 +559,7 @@ class _BuilderPainter extends CustomPainter {
       final ry = dy * cosX - rz1 * sinX;
       final rz2 = dy * sinX + rz1 * cosX;
 
+      visible.add(i);
       projected.add(_ProjectedAtom(
         atom: atom,
         screenX: cx + rx * dynamicScale,
@@ -493,26 +568,31 @@ class _BuilderPainter extends CustomPainter {
       ));
     }
 
-    // Bonds
+    // Bonds (only between painted atoms).
     final projectedBonds = <_ProjectedBond>[];
-    for (int i = 0; i < atoms.length; i++) {
-      for (int j = i + 1; j < atoms.length; j++) {
-        final a1 = atoms[i];
-        final a2 = atoms[j];
-        
-        final dxRaw = a1.x - a2.x;
-        final dyRaw = a1.y - a2.y;
-        final dzRaw = a1.z - a2.z;
-        final dist = math.sqrt(dxRaw*dxRaw + dyRaw*dyRaw + dzRaw*dzRaw);
-        
-        final idealDist = a1.covalentRadius + a2.covalentRadius;
-        final threshold = idealDist * 1.6;
-        
-        if (dist < threshold) {
-          final p1 = projected[i];
-          final p2 = projected[j];
-          final avgZ = (p1.zDepth + p2.zDepth) / 2;
-          projectedBonds.add(_ProjectedBond(p1: p1, p2: p2, zDepth: avgZ, distance: dist, idealDist: idealDist));
+    if (showBonds && atomScale != AtomScale.wireframe) {
+      for (var a = 0; a < visible.length; a++) {
+        for (var b = a + 1; b < visible.length; b++) {
+          final a1 = atoms[visible[a]];
+          final a2 = atoms[visible[b]];
+
+          final dxRaw = a1.x - a2.x;
+          final dyRaw = a1.y - a2.y;
+          final dzRaw = a1.z - a2.z;
+          final dist = math.sqrt(dxRaw * dxRaw + dyRaw * dyRaw + dzRaw * dzRaw);
+
+          final idealDist = a1.covalentRadius + a2.covalentRadius;
+          if (dist < idealDist * 1.6) {
+            final p1 = projected[a];
+            final p2 = projected[b];
+            projectedBonds.add(_ProjectedBond(
+              p1: p1,
+              p2: p2,
+              zDepth: (p1.zDepth + p2.zDepth) / 2,
+              distance: dist,
+              idealDist: idealDist,
+            ));
+          }
         }
       }
     }
@@ -520,21 +600,23 @@ class _BuilderPainter extends CustomPainter {
     final items = <dynamic>[...projected, ...projectedBonds];
     items.sort((a, b) => a.zDepth.compareTo(b.zDepth));
 
+    final bondPaint = _bondPaint();
     for (final item in items) {
       if (item is _ProjectedBond) {
-        final paint = Paint()
-          ..color = Colors.grey.withValues(alpha: 0.8)
-          ..strokeWidth = 6.0
-          ..strokeCap = StrokeCap.round;
-        canvas.drawLine(Offset(item.p1.screenX, item.p1.screenY), Offset(item.p2.screenX, item.p2.screenY), paint);
+        canvas.drawLine(
+          Offset(item.p1.screenX, item.p1.screenY),
+          Offset(item.p2.screenX, item.p2.screenY),
+          bondPaint,
+        );
       } else if (item is _ProjectedAtom) {
-        final radius = item.atom.radius * dynamicScale * 0.25;
+        final radius = _radiusFor(item.atom);
         final center = Offset(item.screenX, item.screenY);
+
+        if (radius <= 0.5) continue;
 
         canvas.save();
         canvas.translate(center.dx, center.dy);
         canvas.scale(radius);
-
         canvas.drawCircle(Offset.zero, 1.0, _getBasePaint(item.atom.color));
 
         final lightFactor = (item.zDepth + 10) / 20.0;
@@ -550,16 +632,32 @@ class _BuilderPainter extends CustomPainter {
 
     // Draw active drag bond
     if (dragStartAtom != null && currentDragPos != null) {
-      final pStart = projected.firstWhere((p) => p.atom == dragStartAtom, orElse: () => projected.first);
-      final paint = Paint()
-          ..color = const Color(0xFF4FC3F7).withValues(alpha: 0.8)
+      _ProjectedAtom? start;
+      for (final p in projected) {
+        if (p.atom == dragStartAtom) {
+          start = p;
+          break;
+        }
+      }
+      start ??= projected.isNotEmpty ? projected.first : null;
+      if (start != null) {
+        final paint = Paint()
+          ..color = highlightColor.withValues(alpha: 0.8)
           ..strokeWidth = 4.0
           ..style = PaintingStyle.stroke;
-      canvas.drawLine(Offset(pStart.screenX, pStart.screenY), currentDragPos!, paint);
-      
-      // Draw ghost atom at pointer
-      final ghostRadius = dragStartAtom!.radius * dynamicScale * 0.25;
-      canvas.drawCircle(currentDragPos!, ghostRadius, Paint()..color = Colors.white.withValues(alpha: 0.3));
+        canvas.drawLine(
+          Offset(start.screenX, start.screenY),
+          currentDragPos!,
+          paint,
+        );
+
+        final ghostRadius = _radiusFor(dragStartAtom!);
+        canvas.drawCircle(
+          currentDragPos!,
+          ghostRadius,
+          Paint()..color = Colors.white.withValues(alpha: 0.3),
+        );
+      }
     }
   }
 

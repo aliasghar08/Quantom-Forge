@@ -1,10 +1,10 @@
-# Quantom Forge 🧪⚛️
+# Quantum Forge 🧪⚛️
 
-**Quantom Forge** is a cutting-edge, AI-powered quantum chemistry optimization and visualization platform built **exclusively for the Web** using Flutter. Designed for researchers and students, it provides an intuitive, high-performance web dashboard for visualizing molecular structures, modeling transition states, and calculating complex thermodynamic properties entirely in the browser.
+**Quantum Forge** is a cutting-edge, AI-powered quantum chemistry optimization and visualization platform built **exclusively for the Web** using Flutter. Designed for researchers and students, it provides an intuitive, high-performance web dashboard for visualizing molecular structures, modeling transition states, and calculating complex thermodynamic properties entirely in the browser.
 
 ## 🌐 Web-First Platform
 
-Quantom Forge is optimized specifically for web browsers. By leveraging WebGL and Flutter Web, it delivers a heavy-duty computational chemistry suite without requiring any desktop installations. Whether you are on Windows, macOS, or Linux, you can simply open your browser and access the full suite of tools.
+Quantum Forge is optimized specifically for web browsers. By leveraging WebGL and Flutter Web, it delivers a heavy-duty computational chemistry suite without requiring any desktop installations. Whether you are on Windows, macOS, or Linux, you can simply open your browser and access the full suite of tools.
 
 ## 🚀 Comprehensive Feature List
 
@@ -38,7 +38,7 @@ Quantom Forge is optimized specifically for web browsers. By leveraging WebGL an
 *   **Real-time Search & Filtering**: Instantly search reactions by IUPAC name, reaction type (Addition, Substitution, Elimination), or chemical tags.
 
 ### 7. Seamless Avogadro 2 Integration
-*   Quantom Forge acts as the perfect companion to desktop Avogadro software. 
+*   Quantum Forge acts as the perfect companion to desktop Avogadro software. 
 *   Includes a native Avogadro 2 Python Command Plugin to instantly pipe your active desktop molecules directly into the web dashboard.
 
 ### 8. User Management & Security
@@ -63,8 +63,8 @@ This project leverages modern frameworks and cloud platforms to deliver a robust
 1.  Ensure you have the [Flutter SDK](https://flutter.dev/docs/get-started/install) installed.
 2.  Clone the repository and install dependencies:
     ```bash
-    git clone https://github.com/aliasgharinnocent/quantom-forge.git
-    cd quantom_forge
+    git clone https://github.com/aliasgharinnocent/Quantum-forge.git
+    cd Quantum_forge
     flutter pub get
     ```
 3.  Run the application locally **on Chrome**:
@@ -74,8 +74,8 @@ This project leverages modern frameworks and cloud platforms to deliver a robust
 
 ## 🌐 Deployment
 
-Quantom Forge is currently deployed and live via Firebase Hosting:
-[https://quantom-forge.web.app](https://quantom-forge.web.app)
+Quantum Forge is currently deployed and live via Firebase Hosting:
+[https://Quantum-forge.web.app](https://Quantum-forge.web.app)
 
 ## 👤 Author
 

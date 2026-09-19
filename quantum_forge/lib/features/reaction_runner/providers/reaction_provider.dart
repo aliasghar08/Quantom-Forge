@@ -13,6 +13,7 @@ import 'package:quantum_forge/core/services/file_picker_service.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
 import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
+import 'package:quantum_forge/core/utils/molecule_parser.dart';
 import 'dart:math' as math;
 
 class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
@@ -198,50 +199,90 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
       energyProfile.add(y);
     }
 
-    // Generate mock trajectory frames (linearly interpolate between reactant and product)
+    // Generate mock trajectory frames (smart interpolation)
     List<String> trajectoryFrames = [];
     try {
-      final rLines = reactantXyz.trim().split('\n');
-      final pLines = productXyz.trim().split('\n');
+      final rAtoms = MoleculeParser.parse(reactantXyz, 'xyz');
+      final pAtoms = MoleculeParser.parse(productXyz, 'xyz');
       
-      // Basic check to ensure they are the same length and format
-      if (rLines.length == pLines.length && rLines.length > 2) {
-        for (int frame = 0; frame < 21; frame++) {
-          double t = frame / 20.0;
-          StringBuffer sb = StringBuffer();
-          sb.writeln(rLines[0]); // Atom count
-          sb.writeln('Frame $frame (t=$t)'); // Comment line
+      if (rAtoms.isEmpty || pAtoms.isEmpty) {
+        throw Exception("Empty xyz");
+      }
+
+      // Group by symbol to pair them up
+      Map<String, List<Atom>> rGroups = {};
+      Map<String, List<Atom>> pGroups = {};
+      
+      for (var a in rAtoms) {
+        rGroups.putIfAbsent(a.symbol, () => []).add(a);
+      }
+      for (var a in pAtoms) {
+        pGroups.putIfAbsent(a.symbol, () => []).add(a);
+      }
+
+      for (int frame = 0; frame < 21; frame++) {
+        double t = frame / 20.0;
+        List<Atom> frameAtoms = [];
+        
+        // Match symbols
+        Set<String> allSymbols = {...rGroups.keys, ...pGroups.keys};
+        for (var sym in allSymbols) {
+          var rList = rGroups[sym] ?? [];
+          var pList = pGroups[sym] ?? [];
+          int maxLen = math.max(rList.length, pList.length);
           
-          for (int i = 2; i < rLines.length; i++) {
-            final rParts = rLines[i].trim().split(RegExp(r'\s+'));
-            final pParts = pLines[i].trim().split(RegExp(r'\s+'));
-            
-            if (rParts.length >= 4 && pParts.length >= 4 && rParts[0] == pParts[0]) {
-              final symbol = rParts[0];
-              final rx = double.parse(rParts[1]);
-              final ry = double.parse(rParts[2]);
-              final rz = double.parse(rParts[3]);
-              
-              final px = double.parse(pParts[1]);
-              final py = double.parse(pParts[2]);
-              final pz = double.parse(pParts[3]);
-              
-              final x = rx + (px - rx) * t;
-              final y = ry + (py - ry) * t;
-              final z = rz + (pz - rz) * t;
-              
-              sb.writeln('$symbol ${x.toStringAsFixed(4)} ${y.toStringAsFixed(4)} ${z.toStringAsFixed(4)}');
-            } else {
-               sb.writeln(rLines[i]); // Fallback
+          for (int i = 0; i < maxLen; i++) {
+            if (i < rList.length && i < pList.length) {
+              // Interpolate
+              var a1 = rList[i];
+              var a2 = pList[i];
+              frameAtoms.add(Atom(
+                sym,
+                a1.x + (a2.x - a1.x) * t,
+                a1.y + (a2.y - a1.y) * t,
+                a1.z + (a2.z - a1.z) * t,
+                a1.color,
+                a1.radius,
+                a1.covalentRadius,
+              ));
+            } else if (i < rList.length) {
+              // Only in reactant - stays at its original position
+              var a1 = rList[i];
+              frameAtoms.add(Atom(
+                sym,
+                a1.x,
+                a1.y,
+                a1.z,
+                a1.color,
+                a1.radius,
+                a1.covalentRadius,
+              ));
+            } else if (i < pList.length) {
+              // Only in product - stays at its original position
+              var a2 = pList[i];
+              frameAtoms.add(Atom(
+                sym,
+                a2.x,
+                a2.y,
+                a2.z,
+                a2.color,
+                a2.radius,
+                a2.covalentRadius,
+              ));
             }
           }
-          trajectoryFrames.add(sb.toString());
         }
-      } else {
-        throw Exception("Mismatched xyz lines");
+        
+        StringBuffer sb = StringBuffer();
+        sb.writeln('${frameAtoms.length}');
+        sb.writeln('Frame $frame (t=$t)');
+        for (var a in frameAtoms) {
+          sb.writeln('${a.symbol.padRight(2)} ${a.x.toStringAsFixed(4).padLeft(8)} ${a.y.toStringAsFixed(4).padLeft(8)} ${a.z.toStringAsFixed(4).padLeft(8)}');
+        }
+        trajectoryFrames.add(sb.toString());
       }
     } catch (e) {
-      // Fallback if parsing fails
+      // Fallback if parsing fails entirely
       trajectoryFrames = List.generate(21, (index) {
         return index < 10 ? reactantXyz : productXyz;
       });

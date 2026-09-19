@@ -26,7 +26,7 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
   bool _electronCloudMode = false;
   bool _showBondData = false;
   List<Atom> _atoms = [];
-  List<Atom> _selectedAtoms = [];
+  final List<Atom> _selectedAtoms = [];
 
   bool _isLoading = false;
 
@@ -132,7 +132,7 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
     }
 
     if (closestAtom != null) {
-      final atom = closestAtom!;
+      final atom = closestAtom;
       setState(() {
         if (_selectedAtoms.contains(atom)) {
           _selectedAtoms.remove(atom);

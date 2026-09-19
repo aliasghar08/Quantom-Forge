@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
+import 'package:quantum_forge/core/utils/avogadro_codec.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/left_nav_rail.dart';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -57,6 +58,49 @@ class DashboardViewModel extends ChangeNotifier {
 
   int _entryCounter = 1;
 
+  bool _shouldAutoRun = false;
+  bool get shouldAutoRun => _shouldAutoRun;
+
+  /// A structure handed over by an Avogadro deep link, waiting for the editor
+  /// to pick it up. Cleared by [consumePendingStructure].
+  DecodedStructure? _pendingStructure;
+  DecodedStructure? get pendingStructure => _pendingStructure;
+  bool get hasPendingStructure => _pendingStructure != null;
+
+  /// Increments every time a new structure is handed over. The editor uses it as
+  /// its widget key so a *new* import rebuilds the editor while a rebuild for any
+  /// other reason leaves the user's in-progress edits alone.
+  int _structureRevision = 0;
+  int get structureRevision => _structureRevision;
+
+  /// Sends an externally supplied structure to the coordinate editor.
+  ///
+  /// Imported Avogadro structures used to be dropped into the "first reactant"
+  /// slot, which silently required a second reactant before anything could be
+  /// dispatched. They now open in the editor, where they can be inspected,
+  /// finished and exported back.
+  void loadStructure(DecodedStructure structure) {
+    _pendingStructure = structure;
+    _structureRevision++;
+    _navDest = NavDestination.editor;
+    notifyListeners();
+  }
+
+  DecodedStructure? consumePendingStructure() {
+    final structure = _pendingStructure;
+    _pendingStructure = null;
+    return structure;
+  }
+  
+  void consumeAutoRun() {
+    _shouldAutoRun = false;
+  }
+  
+  void _triggerAutoRun() {
+    _shouldAutoRun = true;
+    // Don't notify listeners directly just for auto run, it will be bundled with state updates
+  }
+
   void setNavDestination(NavDestination dest) {
     _navDest = dest;
     notifyListeners();
@@ -68,9 +112,9 @@ class DashboardViewModel extends ChangeNotifier {
   }
 
   void loadTemplate(ReactionTemplate template) {
-    for (final e in _reactants) e.dispose();
-    for (final e in _products) e.dispose();
-    for (final e in _catalysts) e.dispose();
+    _disposeEntries(_reactants);
+    _disposeEntries(_products);
+    _disposeEntries(_catalysts);
     _reactants
       ..clear()
       ..add(MoleculeEntry(id: 'r0'));
@@ -83,6 +127,7 @@ class DashboardViewModel extends ChangeNotifier {
     
     _activeTemplate = template;
     _navDest = NavDestination.newReaction;
+    _triggerAutoRun();
     notifyListeners();
   }
 
@@ -127,6 +172,7 @@ class DashboardViewModel extends ChangeNotifier {
       entry.ctrl.text = result.name.replaceAll('.xyz', '');
       entry.suggestions = [];
       _activeTemplate = null;
+      _triggerAutoRun();
       notifyListeners();
     }
   }
@@ -136,6 +182,7 @@ class DashboardViewModel extends ChangeNotifier {
     entry.ctrl.text = file.name.replaceAll('.xyz', '');
     entry.suggestions = [];
     _activeTemplate = null;
+    _triggerAutoRun();
     notifyListeners();
   }
 
@@ -155,12 +202,19 @@ class DashboardViewModel extends ChangeNotifier {
     int totalAtoms = 0;
     final atomLines = <String>[];
     for (final e in resolved) {
-      final raw = String.fromCharCodes(e.file!.bytes!);
-      final lines = raw.trim().split('\n');
+      final bytes = e.file!.bytes;
+      if (bytes == null) continue;
+      // utf8.decode (not String.fromCharCodes) — atom labels and titles are
+      // routinely non-ASCII (Å, Greek subscripts in atom names).
+      final raw = utf8.decode(bytes, allowMalformed: true);
+      final lines = const LineSplitter().convert(raw).map((l) => l.trim()).toList();
       if (lines.length < 3) continue;
-      final count = int.tryParse(lines[0].trim()) ?? 0;
-      totalAtoms += count;
-      atomLines.addAll(lines.skip(2).take(count));
+      final count = int.tryParse(lines[0]) ?? 0;
+      for (final line in lines.skip(2).take(count)) {
+        if (line.isEmpty) continue;
+        atomLines.add(line);
+        totalAtoms++;
+      }
     }
     final combined = '$totalAtoms\nCombined $label\n${atomLines.join('\n')}\n';
     final bytes = Uint8List.fromList(utf8.encode(combined));
@@ -187,6 +241,7 @@ class DashboardViewModel extends ChangeNotifier {
         entry.file = picked;
         entry.suggestions = [];
         _activeTemplate = null;
+        _triggerAutoRun();
         notifyListeners();
       } else {
         throw Exception('No 3D structure found for "$q".');
@@ -241,9 +296,15 @@ class DashboardViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    for (final e in _reactants) e.dispose();
-    for (final e in _products) e.dispose();
-    for (final e in _catalysts) e.dispose();
+    _disposeEntries(_reactants);
+    _disposeEntries(_products);
+    _disposeEntries(_catalysts);
     super.dispose();
+  }
+
+  static void _disposeEntries(List<MoleculeEntry> entries) {
+    for (final entry in entries) {
+      entry.dispose();
+    }
   }
 }

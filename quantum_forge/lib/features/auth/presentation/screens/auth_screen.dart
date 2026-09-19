@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/services/auth_service.dart';
-import 'package:quantum_forge/core/state/provider.dart';
+import 'package:provider/provider.dart';
 
 class AuthScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
@@ -34,7 +34,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text;
 
-      final authService = ProviderScope.read<AuthService>(context);
+      final authService = context.read<AuthService>();
       
       if (_isLogin) {
         await authService.signIn(email, password);
@@ -61,7 +61,7 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     try {
-      final authService = ProviderScope.read<AuthService>(context);
+      final authService = context.read<AuthService>();
       await authService.signInWithGoogle();
       widget.onLoginSuccess();
     } catch (e) {
@@ -90,7 +90,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 const Icon(Icons.science, size: 64, color: Colors.blueAccent),
                 const SizedBox(height: 24),
                 Text(
-                  'Quantom Forge',
+                  'Quantum Forge',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,

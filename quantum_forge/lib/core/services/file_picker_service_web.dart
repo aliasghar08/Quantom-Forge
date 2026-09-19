@@ -1,52 +1,74 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:async';
-import 'dart:html' as html;
-import 'dart:typed_data';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'file_picker_models.dart';
+
+@JS('document')
+external JSObject get _document;
+
+@JS('FileReader')
+external JSFunction get _fileReaderConstructor;
+
+@JS()
+@staticInterop
+class FileReader {}
+
+extension FileReaderExt on FileReader {
+  @JS('readAsArrayBuffer')
+  external void readAsArrayBuffer(JSObject blob);
+
+  @JS('addEventListener')
+  external void addEventListener(JSString type, JSExportedDartFunction listener);
+
+  @JS('result')
+  external JSArrayBuffer get result;
+}
 
 class FilePickerService {
   Future<PickedFile?> pickStructureFile() async {
-    final uploadInput = html.FileUploadInputElement();
-    uploadInput.accept = '.xyz,.mol,.sdf,.cml';
-    uploadInput.click();
+    final uploadInput = _document.callMethod('createElement'.toJS, 'input'.toJS) as JSObject;
+    uploadInput.setProperty('type'.toJS, 'file'.toJS);
+    // CJSON is Avogadro 2's native format — offer it alongside the classics.
+    uploadInput.setProperty('accept'.toJS, '.xyz,.cjson,.mol,.sdf,.cml'.toJS);
+    uploadInput.callMethod('click'.toJS);
 
     return _getFileFromInput(uploadInput);
   }
 
   Future<PickedFile?> pickAnyFile() async {
-    final uploadInput = html.FileUploadInputElement();
-    uploadInput.click();
+    final uploadInput = _document.callMethod('createElement'.toJS, 'input'.toJS) as JSObject;
+    uploadInput.setProperty('type'.toJS, 'file'.toJS);
+    uploadInput.callMethod('click'.toJS);
     return _getFileFromInput(uploadInput);
   }
   
-  Future<PickedFile?> _getFileFromInput(html.FileUploadInputElement uploadInput) async {
+  Future<PickedFile?> _getFileFromInput(JSObject uploadInput) async {
     final completer = Completer<PickedFile?>();
     
-    uploadInput.onChange.listen((e) {
-      final files = uploadInput.files;
-      if (files != null && files.isNotEmpty) {
-        final file = files[0];
-        final reader = html.FileReader();
+    final onChange = (JSAny event) {
+      final files = uploadInput.getProperty('files'.toJS) as JSObject?;
+      final length = files?.getProperty('length'.toJS) as JSNumber?;
+      
+      if (length != null && length.toDartInt > 0) {
+        final file = files!.callMethod('item'.toJS, 0.toJS) as JSObject;
+        final name = (file.getProperty('name'.toJS) as JSString).toDart;
+        final size = (file.getProperty('size'.toJS) as JSNumber).toDartInt;
         
-        reader.onLoadEnd.listen((e) {
-          final result = reader.result;
-          if (result != null) {
-            Uint8List bytes;
-            if (result is String) {
-               bytes = Uint8List.fromList(result.codeUnits);
-            } else {
-               bytes = result as Uint8List;
-            }
-            completer.complete(PickedFile(name: file.name, size: file.size, bytes: bytes));
-          } else {
-            completer.complete(null);
-          }
-        });
+        final reader = _fileReaderConstructor.callAsConstructor<FileReader>();
+        
+        final onLoadEnd = (JSAny event) {
+          final buffer = reader.result.toDart;
+          completer.complete(PickedFile(name: name, size: size, bytes: buffer.asUint8List()));
+        }.toJS;
+
+        reader.addEventListener('loadend'.toJS, onLoadEnd);
         reader.readAsArrayBuffer(file);
       } else {
         completer.complete(null);
       }
-    });
+    }.toJS;
+
+    uploadInput.callMethod('addEventListener'.toJS, 'change'.toJS, onChange);
     
     return completer.future;
   }

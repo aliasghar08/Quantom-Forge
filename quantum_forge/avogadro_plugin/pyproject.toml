@@ -1,0 +1,46 @@
+# ============================================================================
+# Fallback metadata for the Quantum Forge Avogadro 2 plugin.
+# ----------------------------------------------------------------------------
+# Avogadro 2.0 reads `avogadro.toml` first and ignores this file when that one
+# is present. It is kept so the folder is also a valid Python project (handy for
+# linting, packaging and for Avogadro builds that only look at pyproject.toml).
+# ============================================================================
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantom-forge-avogadro"
+version = "2.0.0"
+description = "Exchange structures between Avogadro 2 and the Quantum Forge web workstation."
+requires-python = ">=3.9"
+authors = [{ name = "Ali Asghar" }]
+# Script plugins must not declare dependencies: Avogadro runs them with the
+# interpreter bundled in its own environment.
+dependencies = []
+
+[tool.avogadro]
+name = "Quantum Forge"
+identifier = "quantom-forge"
+version = "2.0.0"
+description = "Exchange structures between Avogadro 2 and the Quantum Forge web workstation."
+url = "https://quantom-forge.web.app"
+
+[[tool.avogadro.menu-commands]]
+name = "Export to Quantum Forge Web"
+description = "Open the current molecule in the Quantum Forge web dashboard."
+menu-path = "Extensions|Quantum Forge"
+command = "quantom_forge_export.py"
+
+[[tool.avogadro.menu-commands]]
+name = "Copy Quantum Forge Link"
+description = "Copy a Quantum Forge deep link for the current molecule to the clipboard."
+menu-path = "Extensions|Quantum Forge"
+command = "quantom_forge_export.py --copy"
+
+[[tool.avogadro.menu-commands]]
+name = "Check Quantum Forge Connection"
+description = "Show the Quantum Forge endpoint Quantum Forge plugins will open."
+menu-path = "Extensions|Quantum Forge"
+command = "quantom_forge_export.py --status"

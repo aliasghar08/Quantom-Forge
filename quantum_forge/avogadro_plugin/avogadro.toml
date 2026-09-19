@@ -1,0 +1,40 @@
+# ============================================================================
+# Avogadro 2 plugin metadata (Quantum Forge bridge)
+# ----------------------------------------------------------------------------
+# Avogadro 2.0+ discovers plugins from a folder containing this file plus the
+# plugin's scripts. `avogadro.toml` takes precedence over `pyproject.toml` when
+# both are present, so the metadata lives here and pyproject.toml is kept only
+# as a fallback for tooling.
+#
+# Install by copying this whole folder to:
+#   Windows : %LOCALAPPDATA%\OpenChemistry\Avogadro\plugins\python\quantom-forge
+#   macOS   : ~/Library/Application Support/OpenChemistry/Avogadro/plugins/python/quantom-forge
+#   Linux   : ~/.local/share/OpenChemistry/Avogadro/plugins/python/quantom-forge
+#
+# The folder name must contain only A-Z a-z 0-9 and '-' (no underscores).
+# ============================================================================
+
+name = "Quantum Forge"
+identifier = "quantom-forge"
+version = "2.0.0"
+author = "Ali Asghar"
+description = "Exchange structures between Avogadro 2 and the Quantum Forge web workstation."
+url = "https://quantom-forge.web.app"
+
+[menu-commands.export]
+name = "Export to Quantum Forge Web"
+description = "Open the current molecule in the Quantum Forge web dashboard."
+menu-path = "Extensions|Quantum Forge"
+command = "quantom_forge_export.py"
+
+[menu-commands.copy]
+name = "Copy Quantum Forge Link"
+description = "Copy a Quantum Forge deep link for the current molecule to the clipboard."
+menu-path = "Extensions|Quantum Forge"
+command = "quantom_forge_export.py --copy"
+
+[menu-commands.check]
+name = "Check Quantum Forge Connection"
+description = "Show the Quantum Forge endpoint Quantum Forge plugins will open."
+menu-path = "Extensions|Quantum Forge"
+command = "quantom_forge_export.py --status"

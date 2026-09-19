@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
+import 'package:quantum_forge/core/services/web_services.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/glass_card.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
@@ -16,51 +15,46 @@ class PublicationDetailsScreen extends StatefulWidget {
 }
 
 class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
-  bool _isLoading = true;
-  String? _error;
-  Map<String, dynamic>? _metadata;
+  bool _isLoadingCrossref = true;
+  String? _crossrefError;
+  Map<String, dynamic>? _crossrefData;
 
   @override
   void initState() {
     super.initState();
-    _fetchMetadata();
+    _fetchCrossrefData();
   }
 
-  Future<void> _fetchMetadata() async {
+  Future<void> _fetchCrossrefData() async {
     if (widget.template.doi.isEmpty) {
       setState(() {
-        _isLoading = false;
-        _error = 'No DOI provided for this template.';
+        _isLoadingCrossref = false;
+        _crossrefError = 'No DOI provided for this template.';
       });
       return;
     }
 
     try {
-      final response = await http.get(Uri.parse('https://api.crossref.org/works/${widget.template.doi}'));
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
+      final uri = 'https://api.crossref.org/works/${Uri.encodeComponent(widget.template.doi)}';
+      final responseBody = await WebServices.fetchString(uri);
+      
+      final json = jsonDecode(responseBody) as Map<String, dynamic>;
+      if (json['message'] != null) {
         setState(() {
-          _metadata = json['message'];
-          _isLoading = false;
+          _crossrefData = json['message'] as Map<String, dynamic>;
+          _isLoadingCrossref = false;
         });
       } else {
         setState(() {
-          _isLoading = false;
-          _error = 'Failed to fetch metadata. Status code: ${response.statusCode}';
+          _crossrefError = 'Invalid DOI response';
+          _isLoadingCrossref = false;
         });
       }
     } catch (e) {
       setState(() {
-        _isLoading = false;
-        _error = 'Error fetching metadata: $e';
+        _crossrefError = 'Failed to load metadata: $e';
+        _isLoadingCrossref = false;
       });
-    }
-  }
-
-  Future<void> _launchUrl(String urlString) async {
-    final uri = Uri.parse(urlString);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
     }
   }
 
@@ -78,7 +72,7 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
+    if (_isLoadingCrossref) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -91,35 +85,35 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
       );
     }
 
-    if (_error != null && _metadata == null) {
+    if (_crossrefError != null && _crossrefData == null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
             const SizedBox(height: 16),
-            Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+            Text(_crossrefError!, style: const TextStyle(color: Colors.redAccent)),
           ],
         ),
       );
     }
 
     // Parse Data
-    final title = _metadata?['title']?[0] ?? widget.template.name;
-    final abstractHtml = _metadata?['abstract'] ?? 'Abstract not provided by publisher via CrossRef API.';
+    final title = _crossrefData?['title']?[0] ?? widget.template.name;
+    final abstractHtml = _crossrefData?['abstract'] ?? 'Abstract not provided by publisher via CrossRef API.';
     // Clean basic abstract XML/HTML tags if present (e.g. <jats:p>)
     final abstractText = abstractHtml.replaceAll(RegExp(r'<[^>]*>'), '').trim();
     
-    final authorsList = _metadata?['author'] as List<dynamic>?;
+    final authorsList = _crossrefData?['author'] as List<dynamic>?;
     String authors = 'Unknown Authors';
     if (authorsList != null && authorsList.isNotEmpty) {
       authors = authorsList.map((a) => '${a['given']} ${a['family']}').join(', ');
     }
 
-    final publisher = _metadata?['publisher'] ?? 'Unknown Publisher';
-    final containerTitle = _metadata?['container-title']?[0] ?? widget.template.journalRef;
+    final publisher = _crossrefData?['publisher'] ?? 'Unknown Publisher';
+    final containerTitle = _crossrefData?['container-title']?[0] ?? widget.template.journalRef;
     
-    final createdDate = _metadata?['created']?['date-parts']?[0];
+    final createdDate = _crossrefData?['created']?['date-parts']?[0];
     final year = createdDate != null ? createdDate[0].toString() : 'Unknown Year';
 
     return SingleChildScrollView(
@@ -248,7 +242,7 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
 
   Widget _buildLinkButton({required IconData icon, required String label, required String url, required Color color}) {
     return InkWell(
-      onTap: () => _launchUrl(url),
+      onTap: () => WebServices.openUrl(url),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
