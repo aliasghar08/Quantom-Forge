@@ -3,7 +3,9 @@ import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/core/utils/molecule_parser.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/interactive_builder_widget.dart';
 import 'dart:convert';
-import 'dart:html' as html;
+import 'dart:typed_data';
+import 'package:quantum_forge/core/services/file_picker_service.dart';
+import 'package:quantum_forge/core/services/file_picker_models.dart';
 
 class CoordinateEditorScreen extends StatefulWidget {
   const CoordinateEditorScreen({super.key});
@@ -62,38 +64,30 @@ H  0.00000 -0.75545 -0.47116''';
     });
   }
 
-  void _importFile() {
-    // Web only implementation using dart:html
-    final uploadInput = html.FileUploadInputElement();
-    uploadInput.accept = '.xyz,.mol,.sdf,.cml';
-    uploadInput.click();
-    
-    uploadInput.onChange.listen((e) {
-      final files = uploadInput.files;
-      if (files != null && files.isNotEmpty) {
-        final file = files[0];
-        final reader = html.FileReader();
+  Future<void> _importFile() async {
+    final picker = FilePickerService();
+    final PickedFile? file = await picker.pickStructureFile();
+
+    if (file != null) {
+      if (file.bytes != null) {
+        final content = utf8.decode(file.bytes!);
+        String extension = file.name.split('.').last.toLowerCase();
+        final parsedAtoms = MoleculeParser.parse(content, extension);
         
-        reader.onLoadEnd.listen((e) {
-          final result = reader.result as String?;
-          if (result != null) {
-            String extension = file.name.split('.').last.toLowerCase();
-            final parsedAtoms = MoleculeParser.parse(result, extension);
-            if (parsedAtoms.isNotEmpty) {
-              _onAtomsChanged(parsedAtoms);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Successfully loaded ${file.name}')),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Failed to parse molecule file.')),
-              );
-            }
-          }
-        });
-        reader.readAsText(file);
+        if (!mounted) return;
+
+        if (parsedAtoms.isNotEmpty) {
+          _onAtomsChanged(parsedAtoms);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Successfully loaded ${file.name}')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to parse molecule file.')),
+          );
+        }
       }
-    });
+    }
   }
 
   @override

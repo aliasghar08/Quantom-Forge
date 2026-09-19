@@ -147,7 +147,7 @@ H     1.245   -2.156    0.000
 Cl    1.400    0.000    1.400
 Cl    1.400    0.000    5.000''';
 
-const _benzoyl_chloride_synReactant = '''19
+const _benzoylChlorideSynReactant = '''19
 Acid Chloride Synthesis (reactant)
 O     6.016    0.841   -0.779
 C     5.359   -0.035   -0.154
@@ -170,7 +170,7 @@ Cl   13.319   -0.815   -0.230
 Cl   10.047   -0.852   -0.225
 ''';
 
-const _benzoyl_chloride_synProduct = '''19
+const _benzoylChlorideSynProduct = '''19
 Acid Chloride Synthesis (product)
 O     5.498   -0.981   -1.277
 C     4.890    0.080   -0.974
@@ -193,7 +193,7 @@ Cl   15.393    0.000    0.000
 H    14.017    0.000    0.000
 ''';
 
-const _grignard_additionReactant = '''16
+const _grignardAdditionReactant = '''16
 Grignard Addition (reactant)
 C     0.591    0.043    0.064
 C     1.940   -0.026   -0.582
@@ -213,7 +213,7 @@ H     7.106    0.921   -0.519
 H     7.098   -0.891   -0.549
 ''';
 
-const _grignard_additionProduct = '''16
+const _grignardAdditionProduct = '''16
 Grignard Addition (product)
 C     2.354    1.255    0.548
 C     2.142   -0.174    0.028
@@ -233,7 +233,7 @@ H     4.135   -0.302   -0.876
 H     2.951   -1.498   -1.512
 ''';
 
-const _fisher_esterificationReactant = '''17
+const _fisherEsterificationReactant = '''17
 Fischer Esterification (reactant)
 C     0.594   -0.073   -0.214
 C     2.013    0.283    0.074
@@ -254,7 +254,7 @@ H     9.097   -1.427    0.385
 H    10.006    1.245    0.023
 ''';
 
-const _fisher_esterificationProduct = '''17
+const _fisherEsterificationProduct = '''17
 Fischer Esterification (product)
 C     5.839   -0.060    0.075
 C     4.478    0.320    0.552
@@ -275,7 +275,7 @@ H     9.511   -0.185    0.000
 H    11.077   -0.219    0.000
 ''';
 
-const _friedel_craftsReactant = '''17
+const _friedelCraftsReactant = '''17
 Friedel-Crafts Alkylation (reactant)
 C     3.276   -1.144   -0.008
 C     3.864    0.126   -0.028
@@ -296,7 +296,7 @@ H     8.020   -0.530    0.918
 H     7.942    1.021   -0.014
 ''';
 
-const _friedel_craftsProduct = '''17
+const _friedelCraftsProduct = '''17
 Friedel-Crafts Alkylation (product)
 C     5.366   -0.170    0.109
 C     3.874   -0.050    0.006
@@ -317,7 +317,7 @@ Cl   10.234    0.000    0.000
 H     8.858    0.000    0.000
 ''';
 
-const _suzuki_couplingReactant = '''28
+const _suzukiCouplingReactant = '''28
 Suzuki-Miyaura Coupling (reactant)
 O     5.891   -1.601    0.324
 B     5.236   -0.325    0.605
@@ -349,7 +349,7 @@ H    10.203   -1.856    0.035
 H    12.633   -2.336    0.025
 ''';
 
-const _suzuki_couplingProduct = '''28
+const _suzukiCouplingProduct = '''28
 Suzuki-Miyaura Coupling (product)
 C     8.181    0.127   -0.146
 C     7.426    1.234   -0.539
@@ -1651,14 +1651,14 @@ H    -1.620   -2.140    0.000''',
     defaults: const QuantumDefaults(
         mlipModel: 'UMA-SM', optimizerAlgorithm: 'NEB-CI'),
   ),
-ReactionTemplate(
+  ReactionTemplate(
     id: 'benzoyl_chloride_syn',
     name: 'Acid Chloride Synthesis',
     iupacName: 'benzoic acid + thionyl chloride → benzoyl chloride + sulfur dioxide + hydrogen chloride',
     description: 'Preparation of benzoyl chloride from benzoic acid using SOCl2.',
     category: ReactionCategory.nucleophilic,
-    reactantXyz: _benzoyl_chloride_synReactant,
-    productXyz: _benzoyl_chloride_synProduct,
+    reactantXyz: _benzoylChlorideSynReactant,
+    productXyz: _benzoylChlorideSynProduct,
     referenceEa: 18.5,
     doi: '10.1021/ja0000000',
     journalRef: 'J. Am. Chem. Soc. 2000',
@@ -1670,8 +1670,8 @@ ReactionTemplate(
     iupacName: 'acetone + methylmagnesium bromide → tert-butoxide',
     description: 'Nucleophilic addition of a Grignard reagent to a ketone.',
     category: ReactionCategory.nucleophilic,
-    reactantXyz: _grignard_additionReactant,
-    productXyz: _grignard_additionProduct,
+    reactantXyz: _grignardAdditionReactant,
+    productXyz: _grignardAdditionProduct,
     referenceEa: 12.0,
     doi: '10.1021/ja0000001',
     journalRef: 'J. Am. Chem. Soc. 2001',
@@ -1683,8 +1683,8 @@ ReactionTemplate(
     iupacName: 'acetic acid + ethanol → ethyl acetate + water',
     description: 'Acid-catalyzed condensation of a carboxylic acid and an alcohol.',
     category: ReactionCategory.ionic,
-    reactantXyz: _fisher_esterificationReactant,
-    productXyz: _fisher_esterificationProduct,
+    reactantXyz: _fisherEsterificationReactant,
+    productXyz: _fisherEsterificationProduct,
     referenceEa: 22.1,
     doi: '10.1021/ja0000002',
     journalRef: 'J. Am. Chem. Soc. 2002',
@@ -1696,8 +1696,8 @@ ReactionTemplate(
     iupacName: 'benzene + chloromethane → toluene + hydrogen chloride',
     description: 'Electrophilic aromatic substitution to alkylate a benzene ring.',
     category: ReactionCategory.ionic,
-    reactantXyz: _friedel_craftsReactant,
-    productXyz: _friedel_craftsProduct,
+    reactantXyz: _friedelCraftsReactant,
+    productXyz: _friedelCraftsProduct,
     referenceEa: 14.3,
     doi: '10.1021/ja0000003',
     journalRef: 'J. Am. Chem. Soc. 2003',
@@ -1709,8 +1709,8 @@ ReactionTemplate(
     iupacName: 'phenylboronic acid + bromobenzene → biphenyl',
     description: 'Palladium-catalyzed cross coupling of an aryl halide with a boronic acid.',
     category: ReactionCategory.organometallic,
-    reactantXyz: _suzuki_couplingReactant,
-    productXyz: _suzuki_couplingProduct,
+    reactantXyz: _suzukiCouplingReactant,
+    productXyz: _suzukiCouplingProduct,
     referenceEa: 25.0,
     doi: '10.1021/ja0000004',
     journalRef: 'J. Am. Chem. Soc. 2004',
