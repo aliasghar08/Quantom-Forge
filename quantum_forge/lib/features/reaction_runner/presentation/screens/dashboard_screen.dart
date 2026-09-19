@@ -1102,7 +1102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (status.trajectoryFrames != null && status.trajectoryFrames!.isNotEmpty) {
                       final combinedXyz = status.trajectoryFrames!.join('\n');
                       try {
-                        await exportForAvogadro('avogadro_${status.reactionId}.xyz', combinedXyz);
+                        await AvogadroExporter.exportForAvogadro('avogadro_${status.reactionId}.xyz', combinedXyz);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Downloaded .xyz for Avogadro!')),
