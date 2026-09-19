@@ -50,16 +50,23 @@ class FirestoreReactionRepository implements ReactionRepository {
 
   @override
   Future<ReactionStatusResponse?> findCachedTemplateReaction(String templateId, Map<String, dynamic> settingsMap) async {
+    // Look only inside the current user's own reactions. The previous
+    // implementation used a collection-group query across every user, which the
+    // per-user security rules correctly reject (cross-user reads are denied).
+    // A single-field equality filter also avoids needing a composite index.
+    final uid = _uid;
+    if (uid == null) return null;
+
     final query = await _firestore
-        .collectionGroup('reactions')
+        .collection('users')
+        .doc(uid)
+        .collection('reactions')
         .where('template_id', isEqualTo: templateId)
-        .where('state', isEqualTo: ReactionState.completed.name)
-        .orderBy('created_at', descending: true)
-        .limit(20)
         .get();
 
     for (var doc in query.docs) {
       final data = doc.data();
+      if (data['state'] != ReactionState.completed.name) continue;
       bool settingsMatch = true;
       for (var key in settingsMap.keys) {
         if (data[key] != settingsMap[key]) {
