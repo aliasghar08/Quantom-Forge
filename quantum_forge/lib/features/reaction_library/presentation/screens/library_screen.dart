@@ -3,6 +3,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_header.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_filter_bar.dart';
@@ -32,8 +33,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _loadTemplates() async {
-    final repo = FirestoreLibraryRepository();
-    final templates = await repo.getLibraryTemplates();
+    List<ReactionTemplate> templates = const [];
+    try {
+      templates = await FirestoreLibraryRepository().getLibraryTemplates();
+    } catch (e) {
+      debugPrint('Library fetch failed, using bundled templates: $e');
+    }
+    // The library must work signed-out and offline, so fall back to the
+    // templates bundled with the app whenever the cloud copy is unavailable.
+    if (templates.isEmpty) templates = kReactionTemplates;
     if (mounted) {
       setState(() {
         _allTemplates = templates;
@@ -56,12 +64,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ThemeNotifier.paletteOf(context);
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+          colors: palette.backgroundGradient,
         ),
       ),
       child: Column(

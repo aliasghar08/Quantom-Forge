@@ -94,15 +94,18 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   bool _showEnergies = false;
   bool _showMechanism = false;
 
-  static const double _t1 = 0.22;
-  static const double _t2 = 0.48;
-  static const double _t3 = 0.70;
+  // Reaction-coordinate phases. The transition-state window (t1 → t2) is the
+  // widest and slowest band — it is the chemically decisive moment, so the loop
+  // lingers there (≈40% of the 24 s cycle) with extra detail.
+  static const double _t1 = 0.30;
+  static const double _t2 = 0.70;
+  static const double _t3 = 0.85;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 16))
+        vsync: this, duration: const Duration(seconds: 24))
       ..repeat();
     _repaint = Listenable.merge([_ctrl, _rotNotifier]);
     _load();
@@ -832,9 +835,9 @@ class _RxnPainterV6 extends CustomPainter {
   final bool showMechanism;
 
   static const double _scale = 120.0;
-  static const double _t1 = 0.22;
-  static const double _t2 = 0.48;
-  static const double _t3 = 0.70;
+  static const double _t1 = 0.30;
+  static const double _t2 = 0.70;
+  static const double _t3 = 0.85;
 
   _RxnPainterV6({
     required Listenable repaint,
@@ -938,6 +941,17 @@ class _RxnPainterV6 extends CustomPainter {
     if (atoms.isEmpty) return;
 
     final rot = rotNotifier.value;
+
+    // Warm vignette tint that swells during the transition state — a visual
+    // cue that the system is at the top of the barrier.
+    if (t >= _t1 && t < _t2) {
+      final tsT = (t - _t1) / (_t2 - _t1);
+      final env = math.sin(tsT * math.pi);
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()..color = const Color(0xFFFFB300).withValues(alpha: 0.05 * env),
+      );
+    }
 
     // Shift centre slightly UP so the molecule sits nicely above the bottom
     // captions / energy plot / axes, instead of hugging the bottom edge.
@@ -1048,6 +1062,10 @@ class _RxnPainterV6 extends CustomPainter {
       _drawCharges(canvas, atoms, proj, bonds, dynamicScale);
       _drawLonePairs(canvas, atoms, proj, bonds, dynamicScale);
     }
+
+    // Transition-state detail — the decisive moment, drawn on top with
+    // reaction-coordinate vibration arrows, live bond lengths and a TS badge.
+    _drawTsDetails(canvas, size, atoms, proj, bonds, dynamicScale, t);
 
     _drawAxes(canvas, size, cosX, sinX, cosY, sinY);
     _drawEnergyPlot(canvas, size, t);
@@ -1448,6 +1466,111 @@ class _RxnPainterV6 extends CustomPainter {
       )..layout();
       tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy - tp.height / 2));
     }
+  }
+
+  // ── Transition-state detail ───────────────────────────────────────────────
+  /// The decisive moment, rendered in depth: the imaginary-frequency vibration
+  /// as double-headed arrows on the atoms that move most, live Ångström bond
+  /// lengths for the bonds that break/form, and a prominent TS badge.
+  void _drawTsDetails(
+    Canvas canvas,
+    Size size,
+    List<Atom> atoms,
+    List<_PA> proj,
+    List<_BD> bonds,
+    double dynamicScale,
+    double t,
+  ) {
+    if (t < _t1 || t >= _t2) return;
+    final tsT = (t - _t1) / (_t2 - _t1); // 0..1 across the TS window
+    final env = math.sin(tsT * math.pi); // fade in, fade out
+    const vibColor = Color(0xFFFFD740); // amber — the "unstable mode"
+
+    // 1. Reaction-coordinate vibration arrows on the most-displaced atoms.
+    if (rAtoms.length == pAtoms.length && rAtoms.length == atoms.length) {
+      final disp = <Offset>[];
+      double maxD = 0;
+      for (int i = 0; i < atoms.length; i++) {
+        final d = Offset(pAtoms[i].x - rAtoms[i].x, pAtoms[i].y - rAtoms[i].y);
+        maxD = math.max(maxD, d.distance);
+        disp.add(d);
+      }
+      if (maxD > 0.01) {
+        for (int i = 0; i < atoms.length; i++) {
+          if (disp[i].distance < maxD * 0.35) continue;
+          final p = proj[i];
+          final n = disp[i] / disp[i].distance;
+          final r = math.max(
+              p.atom.covalentRadius * dynamicScale * _kAtomRadiusFactor,
+              _kMinAtomRadius);
+          // Oscillating arm length → the mode "breathes" along the reaction path.
+          final arm = r + 10 + 9 * math.sin(t * 16 + i * 1.7);
+          final a = Offset(p.sx + n.dx * arm, p.sy + n.dy * arm);
+          final b = Offset(p.sx - n.dx * arm, p.sy - n.dy * arm);
+          _drawDoubleArrow(
+              canvas, a, b, vibColor.withValues(alpha: 0.85 * env));
+        }
+      }
+    }
+
+    // 2. Live bond lengths (Å) for the bonds that are breaking or forming.
+    for (final b in bonds) {
+      if (b.kind != _BK.breaking && b.kind != _BK.forming) continue;
+      final mid = Offset((b.p1.sx + b.p2.sx) / 2, (b.p1.sy + b.p2.sy) / 2);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '${b.dist.toStringAsFixed(2)} Å',
+          style: TextStyle(
+            color: const Color(0xFFFFD740).withValues(alpha: env),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final bg = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+            center: mid, width: tp.width + 8, height: tp.height + 4),
+        const Radius.circular(6),
+      );
+      canvas.drawRRect(bg, Paint()..color = Colors.black.withValues(alpha: 0.55 * env));
+      tp.paint(canvas, Offset(mid.dx - tp.width / 2, mid.dy - tp.height / 2));
+    }
+
+    // 3. Prominent transition-state badge.
+    final badge = TextPainter(
+      text: TextSpan(
+        text: 'TRANSITION STATE ‡',
+        style: TextStyle(
+          color: const Color(0xFFFFB300).withValues(alpha: 0.9 * env),
+          fontSize: 15,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 2.5,
+          shadows: const [Shadow(color: Colors.black, blurRadius: 6)],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    badge.paint(canvas, Offset((size.width - badge.width) / 2, 12));
+  }
+
+  /// A double-headed arrow (the reaction-coordinate / imaginary mode direction).
+  void _drawDoubleArrow(Canvas canvas, Offset a, Offset b, Color color) {
+    final dir = b - a;
+    final len = dir.distance;
+    if (len < 8) return;
+    final n = dir / len;
+    final perp = Offset(-n.dy, n.dx);
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.7
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(a, b, paint);
+    canvas.drawLine(a, a + n * 5.5 + perp * 3.4, paint);
+    canvas.drawLine(a, a + n * 5.5 - perp * 3.4, paint);
+    canvas.drawLine(b, b - n * 5.5 + perp * 3.4, paint);
+    canvas.drawLine(b, b - n * 5.5 - perp * 3.4, paint);
   }
 
   void _drawAxes(Canvas canvas, Size size,

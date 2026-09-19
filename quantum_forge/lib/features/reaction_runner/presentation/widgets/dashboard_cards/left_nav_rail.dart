@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
+import 'package:quantum_forge/features/auth/presentation/screens/auth_screen.dart';
 import 'package:quantum_forge/features/settings/presentation/screens/settings_screen.dart';
 
 enum NavDestination { library, newReaction, editor, history }
@@ -230,8 +231,56 @@ class ProfessionalDrawer extends StatelessWidget {
                     stream: FirebaseAuth.instance.authStateChanges(),
                     builder: (context, snapshot) {
                       final user = snapshot.data;
-                      final name = user?.displayName ?? 'Researcher';
-                      final email = user?.email ?? 'Unauthenticated';
+
+                      // Signed out → offer to sync history, without blocking use.
+                      if (user == null) {
+                        return InkWell(
+                          onTap: () => _openAuth(context),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: gap(14), vertical: gap(10)),
+                            decoration: BoxDecoration(
+                              color: palette.accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: palette.accent.withValues(alpha: 0.35)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.login,
+                                    color: palette.accent, size: 18),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Sign in to sync history',
+                                        style: TextStyle(
+                                          color: palette.textPrimary,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Everything else works without an account',
+                                        style: TextStyle(
+                                          color: palette.textMuted,
+                                          fontSize: 10.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      final name = user.displayName ?? 'Researcher';
+                      final email = user.email ?? 'Signed in';
 
                       return Row(
                         children: [
@@ -285,6 +334,19 @@ class ProfessionalDrawer extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Opens sign-in as a pushed route — never as a gate. The app is fully usable
+  /// without an account; signing in only enables synced history.
+  void _openAuth(BuildContext context) {
+    Navigator.pop(context); // close the drawer
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (ctx) => AuthScreen(
+          onLoginSuccess: () => Navigator.of(ctx).pop(),
         ),
       ),
     );

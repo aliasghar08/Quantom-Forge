@@ -14,8 +14,8 @@ import 'package:quantum_forge/features/reaction_runner/providers/reaction_provid
 import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quantum_forge/firebase_options.dart';
-import 'package:quantum_forge/features/auth/presentation/screens/auth_screen.dart';
 import 'package:quantum_forge/core/services/firebase_auth_service.dart';
 import 'package:quantum_forge/core/services/firestore_reaction_repository.dart';
 import 'package:quantum_forge/core/services/auth_service.dart';
@@ -69,6 +69,10 @@ Future<void> main() async {
 }
 
 Future<void> _seedLibrary() async {
+  // Seeding writes to Firestore, which unauthenticated guests cannot do. Skip
+  // silently for them — the library falls back to the bundled templates, so the
+  // app stays fully usable without an account and no permission error is raised.
+  if (FirebaseAuth.instance.currentUser == null) return;
   final written = await FirestoreLibraryRepository().seedLibrary(kReactionTemplates);
   if (written > 0) {
     debugPrint('Reaction library seed complete ($written templates).');
@@ -82,23 +86,6 @@ class QuantumForgeApp extends StatefulWidget {
 }
 
 class _QuantumForgeAppState extends State<QuantumForgeApp> {
-  bool _isAuthenticated = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkAuth();
-  }
-
-  Future<void> _checkAuth() async {
-    final authService = context.read<AuthService>();
-    final isAuth = await authService.isAuthenticated();
-    if (!mounted) return;
-    setState(() {
-      _isAuthenticated = isAuth;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     // Both notifiers participate in theming: the theme supplies the palette and
@@ -184,9 +171,7 @@ class _QuantumForgeAppState extends State<QuantumForgeApp> {
                   ),
                 );
               },
-              home: _isAuthenticated
-                  ? const DashboardScreen()
-                  : AuthScreen(onLoginSuccess: _checkAuth),
+              home: const DashboardScreen(),
             ),
           ),
         );

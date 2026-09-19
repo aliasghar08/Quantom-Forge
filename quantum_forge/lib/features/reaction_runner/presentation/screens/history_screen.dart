@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/core/services/reaction_repository.dart';
 import 'package:quantum_forge/core/services/auth_service.dart';
+import 'package:quantum_forge/core/theme/theme_provider.dart';
+import 'package:quantum_forge/features/auth/presentation/screens/auth_screen.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
@@ -16,6 +18,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<ReactionStatusResponse> _reactions = [];
   bool _isLoading = true;
 
+  /// History is the one feature that needs an account; when signed out we show
+  /// an invitation instead of querying Firestore with an empty user id.
+  bool _requiresAuth = false;
+
   @override
   void initState() {
     super.initState();
@@ -26,12 +32,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthService>();
+      if (!await auth.isAuthenticated()) {
+        if (!mounted) return;
+        setState(() {
+          _requiresAuth = true;
+          _reactions = [];
+          _isLoading = false;
+        });
+        return;
+      }
       final userId = await auth.getUserId();
       if (!mounted) return;
       final repo = context.read<ReactionRepository>();
       final reactions = await repo.listReactions(userId);
       if (mounted) {
         setState(() {
+          _requiresAuth = false;
           _reactions = reactions;
         });
       }
@@ -49,6 +65,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  void _openAuth() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (ctx) => AuthScreen(
+          onLoginSuccess: () {
+            Navigator.of(ctx).pop();
+            _loadReactions();
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteReaction(String reactionId) async {
     final repo = context.read<ReactionRepository>();
     await repo.deleteReaction(reactionId);
@@ -59,6 +88,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_requiresAuth) {
+      return _AuthPrompt(onSignIn: _openAuth);
     }
 
     if (_reactions.isEmpty) {
@@ -187,6 +220,75 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shown when signed out: history needs an account, but the rest of the app does
+/// not. Styled from the active theme so it matches every preset.
+class _AuthPrompt extends StatelessWidget {
+  final VoidCallback onSignIn;
+  const _AuthPrompt({required this.onSignIn});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ThemeNotifier.paletteOf(context);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: palette.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: palette.accent.withValues(alpha: 0.35)),
+                ),
+                child: Icon(Icons.history, size: 30, color: palette.accent),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'History needs an account',
+                style: TextStyle(
+                  color: palette.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Quantum Forge works fully without signing in. An account only '
+                'adds cross-device history, so you can revisit and compare past '
+                'runs.',
+                style: TextStyle(
+                  color: palette.textSecondary,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: onSignIn,
+                icon: const Icon(Icons.login, size: 18),
+                label: const Text('Sign in to sync history'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: palette.accent,
+                  foregroundColor: palette.onAccent,
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

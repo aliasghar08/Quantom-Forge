@@ -14,6 +14,8 @@ import 'package:quantum_forge/features/reaction_runner/data/models/reaction_mode
 import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/core/utils/molecule_parser.dart';
+import 'package:quantum_forge/core/utils/uuid_util.dart';
+import 'dart:convert';
 import 'dart:math' as math;
 
 class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
@@ -48,13 +50,21 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
   ) async {
     _setLoading(true);
     try {
+      final reactantXyz = reactantFile.bytes != null
+          ? utf8.decode(reactantFile.bytes!, allowMalformed: true)
+          : '';
+      final productXyz = productFile.bytes != null
+          ? utf8.decode(productFile.bytes!, allowMalformed: true)
+          : '';
+
+      // Guests run in a local, in-memory session — no Firestore, no history.
+      // Signing in turns history on (cross-device sync).
+      if (!await _auth.isAuthenticated()) {
+        await _simulateGuestReaction(reactantXyz, productXyz);
+        return;
+      }
+
       final userId = await _auth.getUserId();
-      
-      // We don't have the Reaction ID yet, let's create a stub document first 
-      // or generate a local ID. Since ReactionRepository.createReaction can generate one
-      // if not provided, or we can just pass an empty map and let it return the ID.
-      // Better: let's generate a temporary unique ID or let repo generate it.
-      // For Storage, we need the reactionId. Let's create the reaction first in pending/uploading state.
       
       final reactionId = await _repo.createReaction({
         'user_id': userId,
@@ -94,13 +104,13 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
         'message': 'Reaction submitted to compute node...',
         'reactant_xyz': reactantStored.locator,
         'product_xyz': productStored.locator,
-        ...settings.toFirestoreMap(), // Reusing method name for map export
+        ...settings.toFirestoreMap(),
       });
 
       _listenToReactionUpdates(reactionId);
       
       // Simulate backend processing
-      _simulateReactionProcessing(reactionId, reactantFile.bytes != null ? String.fromCharCodes(reactantFile.bytes!) : 'Mock reactant', productFile.bytes != null ? String.fromCharCodes(productFile.bytes!) : 'Mock product');
+      _simulateReactionProcessing(reactionId, reactantXyz, productXyz);
     } catch (e) {
       _setError('Failed to dispatch reaction: $e');
     }
@@ -113,6 +123,13 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
   ) async {
     _setLoading(true);
     try {
+      // Guests run locally; the template cache and Firestore persistence only
+      // apply to signed-in users.
+      if (!await _auth.isAuthenticated()) {
+        await _simulateGuestReaction(template.reactantXyz, template.productXyz);
+        return;
+      }
+
       final userId = await _auth.getUserId();
 
       // --- Caching check ---
@@ -295,6 +312,107 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
       'energy_profile': energyProfile,
       'trajectory_frames': trajectoryFrames,
     });
+  }
+
+  // --- Local (guest) simulation — no Firestore, no history ------------------
+  /// Runs the whole workflow in memory for unauthenticated users, updating the
+  /// notifier directly. Nothing is persisted, so "history" remains a signed-in
+  /// feature while the app itself stays fully usable without an account.
+  Future<void> _simulateGuestReaction(String reactantXyz, String productXyz) async {
+    final reactionId = 'guest-${UuidUtil.v4()}';
+
+    void emit(ReactionState state, double progress, String message) {
+      value = ReactionStatusResponse(
+        reactionId: reactionId,
+        state: state,
+        progress: progress,
+        message: message,
+      );
+      notifyListeners();
+    }
+
+    emit(ReactionState.pending, 0.0, 'Queued (local session)…');
+    await Future.delayed(const Duration(seconds: 1));
+    emit(ReactionState.optimizing, 0.1, 'Initializing TS Search (NEB)…');
+    for (int i = 2; i <= 9; i++) {
+      await Future.delayed(const Duration(milliseconds: 1200));
+      emit(ReactionState.optimizing, i / 10.0, 'Optimizing geometry… (Cycle $i)');
+    }
+    await Future.delayed(const Duration(seconds: 1));
+
+    // Mock energy profile (Gaussian barrier).
+    final energyProfile = List<double>.generate(21, (i) {
+      final x = (i - 10) / 5.0;
+      return 25.0 * math.exp(-x * x / 2);
+    });
+
+    // Mock trajectory frames via symbol-matched interpolation.
+    List<String> trajectoryFrames;
+    try {
+      final rAtoms = MoleculeParser.parse(reactantXyz, 'xyz');
+      final pAtoms = MoleculeParser.parse(productXyz, 'xyz');
+      if (rAtoms.isEmpty || pAtoms.isEmpty) throw Exception('Empty xyz');
+
+      final rGroups = <String, List<Atom>>{};
+      final pGroups = <String, List<Atom>>{};
+      for (final a in rAtoms) {
+        rGroups.putIfAbsent(a.symbol, () => []).add(a);
+      }
+      for (final a in pAtoms) {
+        pGroups.putIfAbsent(a.symbol, () => []).add(a);
+      }
+
+      trajectoryFrames = <String>[];
+      for (int frame = 0; frame < 21; frame++) {
+        final t = frame / 20.0;
+        final frameAtoms = <Atom>[];
+        for (final sym in {...rGroups.keys, ...pGroups.keys}) {
+          final rList = rGroups[sym] ?? const <Atom>[];
+          final pList = pGroups[sym] ?? const <Atom>[];
+          final maxLen = math.max(rList.length, pList.length);
+          for (int i = 0; i < maxLen; i++) {
+            if (i < rList.length && i < pList.length) {
+              final a1 = rList[i], a2 = pList[i];
+              frameAtoms.add(Atom(
+                sym,
+                a1.x + (a2.x - a1.x) * t,
+                a1.y + (a2.y - a1.y) * t,
+                a1.z + (a2.z - a1.z) * t,
+                a1.color, a1.radius, a1.covalentRadius,
+              ));
+            } else if (i < rList.length) {
+              frameAtoms.add(rList[i]);
+            } else {
+              frameAtoms.add(pList[i]);
+            }
+          }
+        }
+        final sb = StringBuffer()
+          ..writeln('${frameAtoms.length}')
+          ..writeln('Frame $frame (t=$t)');
+        for (final a in frameAtoms) {
+          sb.writeln('${a.symbol.padRight(2)} '
+              '${a.x.toStringAsFixed(4).padLeft(8)} '
+              '${a.y.toStringAsFixed(4).padLeft(8)} '
+              '${a.z.toStringAsFixed(4).padLeft(8)}');
+        }
+        trajectoryFrames.add(sb.toString());
+      }
+    } catch (_) {
+      trajectoryFrames =
+          List.generate(21, (i) => i < 10 ? reactantXyz : productXyz);
+    }
+
+    value = ReactionStatusResponse(
+      reactionId: reactionId,
+      state: ReactionState.completed,
+      progress: 1.0,
+      message: 'TS Search Converged Successfully (local session).',
+      energyProfile: energyProfile,
+      trajectoryFrames: trajectoryFrames,
+    );
+    _isLoading = false;
+    notifyListeners();
   }
 
   // --- Snapshot listener ---
