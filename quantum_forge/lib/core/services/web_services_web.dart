@@ -53,25 +53,27 @@ class WebServices {
     final response = await _awaitJs(
       (fetchFn as JSFunction).callAsFunction(_window, url.toJS),
     );
-    if (response == null) {
+    if (response == null || !response.isA<JSObject>()) {
       throw StateError('fetch() returned nothing for $url');
     }
+    final responseObj = response as JSObject;
 
-    final ok = response.getProperty('ok'.toJS);
+    final ok = responseObj.getProperty('ok'.toJS);
     if (ok.isA<JSBoolean>() && !(ok as JSBoolean).toDart) {
-      final status = response.getProperty('status'.toJS);
+      final status = responseObj.getProperty('status'.toJS);
       final code = status.isA<JSNumber>() ? (status as JSNumber).toDartInt : 0;
       throw StateError('HTTP $code for $url');
     }
 
-    final textFn = response.getProperty('text'.toJS);
+    final textFn = responseObj.getProperty('text'.toJS);
     if (textFn == null || !textFn.isA<JSFunction>()) {
       throw StateError('Response has no text() for $url');
     }
-    final text = await _awaitJs((textFn as JSFunction).callAsFunction(response));
+    final text =
+        await _awaitJs((textFn as JSFunction).callAsFunction(responseObj));
     if (text == null) return '';
     // `dartify()` converts a JS primitive to its Dart equivalent without a
-    // platform-dependent interop cast.
+    // platform-dependent interop cast (a JS string → Dart String).
     final dartified = text.dartify();
     return dartified is String ? dartified : '$dartified';
   }
@@ -89,9 +91,15 @@ class WebServices {
   static void setPref(String key, String value) => _localStorage.setItem(key, value);
   static void removePref(String key) => _localStorage.removeItem(key);
 
-  static Future<JSObject?> _awaitJs(JSAny? value) async {
+  /// Awaits a value that may already be resolved or may be a JS Promise, and
+  /// returns it as a [JSAny?]. The previous version only returned JSObjects,
+  /// which silently dropped JS *primitives* (strings/numbers/booleans) — so
+  /// `Response.text()` came back null and callers tried to `jsonDecode('')`.
+  static Future<JSAny?> _awaitJs(JSAny? value) async {
     if (value == null) return null;
-    final resolved = value.isA<JSPromise>() ? await (value as JSPromise).toDart : value;
-    return resolved.isA<JSObject>() ? resolved as JSObject : null;
+    if (value.isA<JSPromise>()) {
+      return await (value as JSPromise).toDart;
+    }
+    return value;
   }
 }

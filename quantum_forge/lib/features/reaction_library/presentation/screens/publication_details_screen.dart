@@ -86,21 +86,17 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     }
 
     if (_crossrefError != null && _crossrefData == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
-            const SizedBox(height: 16),
-            Text(_crossrefError!, style: const TextStyle(color: Colors.redAccent)),
-          ],
-        ),
-      );
+      // Do not bail out entirely: render the locally-known reference data with
+      // a warning banner instead of a dead-end error screen.
     }
 
-    // Parse Data
+    // Parse Data — every field falls back to the bundled template metadata, so
+    // the page stays useful even when CrossRef is unreachable or has no entry.
     final title = _crossrefData?['title']?[0] ?? widget.template.name;
-    final abstractHtml = _crossrefData?['abstract'] ?? 'Abstract not provided by publisher via CrossRef API.';
+    final abstractHtml = _crossrefData?['abstract'] ??
+        'Publication metadata could not be fetched from CrossRef'
+            '${_crossrefError != null ? ' ($_crossrefError)' : ''}.\n'
+            'The details shown are from the bundled reaction library.';
     // Clean basic abstract XML/HTML tags if present (e.g. <jats:p>)
     final abstractText = abstractHtml.replaceAll(RegExp(r'<[^>]*>'), '').trim();
     
@@ -128,6 +124,9 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
               child: FadeInAnimation(child: widget),
             ),
             children: [
+              if (_crossrefError != null)
+                _buildWarningBanner(_crossrefError!),
+              if (_crossrefError != null) const SizedBox(height: 16),
               _buildHeaderCard(title, authors, containerTitle, publisher, year),
               const SizedBox(height: 24),
               _buildAbstractCard(abstractText),
@@ -135,6 +134,29 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
               _buildExternalLinksCard(title),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWarningBanner(String error) {
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                color: Colors.orangeAccent, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Live metadata unavailable: $error',
+                style: const TextStyle(
+                    color: Colors.orangeAccent, fontSize: 13, height: 1.4),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -15,12 +15,16 @@ class GlassCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.07),
+        // A `Material` (not a `Container`/`BoxDecoration`) is the ink surface,
+        // so nested ListTiles/ExpansionTiles keep visible ripples instead of
+        // tripping the "background color may be invisible" assertion.
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.07),
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
           ),
+          clipBehavior: Clip.antiAlias,
           child: child,
         ),
       ),
