@@ -400,14 +400,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
             );
 
             if (isDesktop && _viewModel.controlsPanelOpen) {
-              return SingleChildScrollView(
+              // Sticky controls panel: the main column scrolls independently
+              // while the side panel stays pinned in view. If the panel's own
+              // content is taller than the viewport, it scrolls itself.
+              return Padding(
                 padding: const EdgeInsets.all(24),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 7, child: mainContent),
+                    Expanded(
+                      flex: 7,
+                      child: SingleChildScrollView(child: mainContent),
+                    ),
                     const SizedBox(width: 24),
-                    Expanded(flex: 3, child: QuantumControlsPanel(activeTemplate: _viewModel.activeTemplate)),
+                    Expanded(
+                      flex: 3,
+                      child: SingleChildScrollView(
+                        child: QuantumControlsPanel(activeTemplate: _viewModel.activeTemplate),
+                      ),
+                    ),
                   ],
                 ),
               );
