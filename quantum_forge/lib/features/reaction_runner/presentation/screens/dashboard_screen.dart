@@ -5,7 +5,6 @@
 // All widgets are in separate files under dashboard_cards/.
 // ============================================================================
 
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
@@ -20,6 +19,8 @@ import 'package:quantum_forge/core/utils/avogadro_deep_link.dart';
 import 'package:quantum_forge/core/utils/avogadro_interchange.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/core/utils/zip_writer.dart';
+import 'package:quantum_forge/features/reaction_runner/data/models/results_summary.dart';
+import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/results_header_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/quantum_controls_panel.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/screens/library_screen.dart';
@@ -1267,59 +1268,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return ValueListenableBuilder<QuantumSettings>(
       valueListenable: context.read<QuantumSettingsNotifier>(),
       builder: (context, settings, _) {
-        // Scaling
-        double scaleFactor = settings.temperatureK / 300.0;
-        if (settings.solventModel != 'Vacuum') scaleFactor *= 0.85;
-        if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
-        final chargeShift = settings.charge * 4.5;
-        final spinShift = (settings.spinMultiplicity - 1) * 8.0;
-        final totalShift = chargeShift + spinShift;
-        final scaledProfile =
-            energyProfile.map((e) => (e * scaleFactor) + totalShift).toList();
-        final scaledRefEa = _viewModel.activeTemplate?.referenceEa != null
-            ? (_viewModel.activeTemplate!.referenceEa * scaleFactor) + totalShift
-            : null;
-
-        // Thermodynamics
-        double baseEnthalpy = 25.4 * scaleFactor + totalShift;
-        double baseEntropy = -12.3 + (settings.temperatureK / 300.0) * 1.5;
-        if (settings.solventModel != 'Vacuum') baseEntropy += 2.0;
-        double gibbs = baseEnthalpy - (settings.temperatureK * baseEntropy / 1000.0);
-        double imagFreq = -452.1 * scaleFactor;
-        double ea = baseEnthalpy + (1.987 * settings.temperatureK / 1000.0);
-        const double kb = 1.380649e-23;
-        const double h = 6.62607015e-34;
-        double gibbsJ = gibbs * 4184.0;
-        double rateConst = (kb * settings.temperatureK / h) *
-            exp(-gibbsJ / (8.314 * settings.temperatureK));
-        double zpe = 14.5 * scaleFactor + chargeShift / 3;
-        double dipole = 2.4 + (settings.charge * 0.5).abs();
-        double gap = 5.2 - (settings.spinMultiplicity * 0.1);
-        double polar = 45.2 + (settings.solventModel != 'Vacuum' ? 12.0 : 0.0);
-        double rmsGrad = 0.00034 * (scaleFactor > 0 ? scaleFactor : 1);
-        double partFunc =
-            exp(-gibbsJ / (8.314 * settings.temperatureK)) * 1e12;
-
-        double eaJ = ea * 4184.0;
-        List<double> rateVsTemp = List.generate(10, (i) {
-          double T = 200.0 + i * 80.0;
-          return log((kb * T / h) * exp(-eaJ / (8.314 * T)));
-        });
-
-        final List<Map<String, dynamic>> metrics = [
-          {'title': 'Enthalpy (ΔH‡)', 'value': '${baseEnthalpy.toStringAsFixed(1)} kcal/mol', 'icon': Icons.thermostat, 'color': const Color(0xFF4FC3F7)},
-          {'title': 'Entropy (ΔS‡)', 'value': '${baseEntropy.toStringAsFixed(1)} cal/mol·K', 'icon': Icons.shuffle, 'color': const Color(0xFF80DEEA)},
-          {'title': 'Gibbs Free Energy (ΔG‡)', 'value': '${gibbs.toStringAsFixed(1)} kcal/mol', 'icon': Icons.bolt, 'color': const Color(0xFF69F0AE)},
-          {'title': 'Imaginary Freq. (ν‡)', 'value': '${imagFreq.toStringAsFixed(1)} cm⁻¹', 'icon': Icons.waves, 'color': const Color(0xFFFFAB40)},
-          {'title': 'Activation Energy (Ea)', 'value': '${ea.toStringAsFixed(1)} kcal/mol', 'icon': Icons.local_fire_department, 'color': const Color(0xFFFF6E40)},
-          {'title': 'Rate Constant (k)', 'value': '${rateConst.toStringAsExponential(2)} s⁻¹', 'icon': Icons.speed, 'color': const Color(0xFFFF80AB)},
-          {'title': 'ZPE Correction', 'value': '${zpe.toStringAsFixed(2)} kcal/mol', 'icon': Icons.compress, 'color': const Color(0xFFB39DDB)},
-          {'title': 'Dipole Moment (μ)', 'value': '${dipole.toStringAsFixed(2)} D', 'icon': Icons.compare_arrows, 'color': const Color(0xFF80CBC4)},
-          {'title': 'HOMO-LUMO Gap', 'value': '${gap.toStringAsFixed(2)} eV', 'icon': Icons.swap_vert, 'color': const Color(0xFF82B1FF)},
-          {'title': 'Polarizability (α)', 'value': '${polar.toStringAsFixed(1)} Bohr³', 'icon': Icons.blur_on, 'color': const Color(0xFFCCFF90)},
-          {'title': 'RMS Gradient', 'value': '${rmsGrad.toStringAsExponential(2)} a.u.', 'icon': Icons.show_chart, 'color': const Color(0xFFFFFF8D)},
-          {'title': 'Partition Func (q)', 'value': partFunc.toStringAsExponential(2), 'icon': Icons.pie_chart, 'color': const Color(0xFFF48FB1)},
-        ];
+        final summary = computeResultsSummary(
+          settings: settings,
+          energyProfile: energyProfile,
+          referenceEa: _viewModel.activeTemplate?.referenceEa,
+        );
 
         return Column(
           children: [
@@ -1363,12 +1316,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Energy profile
+            // Results header — method, conditions, confidence
+            ResultsHeaderCard(
+              summary: summary,
+              reactionName: _viewModel.activeTemplate?.name,
+            ),
+            const SizedBox(height: 16),
+
+            // Energy profile (with ±1σ band)
             AspectRatio(
               aspectRatio: 1.8,
               child: EnergyProfileCard(
-                energyProfile: scaledProfile,
-                referenceEa: scaledRefEa,
+                energyProfile: summary.energyProfile,
+                referenceEa: summary.referenceEa,
+                uncertainty: summary.profileUncertainty,
                 onPointSelected: (index) =>
                     setState(() => _selectedFrameIndex = index),
               ),
@@ -1376,21 +1337,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 16),
 
             // Hero metrics
-            HeroMetricsRow(
-              gibbs: gibbs,
-              ea: ea,
-              rateConst: rateConst,
-              baseEnthalpy: baseEnthalpy,
-              baseEntropy: baseEntropy,
-            ),
+            HeroMetricsRow(metrics: summary.heroMetrics),
             const SizedBox(height: 16),
 
             // Arrhenius plot
-            ArrheniusPlotCard(ea: ea, rateVsTemp: rateVsTemp),
+            ArrheniusPlotCard(
+              ea: summary.estimatedEa,
+              eaUncertainty: summary.byLabel('Activation Energy (Ea)').uncertainty,
+              rateVsTemp: summary.rateVsTemp,
+              lnUncertainty: summary.lnUncertainty,
+            ),
             const SizedBox(height: 16),
 
             // Thermo properties grid
-            ThermoPropertiesGrid(metrics: metrics),
+            ThermoPropertiesGrid(metrics: summary.thermoMetrics),
             const SizedBox(height: 16),
 
             // Molecular data

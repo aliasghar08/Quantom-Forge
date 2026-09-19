@@ -199,11 +199,11 @@ reproduced in the code before being fixed.
 
 ```
 flutter analyze   →  0 issues
-flutter test      →  102 tests pass
+flutter test      →  116 tests pass
 flutter build web →  succeeds
 ```
 
-Test coverage added (5 new files):
+Test coverage added (8 new files):
 
 | File | Covers |
 | --- | --- |
@@ -212,6 +212,9 @@ Test coverage added (5 new files):
 | `test/settings_and_theme_test.dart` | Defaults, `copyWith`/equality, endpoint resolution, format metadata, **persistence incl. the write-ordering regression**, clamping, all 7 themes' `ThemeData`, palette distinctness |
 | `test/parsers_and_zip_test.dart` | XYZ header/frame handling, serialise round-trip, molecular analysis, ZIP structure and the known CRC-32 check value |
 | `test/settings_screen_test.dart` | The full settings screen mounted with real providers: theme catalogue, theme switching + persistence, toggle write-through, export preview regeneration, Avogadro endpoint, compute settings, light-theme rendering and small-screen scrolling |
+| `test/reaction_animation_test.dart` | The reaction animation mounts and the electron-transfer/mechanism overlay paints without throwing |
+| `test/results_summary_test.dart` | ΔG = ΔH − TΔS, Ea ≈ ΔH‡ + RT, the Eyring equation, the Arrhenius series, uncertainty propagation, significant-digit formatting and the literature-Ea accuracy metric |
+| `test/results_ui_test.dart` | The full results surface (header, energy profile, hero metrics, Arrhenius, thermo grid) renders inside a scroll view without layout errors |
 
 The plugin was additionally exercised end to end from the shell:
 
@@ -223,6 +226,44 @@ https://quantom-forge.web.app/?import_struct=eyJjaGVtaWNhbEpzb24i…%3D%3D&fmt=c
 
 and the emitted URL is decoded by `avogadro_deep_link_test.dart`, so both sides of
 the bridge are pinned by the same fixture.
+
+---
+
+## 3.1 Value accuracy & uncertainty (follow-up)
+
+**Accuracy finding.** Every thermodynamic/kinetic value the dashboard showed was
+derived from hard-coded "typical" constants — a 25.4 kcal/mol barrier, −12.3
+cal/mol·K activation entropy, a 5.2 eV gap, a 45.2 Bohr³ polarisability, etc. —
+and `reaction_provider.dart` fabricates the trajectory and energy profile locally
+("Generate mock energy profile" / a Gaussian bell curve). There is **no quantum
+chemistry engine** behind the numbers, so they are *not* physically accurate for
+the actual molecule; they are surrogate placeholders.
+
+The *relationships*, however, were already correct: ΔG = ΔH − T·ΔS, the Eyring
+equation, Ea ≈ ΔH‡ + RT, and the Arrhenius slope. Those are now preserved and
+unit-tested.
+
+**Remediation (this round).**
+
+* Centralised the computation in `results_summary.dart` with a
+  `MetricEstimate` type that carries a 1σ uncertainty, a quality tier
+  (`computed / surrogate / empirical / illustrative`) and a method string.
+* Attached documented, order-of-magnitude uncertainties (MLIP-vs-DFT levels):
+  ±1.6 kcal/mol on ΔG‡/Ea, ±2 cal/mol·K on ΔS‡, ±0.3 D on the dipole, ±0.3 eV on
+  the gap, ±10% on the imaginary frequency, and log-space error on the rate
+  constant (σ_log10 ≈ 1.2, propagated from ΔG‡ through the Eyring equation).
+* Significant digits now follow the uncertainty — a ±2 kcal/mol barrier is never
+  printed as "12.34 kcal/mol".
+* Every value is displayed as `value ± err` with a colour-coded quality badge and
+  its method, and the whole report opens with a **methods header** (model,
+  solvent, temperature, confidence, and an "estimates only, not for publication"
+  disclaimer).
+* The energy profile and Arrhenius plot now draw ±1σ **error bands**.
+* A real **accuracy metric** appears when the reaction came from a template with
+  a literature Ea: the signed error and percentage vs. the reference.
+
+The honest position is stated in the UI itself: these are *surrogate estimates*,
+which is the correct thing to show until a real engine (e.g. XTB/DFT) is wired in.
 
 ---
 

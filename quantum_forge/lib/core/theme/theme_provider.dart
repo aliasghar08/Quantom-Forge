@@ -3,6 +3,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'quantum_theme.dart';
@@ -114,4 +115,8 @@ class ThemeNotifier extends ChangeNotifier {
 
   /// Resets to the factory default.
   Future<void> reset() => setTheme(AppTheme.darkMatter);
+
+  /// Convenience: the active palette for a widget that rebuilds on theme change.
+  static QuantumTheme paletteOf(BuildContext context) =>
+      Provider.of<ThemeNotifier>(context, listen: true).palette;
 }

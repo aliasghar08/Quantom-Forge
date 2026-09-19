@@ -1,107 +1,95 @@
 import 'package:flutter/material.dart';
+import 'package:quantum_forge/core/theme/theme_provider.dart';
+import 'package:quantum_forge/features/reaction_runner/data/models/results_summary.dart';
+import 'research_ui.dart';
 
+/// The five headline metrics (ΔG‡, Ea, k, ΔH‡, ΔS‡) with ±1σ error and a
+/// quality badge — the first thing a researcher reads after a run.
 class HeroMetricsRow extends StatelessWidget {
-  final double gibbs;
-  final double ea;
-  final double rateConst;
-  final double baseEnthalpy;
-  final double baseEntropy;
+  final List<MetricEstimate> metrics;
 
-  const HeroMetricsRow({
-    super.key,
-    required this.gibbs,
-    required this.ea,
-    required this.rateConst,
-    required this.baseEnthalpy,
-    required this.baseEntropy,
-  });
+  const HeroMetricsRow({super.key, required this.metrics});
 
   @override
   Widget build(BuildContext context) {
+    final palette = ThemeNotifier.paletteOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Calculate items per row based on available width
-        // Target card width is ~140px minimum.
-        int crossAxisCount = (constraints.maxWidth / 140).floor();
-        if (crossAxisCount > 5) crossAxisCount = 5;
-        if (crossAxisCount < 1) crossAxisCount = 1;
+        int columns = (constraints.maxWidth / 170).floor();
+        if (columns > 5) columns = 5;
+        if (columns < 1) columns = 1;
 
-        final double spacing = 16.0;
-        final double cardWidth = (constraints.maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
+        const spacing = 12.0;
+        final cardWidth =
+            (constraints.maxWidth - (spacing * (columns - 1))) / columns;
 
         return Wrap(
           spacing: spacing,
           runSpacing: spacing,
           children: [
-            SizedBox(
-              width: cardWidth,
-              height: 130,
-              child: _bigMetricCard('ΔG‡', gibbs.toStringAsFixed(1), 'kcal/mol', Icons.bolt, const Color(0xFF69F0AE)),
-            ),
-            SizedBox(
-              width: cardWidth,
-              height: 130,
-              child: _bigMetricCard('Ea', ea.toStringAsFixed(1), 'kcal/mol', Icons.local_fire_department, const Color(0xFFFF6E40)),
-            ),
-            SizedBox(
-              width: cardWidth,
-              height: 130,
-              child: _bigMetricCard('k', rateConst.toStringAsExponential(1), 's⁻¹', Icons.speed, const Color(0xFFFF80AB)),
-            ),
-            SizedBox(
-              width: cardWidth,
-              height: 130,
-              child: _bigMetricCard('ΔH‡', baseEnthalpy.toStringAsFixed(1), 'kcal/mol', Icons.thermostat, const Color(0xFF4FC3F7)),
-            ),
-            SizedBox(
-              width: cardWidth,
-              height: 130,
-              child: _bigMetricCard('ΔS‡', baseEntropy.toStringAsFixed(1), 'cal/mol·K', Icons.shuffle, const Color(0xFF80DEEA)),
-            ),
+            for (final metric in metrics)
+              SizedBox(
+                width: cardWidth,
+                height: 150,
+                child: ResearchCard(
+                  accent: metric.accent,
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: metric.accent.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(metric.icon, size: 16, color: metric.accent),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              metric.label,
+                              style: TextStyle(
+                                color: palette.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      MetricValue(metric: metric, valueFontSize: 21),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          QualityBadge(quality: metric.quality),
+                          const Spacer(),
+                          Flexible(
+                            child: Text(
+                              metric.method,
+                              style: TextStyle(
+                                color: palette.textMuted,
+                                fontSize: 9.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         );
       },
-    );
-  }
-
-  Widget _bigMetricCard(String title, String val, String unit, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(title, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-          const Spacer(),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(val, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
-          ),
-          const SizedBox(height: 2),
-          Text(unit, style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w500)),
-        ],
-      ),
     );
   }
 }
