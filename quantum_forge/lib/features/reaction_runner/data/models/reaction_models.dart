@@ -30,6 +30,14 @@ class ReactionStatusResponse {
   final List<VibrationalMode>? vibrationalModes;
   final DateTime? createdAt;
 
+  /// True when this result came from the ColabReaction (DMF/UMA) compute
+  /// backend rather than the local illustrative simulation.
+  ///
+  /// Real results must never be pushed through the surrogate response model in
+  /// `computeResultsSummary`, which multiplies energies by T/300 and shifts them
+  /// by charge/spin — that would silently distort genuine UMA output.
+  final bool fromBackend;
+
   ReactionStatusResponse({
     required this.reactionId,
     required this.state,
@@ -39,6 +47,7 @@ class ReactionStatusResponse {
     this.trajectoryFrames,
     this.vibrationalModes,
     this.createdAt,
+    this.fromBackend = false,
   });
 
   factory ReactionStatusResponse.empty() {

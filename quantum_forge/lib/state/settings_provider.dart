@@ -51,7 +51,7 @@ class QuantumSettings {
     // System
     this.charge = 0,
     this.spinMultiplicity = 1,
-    this.mlipModel = 'MACE-MP-0',
+    this.mlipModel = 'UMA-SM',
     this.solventModel = 'Vacuum',
     this.temperatureK = 298.15,
     // Catalyst
@@ -254,7 +254,7 @@ class QuantumSettingsNotifier extends ValueNotifier<QuantumSettings> {
       value = QuantumSettings(
         charge: prefs.getInt(_keyCharge) ?? 0,
         spinMultiplicity: prefs.getInt(_keySpin) ?? 1,
-        mlipModel: prefs.getString(_keyMlip) ?? 'MACE-MP-0',
+        mlipModel: prefs.getString(_keyMlip) ?? 'UMA-SM',
         solventModel: prefs.getString(_keySolvent) ?? 'Vacuum',
         temperatureK: prefs.getDouble(_keyTemp) ?? 298.15,
         catalyst: prefs.getString(_keyCatalyst) ?? 'None',

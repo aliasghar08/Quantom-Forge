@@ -1280,10 +1280,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return ValueListenableBuilder<QuantumSettings>(
       valueListenable: context.read<QuantumSettingsNotifier>(),
       builder: (context, settings, _) {
+        // Real backend results carry their own imaginary frequency at the TS.
+        final imaginaryModes =
+            (status.vibrationalModes ?? []).where((m) => m.frequency < 0).toList();
         final summary = computeResultsSummary(
           settings: settings,
           energyProfile: energyProfile,
           referenceEa: _viewModel.activeTemplate?.referenceEa,
+          isRealData: status.fromBackend,
+          realImaginaryFrequency:
+              imaginaryModes.isEmpty ? null : imaginaryModes.first.frequency,
         );
 
         return Column(

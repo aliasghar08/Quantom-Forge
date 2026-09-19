@@ -130,6 +130,7 @@ class BackendComputeService {
       state: state,
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
       message: json['message'] as String? ?? json['error'] as String?,
+      fromBackend: true,
       energyProfile: (json['energy_profile'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),

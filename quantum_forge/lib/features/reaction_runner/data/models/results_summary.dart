@@ -213,14 +213,28 @@ ResultsSummary computeResultsSummary({
   required QuantumSettings settings,
   required List<double> energyProfile,
   double? referenceEa,
+  bool isRealData = false,
+  double? realImaginaryFrequency,
 }) {
   // ── Energy scaling (surrogate response model) ────────────────────────────
-  double scaleFactor = settings.temperatureK / 300.0;
-  if (settings.solventModel != 'Vacuum') scaleFactor *= 0.85;
-  if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
+  // The scaling below exists only so the *local illustrative simulation* — which
+  // has no physics engine — produces plausible magnitudes. It must never touch
+  // genuine backend output: multiplying a real UMA profile by T/300 and shifting
+  // it by charge/spin would silently falsify computed energies.
   final chargeShift = settings.charge * 4.5;
   final spinShift = (settings.spinMultiplicity - 1) * 8.0;
-  final totalShift = chargeShift + spinShift;
+  final double scaleFactor;
+  final double totalShift;
+  if (isRealData) {
+    scaleFactor = 1.0;
+    totalShift = 0.0;
+  } else {
+    var factor = settings.temperatureK / 300.0;
+    if (settings.solventModel != 'Vacuum') factor *= 0.85;
+    if (settings.mlipModel == 'ANI-2x') factor *= 1.05;
+    scaleFactor = factor;
+    totalShift = chargeShift + spinShift;
+  }
   final scaledProfile =
       energyProfile.map((e) => (e * scaleFactor) + totalShift).toList();
   final scaledRefEa = referenceEa != null
@@ -233,8 +247,17 @@ ResultsSummary computeResultsSummary({
   final baseEntropy =
       -12.3 + (tK / 300.0) * 1.5 + (settings.solventModel != 'Vacuum' ? 2.0 : 0.0);
   final gibbs = baseEnthalpy - (tK * baseEntropy / 1000.0); // ΔG = ΔH − TΔS
-  final imagFreq = -452.1 * scaleFactor;
-  final ea = baseEnthalpy + (1.987 * tK / 1000.0); // Ea ≈ ΔH‡ + RT
+  // Real backend runs report their own imaginary frequency at the TS image.
+  final imagFreq = realImaginaryFrequency ?? (-452.1 * scaleFactor);
+  // Barrier height. For real backend output this is simply the highest point on
+  // the computed profile (its energies are already ΔE vs the reactant); the
+  // surrogate ΔH‡ + RT expression is only meaningful for the local simulation.
+  final profileMax = energyProfile.isEmpty
+      ? null
+      : energyProfile.reduce((a, b) => a > b ? a : b);
+  final ea = isRealData && profileMax != null
+      ? profileMax
+      : baseEnthalpy + (1.987 * tK / 1000.0); // Ea ≈ ΔH‡ + RT
   final gibbsJ = gibbs * _kcalToJ;
   final rateConst = (_kb * tK / _h) * math.exp(-gibbsJ / (_gasConstant * tK)); // Eyring
   final log10k = math.log(rateConst) / math.ln10;
@@ -416,8 +439,11 @@ ResultsSummary computeResultsSummary({
   return ResultsSummary(
     settings: settings,
     metrics: metrics,
-    overallQuality: MetricQuality.surrogate,
-    methodLabel: 'Surrogate MLIP estimate (${settings.optimizerAlgorithm})',
+    overallQuality:
+        isRealData ? MetricQuality.computed : MetricQuality.surrogate,
+    methodLabel: isRealData
+        ? 'UMA MLIP · Direct MaxFlux (${settings.mlipModel})'
+        : 'Surrogate MLIP estimate (${settings.optimizerAlgorithm})',
     referenceEa: scaledRefEa,
     estimatedEa: ea,
     eaError: eaError,
