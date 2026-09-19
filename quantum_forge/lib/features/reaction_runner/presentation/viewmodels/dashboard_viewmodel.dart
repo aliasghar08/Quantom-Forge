@@ -131,6 +131,14 @@ class DashboardViewModel extends ChangeNotifier {
     }
   }
 
+  void setManualFile(MoleculeEntry entry, PickedFile file) {
+    entry.file = file;
+    entry.ctrl.text = file.name.replaceAll('.xyz', '');
+    entry.suggestions = [];
+    _activeTemplate = null;
+    notifyListeners();
+  }
+
   bool canDispatch(bool isLoading, bool isRunning) {
     if (isLoading || isRunning) return false;
     if (_activeTemplate != null) return true;

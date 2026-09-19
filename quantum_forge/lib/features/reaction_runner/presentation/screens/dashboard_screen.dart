@@ -57,6 +57,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _viewModel = DashboardViewModel();
+    _checkForDeepLinkImport();
+  }
+
+  void _checkForDeepLinkImport() {
+    // Flutter Web allows reading the current URL from Uri.base
+    try {
+      final queryParams = Uri.base.queryParameters;
+      if (queryParams.containsKey('import_xyz')) {
+        final encodedXyz = queryParams['import_xyz']!;
+        // Decode URL-safe Base64
+        String normalized = encodedXyz.replaceAll('-', '+').replaceAll('_', '/');
+        // Pad if needed
+        while (normalized.length % 4 != 0) {
+          normalized += '=';
+        }
+        final bytes = base64Decode(normalized);
+        final xyzString = utf8.decode(bytes);
+        
+        // Add to first reactant
+        if (_viewModel.reactants.isNotEmpty) {
+          final firstReactant = _viewModel.reactants.first;
+          firstReactant.ctrl.text = 'Avogadro Import';
+          _viewModel.setManualFile(
+            firstReactant, 
+            PickedFile(
+              name: 'avogadro_import.xyz', 
+              size: bytes.length, 
+              bytes: Uint8List.fromList(bytes)
+            )
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Deep link import failed: $e');
+    }
   }
 
   @override
