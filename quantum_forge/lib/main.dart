@@ -9,8 +9,8 @@ import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/services/local_storage_service.dart';
 import 'package:quantum_forge/core/services/reaction_repository.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/reaction_provider.dart';
+import 'package:quantum_forge/state/settings_provider.dart';
+import 'package:quantum_forge/state/reaction_provider.dart';
 import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';

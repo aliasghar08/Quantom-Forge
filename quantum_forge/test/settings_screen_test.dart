@@ -19,7 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
+import 'package:quantum_forge/state/settings_provider.dart';
 import 'package:quantum_forge/features/settings/presentation/screens/settings_screen.dart';
 
 void main() {

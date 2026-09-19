@@ -10,7 +10,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/results_summary.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
+import 'package:quantum_forge/state/settings_provider.dart';
 
 const double _kb = 1.380649e-23;
 const double _h = 6.62607015e-34;

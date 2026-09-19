@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
+import 'package:quantum_forge/state/settings_provider.dart';
 
 class MolecularViewerWidget extends StatefulWidget {
   final String? currentXyzData;

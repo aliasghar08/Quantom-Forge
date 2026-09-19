@@ -8,9 +8,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/reaction_provider.dart';
+import 'package:quantum_forge/state/reaction_provider.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
+import 'package:quantum_forge/state/settings_provider.dart';
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/core/utils/avogadro_bridge.dart';
@@ -41,7 +41,7 @@ import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dash
 import 'history_screen.dart';
 import 'coordinate_editor_screen.dart';
 import 'package:quantum_forge/features/settings/presentation/screens/settings_screen.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/viewmodels/dashboard_viewmodel.dart';
+import 'package:quantum_forge/state/dashboard_viewmodel.dart';
 
 import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
 

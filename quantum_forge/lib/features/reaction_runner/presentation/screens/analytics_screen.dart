@@ -2,8 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/reaction_provider.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
+import 'package:quantum_forge/state/reaction_provider.dart';
+import 'package:quantum_forge/state/settings_provider.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/kinetic_chart_widget.dart';
 
 class AnalyticsScreen extends StatefulWidget {

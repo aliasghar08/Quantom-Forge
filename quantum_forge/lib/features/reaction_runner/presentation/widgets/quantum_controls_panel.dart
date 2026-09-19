@@ -4,7 +4,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:quantum_forge/features/reaction_runner/providers/settings_provider.dart';
+import 'package:quantum_forge/state/settings_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/core/services/web_services.dart';
@@ -508,7 +508,7 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
                   icon: const Icon(Icons.code),
                   label: const Text('View Source'),
                   onPressed: () {
-                    WebServices.openUrl('https://github.com/aliasgharinnocent/Quantom-Forge');
+                    WebServices.openUrl('https://github.com/aliasgharinnocent/Quantum-Forge');
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white12,
