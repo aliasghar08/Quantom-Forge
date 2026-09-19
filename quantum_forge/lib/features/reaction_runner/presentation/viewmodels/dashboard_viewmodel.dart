@@ -7,6 +7,7 @@ import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dash
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
+import 'package:quantum_forge/core/services/session_state_service.dart';
 
 enum MoleculeRole { reactant, product, catalyst }
 
@@ -38,6 +39,8 @@ class MoleculeEntry {
 }
 
 class DashboardViewModel extends ChangeNotifier {
+  final SessionStateService _sessionService = SessionStateService();
+
   NavDestination _navDest = NavDestination.newReaction;
   NavDestination get navDest => _navDest;
 
@@ -305,6 +308,81 @@ class DashboardViewModel extends ChangeNotifier {
   static void _disposeEntries(List<MoleculeEntry> entries) {
     for (final entry in entries) {
       entry.dispose();
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    _saveState();
+  }
+
+  Future<void> _saveState() async {
+    final state = <String, dynamic>{
+      'activeTemplate': _activeTemplate?.id,
+      'reactants': _serializeEntries(_reactants),
+      'products': _serializeEntries(_products),
+      'catalysts': _serializeEntries(_catalysts),
+    };
+    await _sessionService.saveDashboardState(state);
+  }
+
+  List<Map<String, dynamic>> _serializeEntries(List<MoleculeEntry> entries) {
+    return entries.map((e) {
+      String? base64Bytes;
+      if (e.file?.bytes != null) {
+        base64Bytes = base64Encode(e.file!.bytes!);
+      }
+      return {
+        'id': e.id,
+        'text': e.ctrl.text,
+        'fileName': e.file?.name,
+        'fileBytes': base64Bytes,
+      };
+    }).toList();
+  }
+
+  Future<void> loadState() async {
+    final state = await _sessionService.loadDashboardState();
+    if (state == null) return;
+
+    if (state['activeTemplate'] != null) {
+      final tId = state['activeTemplate'] as String;
+      _activeTemplate = kReactionTemplates.firstWhere(
+        (t) => t.id == tId, 
+        orElse: () => kReactionTemplates.first
+      );
+    }
+
+    if (state['reactants'] != null) {
+      _deserializeEntries(state['reactants'] as List, _reactants);
+    }
+    if (state['products'] != null) {
+      _deserializeEntries(state['products'] as List, _products);
+    }
+    if (state['catalysts'] != null) {
+      _deserializeEntries(state['catalysts'] as List, _catalysts);
+    }
+    
+    if (_reactants.isEmpty) _reactants.add(MoleculeEntry(id: 'r0'));
+    if (_products.isEmpty) _products.add(MoleculeEntry(id: 'p0'));
+    if (_catalysts.isEmpty) _catalysts.add(MoleculeEntry(id: 'c0'));
+
+    super.notifyListeners(); // Call super to update UI without triggering a save
+  }
+
+  void _deserializeEntries(List dynamicList, List<MoleculeEntry> targetList) {
+    _disposeEntries(targetList);
+    targetList.clear();
+    for (var item in dynamicList) {
+      final map = item as Map<String, dynamic>;
+      final entry = MoleculeEntry(id: map['id'] ?? 'u${_entryCounter++}');
+      entry.ctrl.text = map['text'] ?? '';
+      if (map['fileName'] != null && map['fileBytes'] != null) {
+        final bytes = base64Decode(map['fileBytes']);
+        entry.file = PickedFile(name: map['fileName'], size: bytes.length, bytes: bytes);
+      }
+      targetList.add(entry);
     }
   }
 }

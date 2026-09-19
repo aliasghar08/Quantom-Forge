@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "quantom-forge"
-  }
+  },
+  "targets": {
+    "quantom-forge": {
+      "hosting": {
+        "main": [
+          "quantum-forge"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

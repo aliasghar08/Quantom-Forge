@@ -64,6 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _viewModel = DashboardViewModel();
+    _viewModel.loadState();
     _viewModel.addListener(_onViewModelChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleIncomingStructure());
   }
