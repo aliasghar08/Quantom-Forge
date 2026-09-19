@@ -21,6 +21,7 @@ class _CoordinateEditorScreenState extends State<CoordinateEditorScreen> {
   
   BuilderTool _currentTool = BuilderTool.navigate;
   String _currentElement = 'C';
+  bool _autoOptimize = true;
   
   @override
   void initState() {
@@ -183,6 +184,19 @@ H  0.00000 -0.90000 -0.50000''';
                     );
                   }).toList(),
                 ),
+                const SizedBox(width: 20),
+                Row(
+                  children: [
+                    const Text('Auto-Optimize', style: TextStyle(color: Colors.white70)),
+                    Switch(
+                      value: _autoOptimize,
+                      activeColor: const Color(0xFF4FC3F7),
+                      onChanged: (val) {
+                        setState(() => _autoOptimize = val);
+                      },
+                    ),
+                  ],
+                ),
                 const Spacer(),
                 const Text('Draw Mode: Click to add, drag to bond', style: TextStyle(color: Colors.white38, fontSize: 12)),
               ],
@@ -236,6 +250,7 @@ H  0.00000 -0.90000 -0.50000''';
                         initialAtoms: _atoms,
                         currentTool: _currentTool,
                         currentElement: _currentElement,
+                        autoOptimize: _autoOptimize,
                         onAtomsChanged: _onAtomsChanged,
                       ),
                     ),

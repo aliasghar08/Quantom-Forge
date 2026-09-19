@@ -8,6 +8,7 @@ class InteractiveBuilderWidget extends StatefulWidget {
   final List<Atom> initialAtoms;
   final BuilderTool currentTool;
   final String currentElement;
+  final bool autoOptimize;
   final ValueChanged<List<Atom>> onAtomsChanged;
 
   const InteractiveBuilderWidget({
@@ -15,6 +16,7 @@ class InteractiveBuilderWidget extends StatefulWidget {
     required this.initialAtoms,
     required this.currentTool,
     required this.currentElement,
+    required this.autoOptimize,
     required this.onAtomsChanged,
   });
 
@@ -22,7 +24,7 @@ class InteractiveBuilderWidget extends StatefulWidget {
   State<InteractiveBuilderWidget> createState() => _InteractiveBuilderWidgetState();
 }
 
-class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> {
+class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> with SingleTickerProviderStateMixin {
   double _rotationX = 0;
   double _rotationY = 0;
   double _scale = 60.0;
@@ -38,10 +40,17 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> {
   double _lastAvgY = 0;
   double _lastAvgZ = 0;
 
+  late final Ticker _ticker;
+  final Map<Atom, _Velocity> _velocities = {};
+
   @override
   void initState() {
     super.initState();
     _atoms = List.from(widget.initialAtoms);
+    _ticker = createTicker(_physicsTick);
+    if (widget.autoOptimize) {
+      _ticker.start();
+    }
   }
 
   @override
@@ -49,7 +58,22 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialAtoms != widget.initialAtoms) {
       _atoms = List.from(widget.initialAtoms);
+      _velocities.clear();
     }
+    if (oldWidget.autoOptimize != widget.autoOptimize) {
+      if (widget.autoOptimize) {
+        _ticker.start();
+      } else {
+        _ticker.stop();
+        _notifyChanges(); // Save settled structure
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
   }
 
   void _notifyChanges() {
@@ -123,7 +147,7 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> {
           _dragStartAtom = null;
           _currentDragPos = null;
         });
-        _notifyChanges();
+        if (!widget.autoOptimize) _notifyChanges();
       } else {
         setState(() {
           _dragStartAtom = null;
@@ -151,8 +175,93 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> {
         setState(() {
           _atoms.add(newAtom);
         });
-        _notifyChanges();
+        if (!widget.autoOptimize) _notifyChanges();
       }
+    }
+  }
+
+  void _physicsTick(Duration elapsed) {
+    if (!widget.autoOptimize || _atoms.length < 2) return;
+
+    const dt = 0.016; 
+    final forces = <Atom, _Velocity>{};
+    for (var a in _atoms) {
+      forces[a] = _Velocity();
+      _velocities.putIfAbsent(a, () => _Velocity());
+    }
+
+    for (int i = 0; i < _atoms.length; i++) {
+      for (int j = i + 1; j < _atoms.length; j++) {
+        final a1 = _atoms[i];
+        final a2 = _atoms[j];
+        
+        double dx = a1.x - a2.x;
+        double dy = a1.y - a2.y;
+        double dz = a1.z - a2.z;
+        double distSq = dx*dx + dy*dy + dz*dz;
+        
+        if (distSq < 0.0001) {
+          dx += (math.Random().nextDouble() - 0.5) * 0.01;
+          dy += (math.Random().nextDouble() - 0.5) * 0.01;
+          dz += (math.Random().nextDouble() - 0.5) * 0.01;
+          distSq = dx*dx + dy*dy + dz*dz;
+        }
+
+        final dist = math.sqrt(distSq);
+        final idealDist = a1.covalentRadius + a2.covalentRadius;
+        final isBonded = dist < idealDist * 1.6;
+
+        double forceMag = 0; 
+        if (isBonded) {
+          const kSpring = 5.0; 
+          forceMag = -kSpring * (dist - idealDist);
+        } else {
+          const kRepel = 2.0; 
+          forceMag = kRepel / (distSq);
+        }
+
+        final fx = (dx / dist) * forceMag;
+        final fy = (dy / dist) * forceMag;
+        final fz = (dz / dist) * forceMag;
+
+        forces[a1]!.dx += fx;
+        forces[a1]!.dy += fy;
+        forces[a1]!.dz += fz;
+        forces[a2]!.dx -= fx;
+        forces[a2]!.dy -= fy;
+        forces[a2]!.dz -= fz;
+      }
+    }
+
+    bool moved = false;
+    const damping = 0.85; 
+
+    for (var a in _atoms) {
+      // Pin the dragged atom so the user can pull it around easily
+      if (a == _dragStartAtom) {
+        _velocities[a]!.dx = 0;
+        _velocities[a]!.dy = 0;
+        _velocities[a]!.dz = 0;
+        continue;
+      }
+
+      final v = _velocities[a]!;
+      final f = forces[a]!;
+
+      v.dx = (v.dx + f.dx * dt) * damping;
+      v.dy = (v.dy + f.dy * dt) * damping;
+      v.dz = (v.dz + f.dz * dt) * damping;
+
+      if (v.dx.abs() > 0.001 || v.dy.abs() > 0.001 || v.dz.abs() > 0.001) {
+        a.x += v.dx;
+        a.y += v.dy;
+        a.z += v.dz;
+        moved = true;
+      }
+    }
+
+    if (moved) {
+      setState(() {});
     }
   }
 
@@ -295,6 +404,12 @@ class _InteractiveBuilderWidgetState extends State<InteractiveBuilderWidget> {
 class _WorldPos {
   final double dx, dy, dz;
   _WorldPos(this.dx, this.dy, this.dz);
+}
+
+class _Velocity {
+  double dx = 0;
+  double dy = 0;
+  double dz = 0;
 }
 
 class _ProjectedAtom {

@@ -4,14 +4,14 @@ import 'package:quantum_forge/core/utils/element_data.dart';
 
 class Atom {
   final String symbol;
-  final double x;
-  final double y;
-  final double z;
+  double x;
+  double y;
+  double z;
   final Color color;
   final double radius;
   final double covalentRadius;
 
-  const Atom(this.symbol, this.x, this.y, this.z, this.color, this.radius, this.covalentRadius);
+  Atom(this.symbol, this.x, this.y, this.z, this.color, this.radius, this.covalentRadius);
 }
 
 class MolecularInfo {
