@@ -160,66 +160,68 @@ class _MolecularViewerWidgetState extends State<MolecularViewerWidget> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Stack(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            GestureDetector(
-              onPanUpdate: (details) {
-                setState(() {
-                  _rotationY += details.delta.dx * 0.01;
-                  _rotationX += details.delta.dy * 0.01;
-                });
-              },
-              onTapUp: (details) => _handleTap(details, constraints),
-              child: RepaintBoundary(
-                child: CustomPaint(
-                  painter: _MolecularPainter(
-                    atoms: _atoms,
-                    selectedAtoms: _selectedAtoms,
-                    rotationX: _rotationX,
-                    rotationY: _rotationY,
-                    scale: _scale,
-                    electronCloudMode: _electronCloudMode,
-                    showBondData: _showBondData,
-                    settings: widget.settings,
-                  ),
-                  size: Size.infinite,
-                ),
-              ),
-            ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Row(
+            Expanded(
+              child: Stack(
                 children: [
-                  const Text('Electron Cloud', style: TextStyle(color: Colors.white, fontSize: 12)),
-                  Switch(
-                    value: _electronCloudMode,
-                    onChanged: (val) => setState(() => _electronCloudMode = val),
-                    activeTrackColor: Colors.purpleAccent,
+                  GestureDetector(
+                    onPanUpdate: (details) {
+                      setState(() {
+                        _rotationY += details.delta.dx * 0.01;
+                        _rotationX += details.delta.dy * 0.01;
+                      });
+                    },
+                    onTapUp: (details) => _handleTap(details, constraints),
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        painter: _MolecularPainter(
+                          atoms: _atoms,
+                          selectedAtoms: _selectedAtoms,
+                          rotationX: _rotationX,
+                          rotationY: _rotationY,
+                          scale: _scale,
+                          electronCloudMode: _electronCloudMode,
+                          showBondData: _showBondData,
+                          settings: widget.settings,
+                        ),
+                        size: Size.infinite,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  const Text('Bond Energies', style: TextStyle(color: Colors.white, fontSize: 12)),
-                  Switch(
-                    value: _showBondData,
-                    onChanged: (val) => setState(() => _showBondData = val),
-                    activeTrackColor: Colors.orangeAccent,
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Row(
+                      children: [
+                        const Text('Electron Cloud', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        Switch(
+                          value: _electronCloudMode,
+                          onChanged: (val) => setState(() => _electronCloudMode = val),
+                          activeTrackColor: Colors.purpleAccent,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Bond Energies', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        Switch(
+                          value: _showBondData,
+                          onChanged: (val) => setState(() => _showBondData = val),
+                          activeTrackColor: Colors.orangeAccent,
+                        ),
+                      ],
+                    ),
                   ),
+                  if (_selectedAtoms.isNotEmpty)
+                    Positioned(
+                      top: 50,
+                      left: 12,
+                      child: _buildMeasurementOverlay(),
+                    ),
                 ],
               ),
             ),
-        if (_showBondData) 
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _buildBondEnergiesPanel(),
-          ),
-        if (_selectedAtoms.isNotEmpty)
-          Positioned(
-            top: 50,
-            left: 12,
-            child: _buildMeasurementOverlay(),
-          ),
+            if (_showBondData)
+              _buildBondEnergiesPanel(),
           ],
         );
       },
