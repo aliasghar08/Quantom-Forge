@@ -68,4 +68,34 @@ void main() {
     // Dispose the infinite animation controller cleanly.
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('exposes a playback-speed slider', (tester) async {
+    tester.view.physicalSize = const Size(1280, 1100);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: const ReactionAnimationWidget(
+              trajectoryFrames: [_frameR, _frameTS, _frameP],
+              energyProfile: [0.0, 5.2, -2.1],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // The speed control renders alongside the position scrubber (two sliders).
+    expect(find.text('Speed'), findsOneWidget);
+    expect(find.byType(Slider), findsNWidgets(2));
+    // Default speed label.
+    expect(find.text('1.00×'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

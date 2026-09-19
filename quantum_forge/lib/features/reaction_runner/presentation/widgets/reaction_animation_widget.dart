@@ -94,6 +94,11 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   bool _showEnergies = false;
   bool _showMechanism = false;
 
+  /// Playback speed multiplier for the loop. 1.0× is the base 24 s cycle;
+  /// lower values slow the (already slowed) transition-state dwell further.
+  double _speed = 1.0;
+  static const Duration _baseDuration = Duration(seconds: 24);
+
   // Reaction-coordinate phases. The transition-state window (t1 → t2) is the
   // widest and slowest band — it is the chemically decisive moment, so the loop
   // lingers there (≈40% of the 24 s cycle) with extra detail.
@@ -105,10 +110,28 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 24))
+        vsync: this, duration: _baseDuration)
       ..repeat();
     _repaint = Listenable.merge([_ctrl, _rotNotifier]);
     _load();
+  }
+
+  /// Changes the playback speed by re-timing the repeating controller. The
+  /// normalised `value` (0..1) is preserved, so the loop position doesn't jump.
+  void _setSpeed(double speed) {
+    final clamped = speed.clamp(0.25, 3.0);
+    if ((clamped - _speed).abs() < 0.001) return;
+    final value = _ctrl.value;
+    final wasPlaying = _playing;
+    _ctrl.stop();
+    setState(() {
+      _speed = clamped;
+      _ctrl.duration = Duration(
+        milliseconds: (_baseDuration.inMilliseconds / clamped).round(),
+      );
+      _ctrl.value = value;
+    });
+    if (wasPlaying) _ctrl.repeat();
   }
 
   @override
@@ -266,6 +289,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
           _buildHeader(),
           AspectRatio(aspectRatio: 1.2, child: _buildCanvas()),
           _buildTimeline(),
+          _buildSpeedControl(),
           _buildSlider(),
         ],
       ),
@@ -441,6 +465,56 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
           ),
         );
       },
+    );
+  }
+
+  /// Playback-speed slider: 0.25× → 3.0×. Slower settings make the
+  /// transition-state dwell even longer; faster is for skimming a trajectory.
+  Widget _buildSpeedControl() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: Row(
+        children: [
+          const Icon(Icons.speed, size: 15, color: Colors.white54),
+          const SizedBox(width: 6),
+          const Text('Speed',
+              style: TextStyle(color: Colors.white54, fontSize: 11)),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: const Color(0xFF4FC3F7),
+                inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+                thumbColor: const Color(0xFF4FC3F7),
+                trackHeight: 2,
+                thumbShape:
+                    const RoundSliderThumbShape(enabledThumbRadius: 5),
+                overlayShape:
+                    const RoundSliderOverlayShape(overlayRadius: 12),
+              ),
+              child: Slider(
+                value: _speed,
+                min: 0.25,
+                max: 3.0,
+                divisions: 11,
+                label: '${_speed.toStringAsFixed(2)}×',
+                onChanged: _setSpeed,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 40,
+            child: Text(
+              '${_speed.toStringAsFixed(2)}×',
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF4FC3F7),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
