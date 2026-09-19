@@ -121,6 +121,11 @@ class AppSettings {
   final bool cleanUrlAfterImport;
   final bool autoImportDeepLink;
 
+  /// Optional ColabReaction (DMF/UMA) compute backend. When empty the app runs
+  /// its local illustrative simulation; when set, reactions are dispatched to
+  /// the real backend at `<backendUrl>/reactions/submit`.
+  final String backendUrl;
+
   const AppSettings({
     this.isCompactMode = false,
     this.reduceMotion = false,
@@ -140,7 +145,11 @@ class AppSettings {
     this.customBaseUrl = '',
     this.cleanUrlAfterImport = true,
     this.autoImportDeepLink = true,
+    this.backendUrl = '',
   });
+
+  /// True when a real compute backend has been configured.
+  bool get hasComputeBackend => backendUrl.trim().isNotEmpty;
 
   /// Base URL used to build Avogadro deep links.
   String get bridgeBaseUrl {
@@ -170,6 +179,7 @@ class AppSettings {
     String? customBaseUrl,
     bool? cleanUrlAfterImport,
     bool? autoImportDeepLink,
+    String? backendUrl,
   }) {
     return AppSettings(
       isCompactMode: isCompactMode ?? this.isCompactMode,
@@ -190,6 +200,7 @@ class AppSettings {
       customBaseUrl: customBaseUrl ?? this.customBaseUrl,
       cleanUrlAfterImport: cleanUrlAfterImport ?? this.cleanUrlAfterImport,
       autoImportDeepLink: autoImportDeepLink ?? this.autoImportDeepLink,
+      backendUrl: backendUrl ?? this.backendUrl,
     );
   }
 
@@ -220,7 +231,8 @@ class AppSettings {
         other.bridgeTarget == bridgeTarget &&
         other.customBaseUrl == customBaseUrl &&
         other.cleanUrlAfterImport == cleanUrlAfterImport &&
-        other.autoImportDeepLink == autoImportDeepLink;
+        other.autoImportDeepLink == autoImportDeepLink &&
+        other.backendUrl == backendUrl;
   }
 
   @override
@@ -243,6 +255,7 @@ class AppSettings {
         customBaseUrl,
         cleanUrlAfterImport,
         autoImportDeepLink,
+        backendUrl,
       ]);
 }
 
@@ -273,6 +286,7 @@ class AppSettingsNotifier extends ChangeNotifier {
   static const _keyBridgeEnabled = '${_keyPrefix}bridge_enabled';
   static const _keyBridgeTarget = '${_keyPrefix}bridge_target';
   static const _keyCustomBaseUrl = '${_keyPrefix}bridge_custom_url';
+  static const _keyBackendUrl = '${_keyPrefix}compute_backend_url';
   static const _keyCleanUrl = '${_keyPrefix}clean_url_after_import';
   static const _keyAutoImport = '${_keyPrefix}auto_import_deep_link';
 
@@ -330,6 +344,7 @@ class AppSettingsNotifier extends ChangeNotifier {
         customBaseUrl: prefs.getString(_keyCustomBaseUrl) ?? '',
         cleanUrlAfterImport: prefs.getBool(_keyCleanUrl) ?? true,
         autoImportDeepLink: prefs.getBool(_keyAutoImport) ?? true,
+        backendUrl: prefs.getString(_keyBackendUrl) ?? '',
       );
     } catch (e) {
       debugPrint('AppSettingsNotifier: could not load settings — $e');
@@ -372,6 +387,7 @@ class AppSettingsNotifier extends ChangeNotifier {
       await prefs.setString(_keyCustomBaseUrl, s.customBaseUrl);
       await prefs.setBool(_keyCleanUrl, s.cleanUrlAfterImport);
       await prefs.setBool(_keyAutoImport, s.autoImportDeepLink);
+      await prefs.setString(_keyBackendUrl, s.backendUrl);
     } catch (e) {
       debugPrint('AppSettingsNotifier: could not persist settings — $e');
     }
@@ -437,6 +453,10 @@ class AppSettingsNotifier extends ChangeNotifier {
       updateSettings((s) => s.copyWith(cleanUrlAfterImport: value));
   void setAutoImportDeepLink(bool value) =>
       updateSettings((s) => s.copyWith(autoImportDeepLink: value));
+
+  /// Sets the ColabReaction (DMF/UMA) compute backend base URL.
+  void setBackendUrl(String value) =>
+      updateSettings((s) => s.copyWith(backendUrl: value.trim()));
 
   void resetToDefaults() {
     updateSettings((_) => const AppSettings());

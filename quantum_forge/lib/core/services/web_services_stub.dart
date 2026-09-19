@@ -16,6 +16,11 @@ class WebServices {
   static Future<String> fetchString(String url) =>
       Future<String>.error(UnsupportedError(unavailable));
 
+  /// Not supported off the web.
+  static Future<Map<String, dynamic>> postJson(
+          String url, Map<String, dynamic> body) =>
+      Future<Map<String, dynamic>>.error(UnsupportedError(unavailable));
+
   /// No browser tab to open; returns false so callers can degrade gracefully.
   static bool openUrl(String url) => false;
 }

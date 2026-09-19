@@ -42,14 +42,21 @@ Future<void> main() async {
   final filePickerService = FilePickerService();
 
   final settingsNotifier = QuantumSettingsNotifier();
-  final reactionNotifier =
-      ReactionNotifier(authService, storageService, reactionRepository);
   final chemicalResolverService = ChemicalResolverService();
 
   final themeNotifier = ThemeNotifier();
   // Previously instantiated nowhere: the workspace-wide preferences existed but
   // were never registered, so nothing in the UI could read or write them.
   final appSettingsNotifier = AppSettingsNotifier();
+
+  // The reaction notifier reads the configured ColabReaction (DMF/UMA) backend
+  // lazily, so the setting can change at runtime without rebuilding the app.
+  final reactionNotifier = ReactionNotifier(
+    authService,
+    storageService,
+    reactionRepository,
+    backendUrlProvider: () => appSettingsNotifier.settings.backendUrl,
+  );
 
   runApp(
     MultiProvider(

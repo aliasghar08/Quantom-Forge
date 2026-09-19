@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// A service to save and restore the state of the dashboard session.
@@ -14,7 +15,7 @@ class SessionStateService {
       await prefs.setString(_kSessionKey, jsonStr);
     } catch (e) {
       // Fail silently for session state saves
-      print('Failed to save session state: $e');
+      debugPrint('Failed to save session state: $e');
     }
   }
 
@@ -27,7 +28,7 @@ class SessionStateService {
         return jsonDecode(jsonStr) as Map<String, dynamic>;
       }
     } catch (e) {
-      print('Failed to load session state: $e');
+      debugPrint('Failed to load session state: $e');
     }
     return null;
   }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,5 +8,5 @@ void main() async {
   final request = await HttpClient().getUrl(Uri.parse(uri));
   final response = await request.close();
   final responseBody = await response.transform(utf8.decoder).join();
-  print(responseBody);
+  debugPrint(responseBody);
 }

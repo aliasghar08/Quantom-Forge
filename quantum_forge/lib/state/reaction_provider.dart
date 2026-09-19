@@ -7,6 +7,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:quantum_forge/core/services/auth_service.dart';
+import 'package:quantum_forge/core/services/backend_compute_service.dart';
 import 'package:quantum_forge/core/services/storage_service.dart';
 import 'package:quantum_forge/core/services/reaction_repository.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
@@ -22,10 +23,21 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
   final AuthService _auth;
   final StorageService _storage;
   final ReactionRepository _repo;
+
+  /// Returns the configured ColabReaction (DMF/UMA) backend URL, or an empty
+  /// string to use the local illustrative simulation.
+  final String Function()? backendUrlProvider;
+
+  final BackendComputeService _backend = const BackendComputeService();
   bool _isLoading = false;
   String? _error;
 
-  ReactionNotifier(this._auth, this._storage, this._repo) : super(null);
+  ReactionNotifier(
+    this._auth,
+    this._storage,
+    this._repo, {
+    this.backendUrlProvider,
+  }) : super(null);
 
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -56,6 +68,10 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
       final productXyz = productFile.bytes != null
           ? utf8.decode(productFile.bytes!, allowMalformed: true)
           : '';
+
+      // 1. A configured ColabReaction (DMF/UMA) backend takes precedence — it
+      //    runs the real Direct MaxFlux + UMA optimisation.
+      if (await _dispatchToBackend(reactantXyz, productXyz, settings)) return;
 
       // Guests run in a local, in-memory session — no Firestore, no history.
       // Signing in turns history on (cross-device sync).
@@ -123,6 +139,12 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
   ) async {
     _setLoading(true);
     try {
+      // A configured compute backend takes precedence (real DMF/UMA run).
+      if (await _dispatchToBackend(
+          template.reactantXyz, template.productXyz, settings)) {
+        return;
+      }
+
       // Guests run locally; the template cache and Firestore persistence only
       // apply to signed-in users.
       if (!await _auth.isAuthenticated()) {
@@ -312,6 +334,58 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
       'energy_profile': energyProfile,
       'trajectory_frames': trajectoryFrames,
     });
+  }
+
+  // --- ColabReaction (DMF/UMA) backend -------------------------------------
+  /// Runs the reaction on the configured compute backend (the Direct MaxFlux +
+  /// UMA pipeline ported from ColabReaction v1.0.3).
+  ///
+  /// Returns `true` when a backend is configured and handled the request, and
+  /// `false` when none is set so the caller can fall back to local execution.
+  Future<bool> _dispatchToBackend(
+    String reactantXyz,
+    String productXyz,
+    QuantumSettings settings,
+  ) async {
+    final url = (backendUrlProvider?.call() ?? '').trim();
+    if (url.isEmpty) return false;
+    if (reactantXyz.isEmpty || productXyz.isEmpty) {
+      _setError('The backend needs both a reactant and a product structure.');
+      return true;
+    }
+
+    _setLoading(true);
+    try {
+      value = ReactionStatusResponse(
+        reactionId: '',
+        state: ReactionState.pending,
+        progress: 0.0,
+        message: 'Submitting to DMF/UMA compute node…',
+      );
+      notifyListeners();
+
+      final reactionId =
+          await _backend.submit(url, reactantXyz, productXyz, settings);
+
+      value = ReactionStatusResponse(
+        reactionId: reactionId,
+        state: ReactionState.optimizing,
+        progress: 0.05,
+        message: 'Direct MaxFlux running (${settings.mlipModel})…',
+      );
+      notifyListeners();
+
+      final result = await _backend.poll(url, reactionId);
+      _isLoading = false;
+      if (result.state == ReactionState.error) {
+        _error = result.message ?? 'Backend optimisation failed.';
+      }
+      value = result;
+      notifyListeners();
+    } catch (e) {
+      _setError('DMF/UMA backend error: $e');
+    }
+    return true;
   }
 
   // --- Local (guest) simulation — no Firestore, no history ------------------

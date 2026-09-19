@@ -1,3 +1,17 @@
+# ── API ─────────────────────────────────────────────────────────────────────
 fastapi==0.104.1
 uvicorn==0.24.0.post1
 pydantic==2.5.2
+firebase-admin>=6.0.0
+
+# ── ColabReaction compute stack (Direct MaxFlux + UMA MLIP) ────────────────
+# Faithful port of ColabReaction v1.0.3. The UMA potential needs a CUDA GPU and
+# a Hugging Face token to download the pretrained weights.
+numpy>=1.24
+pandas>=1.5
+ase>=3.22
+numba==0.60.0
+# UMA / Open Molecules 2025 MLIP (fairchem-core).
+fairchem-core
+# Direct MaxFlux (renamed `pydmf` in Dec 2025; pinned commit keeps `dmf`).
+direct-maxflux @ git+https://github.com/shin1koda/dmf.git@e0edf505136467fd5af8e3ba820e0e61d3b782ae

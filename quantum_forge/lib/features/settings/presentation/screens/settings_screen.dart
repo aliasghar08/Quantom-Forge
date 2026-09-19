@@ -1164,6 +1164,15 @@ class _ComputeTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
       children: [
         const ThemeFamilyHeader(
+          title: 'DMF/UMA compute backend',
+          icon: Icons.hub,
+          subtitle:
+              'Optional. Point this at the ColabReaction FastAPI service to run '
+              'the real Direct MaxFlux + UMA reaction-path optimisation. Leave '
+              'empty to use the built-in illustrative simulation.',
+        ),
+        const _SettingsCard(children: [_BackendUrlField()]),
+        const ThemeFamilyHeader(
           title: 'Default computation parameters',
           icon: Icons.memory,
           subtitle:
@@ -1259,6 +1268,80 @@ class _ComputeTab extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Editor for the ColabReaction (DMF/UMA) backend base URL.
+class _BackendUrlField extends StatefulWidget {
+  const _BackendUrlField();
+
+  @override
+  State<_BackendUrlField> createState() => _BackendUrlFieldState();
+}
+
+class _BackendUrlFieldState extends State<_BackendUrlField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: context.read<AppSettingsNotifier>().settings.backendUrl,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ThemeNotifier.paletteOf(context);
+    final settings = context.watch<AppSettingsNotifier>().settings;
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            style: TextStyle(color: palette.textPrimary, fontSize: 13),
+            decoration: const InputDecoration(
+              labelText: 'Backend base URL',
+              hintText: 'https://your-dmf-backend.example.com',
+              prefixIcon: Icon(Icons.dns_outlined, size: 18),
+            ),
+            onChanged: context.read<AppSettingsNotifier>().setBackendUrl,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(
+                settings.hasComputeBackend
+                    ? Icons.check_circle_outline
+                    : Icons.science_outlined,
+                size: 15,
+                color: settings.hasComputeBackend ? palette.success : palette.textMuted,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  settings.hasComputeBackend
+                      ? 'Real DMF/UMA backend active — reactions are optimised '
+                          'server-side.'
+                      : 'No backend configured — using the built-in illustrative '
+                          'simulation.',
+                  style: TextStyle(color: palette.textMuted, fontSize: 11.5, height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

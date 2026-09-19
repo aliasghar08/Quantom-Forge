@@ -7,6 +7,7 @@
 // runtime casts between JS interop types are not platform-consistent and the
 // analyzer rejects them (`invalid_runtime_check_with_js_interop_types`).
 import 'dart:async';
+import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
@@ -76,6 +77,49 @@ class WebServices {
     // platform-dependent interop cast (a JS string → Dart String).
     final dartified = text.dartify();
     return dartified is String ? dartified : '$dartified';
+  }
+
+  /// Performs a POST with a JSON body and returns the decoded JSON object.
+  /// Used to hand a reaction off to the ColabReaction compute backend.
+  static Future<Map<String, dynamic>> postJson(
+      String url, Map<String, dynamic> body) async {
+    final fetchFn = _window.getProperty('fetch'.toJS);
+    if (fetchFn == null || !fetchFn.isA<JSFunction>()) {
+      throw UnsupportedError('fetch() is unavailable in this browser.');
+    }
+
+    final headers = JSObject()
+      ..setProperty('Content-Type'.toJS, 'application/json'.toJS);
+    final options = JSObject()
+      ..setProperty('method'.toJS, 'POST'.toJS)
+      ..setProperty('headers'.toJS, headers)
+      ..setProperty('body'.toJS, jsonEncode(body).toJS);
+
+    final response = await _awaitJs(
+      (fetchFn as JSFunction).callAsFunction(_window, url.toJS, options),
+    );
+    if (response == null || !response.isA<JSObject>()) {
+      throw StateError('fetch() returned nothing for $url');
+    }
+    final responseObj = response as JSObject;
+
+    final ok = responseObj.getProperty('ok'.toJS);
+    if (ok.isA<JSBoolean>() && !(ok as JSBoolean).toDart) {
+      final status = responseObj.getProperty('status'.toJS);
+      final code = status.isA<JSNumber>() ? (status as JSNumber).toDartInt : 0;
+      throw StateError('HTTP $code for $url');
+    }
+
+    final textFn = responseObj.getProperty('text'.toJS);
+    if (textFn == null || !textFn.isA<JSFunction>()) {
+      throw StateError('Response has no text() for $url');
+    }
+    final text =
+        await _awaitJs((textFn as JSFunction).callAsFunction(responseObj));
+    final raw = text == null ? '' : '${text.dartify()}';
+    if (raw.isEmpty) return const {};
+    final decoded = jsonDecode(raw);
+    return decoded is Map ? Map<String, dynamic>.from(decoded) : const {};
   }
 
   /// Opens [url] in a new tab. Returns false when the browser refuses.
