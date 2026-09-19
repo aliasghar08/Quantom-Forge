@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 
 enum BuilderTool { navigate, draw, delete }
