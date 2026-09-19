@@ -27,51 +27,9 @@ class MolecularInfo {
   });
 }
 
+import 'package:quantum_forge/core/utils/element_data.dart';
+
 class XyzParser {
-  static const Map<String, Color> _atomColors = {
-    'H': Colors.white,
-    'C': Colors.grey,
-    'O': Colors.red,
-    'N': Colors.blue,
-    'F': Colors.lightGreen,
-    'Cl': Colors.green,
-    'S': Colors.yellow,
-    'P': Colors.orange,
-  };
-
-  static const Map<String, double> _atomRadii = {
-    'H': 1.2,
-    'C': 1.7,
-    'O': 1.52,
-    'N': 1.55,
-    'F': 1.47,
-    'Cl': 1.75,
-    'S': 1.8,
-    'P': 1.8,
-  };
-
-  static const Map<String, double> _atomCovalentRadii = {
-    'H': 0.31,
-    'C': 0.76,
-    'O': 0.66,
-    'N': 0.71,
-    'F': 0.57,
-    'Cl': 1.02,
-    'S': 1.05,
-    'P': 1.07,
-  };
-
-  static const Map<String, double> _atomicMasses = {
-    'H': 1.008,
-    'C': 12.011,
-    'O': 15.999,
-    'N': 14.007,
-    'F': 18.998,
-    'Cl': 35.45,
-    'S': 32.06,
-    'P': 30.974,
-  };
-
   static final RegExp _whitespaceRegExp = RegExp(r'\s+');
 
   static Future<List<Atom>> parseAsync(String xyz) async {
@@ -96,9 +54,9 @@ class XyzParser {
           x,
           y,
           z,
-          _atomColors[symbol] ?? Colors.pinkAccent,
-          _atomRadii[symbol] ?? 1.5,
-          _atomCovalentRadii[symbol] ?? 0.7,
+          ElementData.colors[symbol] ?? Colors.pinkAccent,
+          ElementData.vdwRadii[symbol] ?? 1.5,
+          ElementData.covalentRadii[symbol] ?? 0.7,
         ));
       }
     }
@@ -111,7 +69,7 @@ class XyzParser {
 
     for (final atom in atoms) {
       counts[atom.symbol] = (counts[atom.symbol] ?? 0) + 1;
-      weight += _atomicMasses[atom.symbol] ?? 0.0;
+      weight += ElementData.atomicMasses[atom.symbol] ?? 0.0;
     }
 
     // Build Hill formula

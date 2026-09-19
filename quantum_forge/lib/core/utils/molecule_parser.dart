@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
+import 'package:quantum_forge/core/utils/element_data.dart';
 
 class MoleculeParser {
   static final RegExp _whitespaceRegExp = RegExp(r'\s+');
@@ -88,32 +89,14 @@ class MoleculeParser {
   }
 
   static Color _getAtomColor(String symbol) {
-    const map = {
-      'H': Colors.white,
-      'C': Colors.grey,
-      'O': Colors.red,
-      'N': Colors.blue,
-      'F': Colors.lightGreen,
-      'Cl': Colors.green,
-      'S': Colors.yellow,
-      'P': Colors.orange,
-    };
-    return map[symbol] ?? Colors.pinkAccent;
+    return ElementData.colors[symbol] ?? Colors.pinkAccent;
   }
 
   static double _getAtomRadius(String symbol) {
-    const map = {
-      'H': 1.2, 'C': 1.7, 'O': 1.52, 'N': 1.55,
-      'F': 1.47, 'Cl': 1.75, 'S': 1.8, 'P': 1.8,
-    };
-    return map[symbol] ?? 1.5;
+    return ElementData.vdwRadii[symbol] ?? 1.5;
   }
 
   static double _getAtomCovalentRadius(String symbol) {
-    const map = {
-      'H': 0.31, 'C': 0.76, 'O': 0.66, 'N': 0.71,
-      'F': 0.57, 'Cl': 1.02, 'S': 1.05, 'P': 1.07,
-    };
-    return map[symbol] ?? 0.7;
+    return ElementData.covalentRadii[symbol] ?? 0.7;
   }
 }

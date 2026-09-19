@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/core/utils/molecule_parser.dart';
+import 'package:quantum_forge/core/utils/element_data.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/interactive_builder_widget.dart';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -174,7 +175,7 @@ H  0.00000 -0.90000 -0.50000''';
                       setState(() => _currentElement = newValue);
                     }
                   },
-                  items: <String>['H', 'C', 'N', 'O', 'F', 'P', 'S', 'Cl']
+                  items: ElementData.colors.keys
                       .map<DropdownMenuItem<String>>((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
