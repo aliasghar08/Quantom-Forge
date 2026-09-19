@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:quantum_forge/core/utils/element_data.dart';
 
 class Atom {
   final String symbol;
@@ -26,9 +27,6 @@ class MolecularInfo {
     required this.elementCounts,
   });
 }
-
-import 'package:quantum_forge/core/utils/element_data.dart';
-
 class XyzParser {
   static final RegExp _whitespaceRegExp = RegExp(r'\s+');
 
