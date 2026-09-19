@@ -92,7 +92,8 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
 
     // Parse Data — every field falls back to the bundled template metadata, so
     // the page stays useful even when CrossRef is unreachable or has no entry.
-    final title = _crossrefData?['title']?[0] ?? widget.template.name;
+    final rawTitle = _crossrefData?['title']?[0] ?? widget.template.name;
+    final title = rawTitle.replaceAll(RegExp(r'<[^>]*>'), '').trim();
     final abstractHtml = _crossrefData?['abstract'] ??
         'Publication metadata could not be fetched from CrossRef'
             '${_crossrefError != null ? ' ($_crossrefError)' : ''}.\n'
