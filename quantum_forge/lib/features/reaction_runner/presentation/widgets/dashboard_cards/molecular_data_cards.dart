@@ -19,12 +19,25 @@ class MolecularDataCards extends StatelessWidget {
     final rInfo = XyzParser.getMolecularInfo(rAtoms);
     final pInfo = XyzParser.getMolecularInfo(pAtoms);
 
-    return Row(
-      children: [
-        Expanded(child: _buildMolecularDataCard('Reactant', rInfo)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildMolecularDataCard('Product', pInfo)),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 600) {
+          return Column(
+            children: [
+              _buildMolecularDataCard('Reactant', rInfo),
+              const SizedBox(height: 16),
+              _buildMolecularDataCard('Product', pInfo),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: _buildMolecularDataCard('Reactant', rInfo)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildMolecularDataCard('Product', pInfo)),
+          ],
+        );
+      },
     );
   }
 

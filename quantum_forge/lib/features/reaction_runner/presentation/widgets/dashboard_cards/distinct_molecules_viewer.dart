@@ -35,7 +35,10 @@ class DistinctMoleculesViewer extends StatelessWidget {
           // ── Header ─────────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Row(
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Container(
                   padding:
@@ -59,7 +62,6 @@ class DistinctMoleculesViewer extends StatelessWidget {
                     ),
                   ]),
                 ),
-                const SizedBox(width: 10),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -74,7 +76,6 @@ class DistinctMoleculesViewer extends StatelessWidget {
                         fontSize: 11),
                   ),
                 ),
-                const Spacer(),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 3),

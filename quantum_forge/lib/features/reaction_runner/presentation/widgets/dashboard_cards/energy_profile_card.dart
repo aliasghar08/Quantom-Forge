@@ -25,11 +25,14 @@ class EnergyProfileCard extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-            child: Row(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('Reaction Energy Profile',
                     style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                const Spacer(),
                 if (referenceEa != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),

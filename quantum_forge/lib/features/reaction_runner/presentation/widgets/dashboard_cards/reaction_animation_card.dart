@@ -39,19 +39,26 @@ class ReactionAnimationCard extends StatelessWidget {
             // ── Header ─────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-              child: Row(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const Icon(Icons.animation,
-                      color: Color(0xFF4FC3F7), size: 18),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Reaction Mechanism — Bond Breaking & Formation',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.animation,
+                        color: Color(0xFF4FC3F7), size: 18),
+                    const SizedBox(width: 8),
+                    const Flexible(
+                      child: Text(
+                        'Reaction Mechanism',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ]),
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 3),
@@ -59,13 +66,15 @@ class ReactionAnimationCard extends StatelessWidget {
                       color: const Color(0xFF4FC3F7).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: const Color(0xFF4FC3F7)
-                              .withValues(alpha: 0.3)),
+                          color:
+                              const Color(0xFF4FC3F7).withValues(alpha: 0.3)),
                     ),
                     child: const Text(
-                      'Drag to rotate · Live interpolation',
+                      '3D Trajectory',
                       style: TextStyle(
-                          color: Color(0xFF4FC3F7), fontSize: 10),
+                          color: Color(0xFF4FC3F7),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
