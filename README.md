@@ -1,93 +1,89 @@
-# 🌌 Quantum Forge
-
-**Quantum Forge** is a state-of-the-art, offline-first computational chemistry workstation built entirely in pure Dart and Flutter. Designed for Ph.D.-level researchers, it provides a high-performance desktop interface for transition state optimization, geometry visualization, and advanced quantum chemical parameter tuning.
+# Quantom Forge 🧪⚛️
 
 <p align="center">
   <img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter" />
   <img src="https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white" alt="Dart" />
-  <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/Web-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web" />
+  <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase" />
 </p>
 
----
+**Quantom Forge** is a cutting-edge, AI-powered quantum chemistry optimization and visualization platform built **exclusively for the Web** using Flutter. Designed for researchers and students, it provides an intuitive, high-performance web dashboard for visualizing molecular structures, modeling transition states, and calculating complex thermodynamic properties entirely in the browser.
 
-## ✨ Comprehensive Features
+## 🌐 Web-First Platform
 
-- **🖥️ Zero-Dependency 3D Viewer**: A custom, mathematically rigorous 3D molecule renderer written purely in Dart (`CustomPainter`), eliminating the need for slow WebView wrappers or external engines. Includes interactive molecular editing and a dedicated coordinate editor screen.
-- **🔬 Electron Cloud Rendering**: Advanced volumetric rendering techniques simulate orbital glow and electron density around atoms in real-time at 60 FPS.
-- **🤖 AI-Assisted TS Guesser**: A Linear Synchronous Transit (LST) tool automatically guesses saddle points and intermediate geometries directly in the editor.
-- **⚛️ Automated Conformational Search**: Toggleable pre-optimization MMFF94 sweeps to explore potential energy surfaces.
-- **📊 Advanced Analytics & Kinetics**: Multi-path kinetic energy profile comparisons, alongside fast-glance thermodynamic parameters (ΔH‡, ΔS‡, ΔG‡). Features interactive kinetic chart widgets.
-- **💾 Local Job Repository**: Complete offline persistence of all calculation jobs in your native OS `LOCALAPPDATA` directory for maximum privacy and speed. Tracked via comprehensive Dashboard and History screens.
-- **🚀 Native Desktop Integration**: Uses Windows Win32 APIs via FFI for ultra-fast, zero-dependency native file picking.
-- **📝 Native XYZ Parsing**: Custom parser to handle standard chemical coordinate `.xyz` files efficiently.
-- **🔐 Secure Authentication Services**: Integrated authentication layer (Local & Generic) to manage sessions and privacy.
-- **🧪 Reaction Library**: Integrated library of pre-built reaction templates to bootstrap calculations rapidly.
+Quantom Forge is optimized specifically for web browsers. By leveraging WebGL and Flutter Web, it delivers a heavy-duty computational chemistry suite without requiring any desktop installations. Whether you are on Windows, macOS, or Linux, you can simply open your browser and access the full suite of tools.
 
----
+## 🚀 Comprehensive Feature List
 
-## 🛠️ Project Structure
+### 1. 3D Interactive Physics Engine & Molecular Builder
+*   **Inverse Raycasting**: A highly advanced custom 3D drawing engine built from scratch. Click and drag in the 3D void to draw molecules!
+*   **Covalent Distance Calculation**: Automatically calculates optimal bond lengths and standard geometries when placing new atoms.
+*   **Element Selector**: Easily switch between common elements (H, C, N, O, F, P, S, Cl).
+*   **Dynamic Orbiting & Panning**: Complete mouse and touch control over the 3D molecular canvas.
 
-The codebase is strictly organized using a feature-first architecture, ensuring separation of concerns and high scalability.
+### 2. Deep File Format Parsing
+*   **Multi-Format Support**: Natively parses `.mol`, `.sdf`, `.cml`, and `.xyz` files directly in the browser without any backend processing.
+*   **Avogadro Compatibility**: Fully supports loading structure files exported directly from Avogadro.
 
-```text
-quantum_forge/
-├── lib/
-│   ├── core/
-│   │   ├── services/
-│   │   │   ├── auth_service.dart
-│   │   │   ├── file_picker_service.dart
-│   │   │   ├── job_repository.dart
-│   │   │   ├── local_auth_service.dart
-│   │   │   ├── local_job_repository.dart
-│   │   │   ├── local_storage_service.dart
-│   │   │   └── storage_service.dart
-│   │   ├── state/
-│   │   │   └── provider.dart
-│   │   └── utils/
-│   │       ├── local_prefs.dart
-│   │       ├── uuid_util.dart
-│   │       ├── win32_file_picker.dart
-│   │       └── xyz_parser.dart
-│   ├── features/
-│   │   ├── job_runner/
-│   │   │   ├── data/
-│   │   │   │   └── models/
-│   │   │   │       └── job_models.dart
-│   │   │   ├── presentation/
-│   │   │   │   ├── screens/
-│   │   │   │   │   ├── analytics_screen.dart
-│   │   │   │   │   ├── coordinate_editor_screen.dart
-│   │   │   │   │   ├── dashboard_screen.dart
-│   │   │   │   │   └── history_screen.dart
-│   │   │   │   └── widgets/
-│   │   │   │       ├── kinetic_chart_widget.dart
-│   │   │   │       ├── molecular_viewer_widget.dart
-│   │   │   │       └── quantum_controls_panel.dart
-│   │   │   └── providers/
-│   │   │       ├── job_provider.dart
-│   │   │       └── settings_provider.dart
-│   │   └── reaction_library/
-│   │       ├── data/
-│   │       │   └── reaction_templates.dart
-│   │       └── presentation/
-│   │           ├── screens/
-│   │           │   └── library_screen.dart
-│   │           └── widgets/
-│   │               └── reaction_card_widget.dart
-│   └── main.dart
-├── pubspec.yaml
-├── pubspec.lock
-├── analysis_options.yaml
-├── windows/
-├── macos/
-├── linux/
-├── ios/
-├── android/
-└── web/
-```
+### 3. Transition State (TS) Modeling & Animation
+*   **Reaction Path Interpolation**: Smoothly animates chemical reactions, transitioning atoms from their Reactant state through the Transition State (TS), and finally into the Product state.
+*   **Play/Pause Controls**: Detailed timeline scrubber to pause animations exactly at the transition state to study bond-breaking and bond-forming geometries.
 
-### Architectural Highlights
+### 4. Advanced Analytics & Reaction Dashboards
+*   **Energy Profile Graphs**: Interactive 2D line charts plotting the reaction coordinate against relative energy (Activation Energy and Enthalpy).
+*   **Arrhenius Kinetics Plots**: Interactive $ln(k)$ vs $1/T$ graphs for evaluating reaction rates.
+*   **Vibrational Analysis Spectrums**: Simulated IR spectrum graphs to analyze the dominant vibrational modes of transition states.
+*   **Thermodynamic Metrics**: Live-updating cards displaying Gibbs Free Energy, Enthalpy, Entropy, and calculated reaction rates.
 
-- **State Management**: Zero third-party dependencies. We use a custom, lightweight dependency injection (`ProviderScope`) and reactive state engine (`ValueNotifier`).
-- **Rendering Optimization**: Strict widget tree `const` enforcement and targeted `RepaintBoundary` wrappers guarantee flawless 60 FPS even when rendering thousands of atoms.
-- **Platform Specifics**: Designed with desktop in mind, compiling down to a highly optimized native Windows executable (`.exe`).
+### 5. Quantum Render Modes & Aesthetics
+*   **Electron Clouds & VDW Surfaces**: High-performance gradient painters simulate electron density and Van der Waals surfaces.
+*   **Visual Modes**: Toggle between Standard (Ball & Stick), Glassmorphism, and Metallic rendering styles.
+*   **Dynamic Lighting**: Custom 3D shading, specular highlights, and ambient occlusion applied to 2D canvas drawing.
+
+### 6. Cloud-Connected Reaction Library
+*   **Firestore Database**: A sprawling, centralized database of pre-calculated textbook chemical reactions (Grignard Additions, Fischer Esterifications, Friedel-Crafts, Suzuki Couplings).
+*   **Real-time Search & Filtering**: Instantly search reactions by IUPAC name, reaction type (Addition, Substitution, Elimination), or chemical tags.
+
+### 7. Seamless Avogadro 2 Integration
+*   Quantom Forge acts as the perfect companion to desktop Avogadro software. 
+*   Includes a native Avogadro 2 Python Command Plugin to instantly pipe your active desktop molecules directly into the web dashboard.
+
+### 8. User Management & Security
+*   **Firebase Authentication**: Secure user login displaying real-time user profiles and emails in the application drawer.
+
+## 🛠️ Tools & Platforms Used
+
+This project leverages modern frameworks and cloud platforms to deliver a robust web experience:
+
+*   **Frontend Framework**: Flutter (Web-Targeted)
+*   **Language**: Dart (with `dart:html` for native web APIs)
+*   **Backend as a Service (BaaS)**: Google Firebase
+    *   **Firebase Authentication**: Secure user login and identity management.
+    *   **Cloud Firestore**: Real-time NoSQL database for the centralized reaction library.
+    *   **Firebase Hosting**: Global CDN deployment for the web application.
+*   **State Management**: Custom Riverpod-style architecture utilizing Providers and `ValueNotifier`.
+*   **UI/UX Libraries**: `flutter_staggered_animations` for dynamic transitions, Material 3 design system.
+*   **Computational Chemistry Tools**: Avogadro 2 (via Python Command Plugin integration).
+
+## ⚙️ How to Run
+
+1.  Ensure you have the [Flutter SDK](https://flutter.dev/docs/get-started/install) installed.
+2.  Clone the repository and install dependencies:
+    ```bash
+    git clone https://github.com/aliasghar08/Quantum-Forge.git
+    cd quantum_forge
+    flutter pub get
+    ```
+3.  Run the application locally **on Chrome**:
+    ```bash
+    flutter run -d chrome
+    ```
+
+## 🌐 Deployment
+
+Quantom Forge is currently deployed and live via Firebase Hosting:
+[https://quantom-forge.web.app](https://quantom-forge.web.app)
+
+## 👤 Author
+
+Developed by **Ali Asghar**
