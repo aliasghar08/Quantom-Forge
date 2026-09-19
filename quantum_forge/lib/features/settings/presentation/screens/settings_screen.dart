@@ -11,6 +11,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:quantum_forge/core/services/backend_compute_service.dart';
 import 'package:quantum_forge/core/services/web_services.dart';
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
@@ -1283,6 +1284,12 @@ class _BackendUrlField extends StatefulWidget {
 class _BackendUrlFieldState extends State<_BackendUrlField> {
   late final TextEditingController _controller;
 
+  /// True while a "Test connection" probe is in flight.
+  bool _testing = false;
+
+  /// Result of the most recent probe, or null before one has run.
+  BackendHealth? _health;
+
   @override
   void initState() {
     super.initState();
@@ -1295,6 +1302,21 @@ class _BackendUrlFieldState extends State<_BackendUrlField> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Probes the configured backend and reports the result inline.
+  Future<void> _testConnection() async {
+    final url = context.read<AppSettingsNotifier>().settings.backendUrl;
+    setState(() {
+      _testing = true;
+      _health = null;
+    });
+    final result = await const BackendComputeService().healthCheck(url);
+    if (!mounted) return;
+    setState(() {
+      _testing = false;
+      _health = result;
+    });
   }
 
   @override
@@ -1312,7 +1334,7 @@ class _BackendUrlFieldState extends State<_BackendUrlField> {
             style: TextStyle(color: palette.textPrimary, fontSize: 13),
             decoration: const InputDecoration(
               labelText: 'Backend base URL',
-              hintText: 'https://your-dmf-backend.example.com',
+              hintText: 'https://aliasgharinnocent-uma-backend.hf.space',
               prefixIcon: Icon(Icons.dns_outlined, size: 18),
             ),
             onChanged: context.read<AppSettingsNotifier>().setBackendUrl,
@@ -1338,6 +1360,41 @@ class _BackendUrlFieldState extends State<_BackendUrlField> {
                   style: TextStyle(color: palette.textMuted, fontSize: 11.5, height: 1.4),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: _testing ? null : _testConnection,
+                icon: _testing
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.wifi_tethering, size: 16),
+                label: Text(_testing ? 'Testing…' : 'Test connection'),
+              ),
+              if (_health != null) ...[
+                const SizedBox(width: 12),
+                Icon(
+                  _health!.ok ? Icons.check_circle : Icons.error_outline,
+                  size: 16,
+                  color: _health!.ok ? palette.success : palette.danger,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _health!.detail,
+                    style: TextStyle(
+                      color: _health!.ok ? palette.success : palette.danger,
+                      fontSize: 11.5,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],

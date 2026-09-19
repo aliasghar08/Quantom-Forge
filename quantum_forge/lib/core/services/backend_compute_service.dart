@@ -7,6 +7,9 @@
 // configured, reactions are dispatched here for the real optimisation.
 //
 // The request/response shapes mirror `backend/app/models/reaction.py`.
+//
+// Deployed backend: https://aliasgharinnocent-uma-backend.hf.space
+// (see `kDefaultComputeBackendUrl` in core/settings/app_settings_provider.dart)
 // ============================================================================
 
 import 'dart:convert';
@@ -14,6 +17,17 @@ import 'dart:convert';
 import 'package:quantum_forge/core/services/web_services.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
 import 'package:quantum_forge/state/settings_provider.dart';
+
+/// Result of a backend liveness probe, suitable for display in Settings.
+class BackendHealth {
+  /// True only when `/health` answered with the backend's JSON status payload.
+  final bool ok;
+
+  /// Human-readable detail: the server's own message, or why the probe failed.
+  final String detail;
+
+  const BackendHealth(this.ok, this.detail);
+}
 
 class BackendComputeService {
   const BackendComputeService();
@@ -29,6 +43,16 @@ class BackendComputeService {
       default:
         return 'middle';
     }
+  }
+
+  /// Normalises a configured backend URL (drops trailing slashes) so route
+  /// paths can be appended directly.
+  static String _base(String backendUrl) {
+    var base = backendUrl.trim();
+    while (base.endsWith('/')) {
+      base = base.substring(0, base.length - 1);
+    }
+    return base;
   }
 
   Map<String, dynamic> _body(
@@ -56,9 +80,7 @@ class BackendComputeService {
     String productXyz,
     QuantumSettings settings,
   ) async {
-    final base = backendUrl.endsWith('/')
-        ? backendUrl.substring(0, backendUrl.length - 1)
-        : backendUrl;
+    final base = _base(backendUrl);
     final json = await WebServices.postJson(
       '$base/reactions/submit',
       _body(reactantXyz, productXyz, settings),
@@ -77,9 +99,7 @@ class BackendComputeService {
     int maxAttempts = 600,
     Duration interval = const Duration(seconds: 2),
   }) async {
-    final base = backendUrl.endsWith('/')
-        ? backendUrl.substring(0, backendUrl.length - 1)
-        : backendUrl;
+    final base = _base(backendUrl);
     for (var i = 0; i < maxAttempts; i++) {
       await Future<void>.delayed(interval);
       final raw = await WebServices.fetchString('$base/reactions/$reactionId');
@@ -120,5 +140,34 @@ class BackendComputeService {
           ?.map((e) => VibrationalMode.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
+  }
+
+  /// Probes `<backendUrl>/health` — powers the Settings "Test connection" button.
+  ///
+  /// A bare HTTP 200 is deliberately *not* treated as success. A misrouted or
+  /// misconfigured Space answers 200 with an HTML page (that is exactly how a
+  /// broken deployment previously looked "healthy"), so the body must decode to
+  /// JSON carrying `"status": "ok"`.
+  Future<BackendHealth> healthCheck(String backendUrl) async {
+    final base = _base(backendUrl);
+    if (base.isEmpty) {
+      return const BackendHealth(false, 'No backend URL configured.');
+    }
+    try {
+      final raw = await WebServices.fetchString('$base/health');
+      final decoded = jsonDecode(raw);
+      if (decoded is Map && decoded['status'] == 'ok') {
+        final message = decoded['message'];
+        return BackendHealth(
+          true,
+          message is String && message.isNotEmpty
+              ? message
+              : 'Backend is healthy.',
+        );
+      }
+      return BackendHealth(false, 'Unexpected /health payload: $raw');
+    } catch (e) {
+      return BackendHealth(false, 'Cannot reach $base/health — $e');
+    }
   }
 }

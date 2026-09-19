@@ -11,6 +11,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Default ColabReaction (DMF/UMA) compute backend.
+///
+/// The deployed Hugging Face Space that hosts the FastAPI service in
+/// `backend/app/main.py`. Pre-filling it means a fresh install talks to the real
+/// DMF/UMA pipeline out of the box; clear the field in Settings to fall back to
+/// the local illustrative simulation, or point it at `http://127.0.0.1:7860`
+/// while running the backend locally.
+const String kDefaultComputeBackendUrl =
+    'https://aliasgharinnocent-uma-backend.hf.space';
+
 /// Where exported structures are stored when handed to Avogadro.
 ///
 /// Avogadro 2 has no desktop "read from URL" hook, so Quantum Forge ships the
@@ -121,9 +131,10 @@ class AppSettings {
   final bool cleanUrlAfterImport;
   final bool autoImportDeepLink;
 
-  /// Optional ColabReaction (DMF/UMA) compute backend. When empty the app runs
-  /// its local illustrative simulation; when set, reactions are dispatched to
-  /// the real backend at `<backendUrl>/reactions/submit`.
+  /// ColabReaction (DMF/UMA) compute backend base URL. Defaults to
+  /// [kDefaultComputeBackendUrl]; when empty the app runs its local
+  /// illustrative simulation rather than dispatching to
+  /// `<backendUrl>/reactions/submit`.
   final String backendUrl;
 
   const AppSettings({
@@ -145,7 +156,7 @@ class AppSettings {
     this.customBaseUrl = '',
     this.cleanUrlAfterImport = true,
     this.autoImportDeepLink = true,
-    this.backendUrl = '',
+    this.backendUrl = kDefaultComputeBackendUrl,
   });
 
   /// True when a real compute backend has been configured.
@@ -344,7 +355,7 @@ class AppSettingsNotifier extends ChangeNotifier {
         customBaseUrl: prefs.getString(_keyCustomBaseUrl) ?? '',
         cleanUrlAfterImport: prefs.getBool(_keyCleanUrl) ?? true,
         autoImportDeepLink: prefs.getBool(_keyAutoImport) ?? true,
-        backendUrl: prefs.getString(_keyBackendUrl) ?? '',
+        backendUrl: prefs.getString(_keyBackendUrl) ?? kDefaultComputeBackendUrl,
       );
     } catch (e) {
       debugPrint('AppSettingsNotifier: could not load settings — $e');
