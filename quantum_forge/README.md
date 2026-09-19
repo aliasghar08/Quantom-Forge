@@ -44,12 +44,19 @@ Quantom Forge is optimized specifically for web browsers. By leveraging WebGL an
 ### 8. User Management & Security
 *   **Firebase Authentication**: Secure user login displaying real-time user profiles and emails in the application drawer.
 
-## 💻 Tech Stack
+## 🛠️ Tools & Platforms Used
 
-*   **Frontend**: Flutter (Web-Targeted), Dart, `dart:html`
+This project leverages modern frameworks and cloud platforms to deliver a robust web experience:
+
+*   **Frontend Framework**: Flutter (Web-Targeted)
+*   **Language**: Dart (with `dart:html` for native web APIs)
+*   **Backend as a Service (BaaS)**: Google Firebase
+    *   **Firebase Authentication**: Secure user login and identity management.
+    *   **Cloud Firestore**: Real-time NoSQL database for the centralized reaction library.
+    *   **Firebase Hosting**: Global CDN deployment for the web application.
 *   **State Management**: Custom Riverpod-style architecture utilizing Providers and `ValueNotifier`.
-*   **Backend / Auth**: Firebase (Authentication, Firestore, Hosting)
-*   **UI/UX**: Custom Glassmorphism, Responsive `Wrap` layouts, Material 3 design, `flutter_staggered_animations`.
+*   **UI/UX Libraries**: `flutter_staggered_animations` for dynamic transitions, Material 3 design system.
+*   **Computational Chemistry Tools**: Avogadro 2 (via Python Command Plugin integration).
 
 ## ⚙️ How to Run
 
