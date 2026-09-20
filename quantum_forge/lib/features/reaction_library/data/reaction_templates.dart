@@ -59,6 +59,21 @@ class ReactionTemplate {
   final List<String> tags;
   final QuantumDefaults defaults;
 
+  /// Provenance marker.
+  ///
+  /// * `false` — a curated entry that carries a literature citation in [doi] and
+  ///   [journalRef].
+  /// * `true` — a systematic variant derived from a curated parent (see
+  ///   `reaction_template_generator.dart`). Its geometry is *built* by
+  ///   substituting a spectator hydrogen, [referenceEa] is INHERITED from the
+  ///   parent as a rough starting estimate rather than a measured value, and no
+  ///   citation is attached — [doi] is always empty so a derived entry can never
+  ///   be mistaken for a literature result.
+  final bool isDerived;
+
+  /// Name of the curated parent this entry was derived from, when [isDerived].
+  final String? derivedFrom;
+
   const ReactionTemplate({
     required this.id,
     required this.name,
@@ -72,6 +87,8 @@ class ReactionTemplate {
     required this.journalRef,
     this.tags = const [],
     this.defaults = const QuantumDefaults(),
+    this.isDerived = false,
+    this.derivedFrom,
   });
 
   factory ReactionTemplate.fromJson(Map<String, dynamic> json, String id) {
@@ -93,6 +110,8 @@ class ReactionTemplate {
       defaults: json['defaults'] != null
           ? QuantumDefaults.fromJson(json['defaults'] as Map<String, dynamic>)
           : const QuantumDefaults(),
+      isDerived: json['isDerived'] as bool? ?? false,
+      derivedFrom: json['derivedFrom'] as String?,
     );
   }
 
@@ -109,6 +128,8 @@ class ReactionTemplate {
       'journalRef': journalRef,
       'tags': tags,
       'defaults': defaults.toJson(),
+      'isDerived': isDerived,
+      'derivedFrom': derivedFrom,
     };
   }
 }
@@ -1704,7 +1725,7 @@ H    -1.620   -2.140    0.000''',
     tags: ['EAS', 'alkylation'],
   ),
   ReactionTemplate(
-    id: 'suzuki_coupling',
+    id: 'suzuki_coupling_simple',
     name: 'Suzuki-Miyaura Coupling',
     iupacName: 'phenylboronic acid + bromobenzene → biphenyl',
     description: 'Palladium-catalyzed cross coupling of an aryl halide with a boronic acid.',
@@ -1733,7 +1754,7 @@ H    -1.620   -2.140    0.000''',
   ),
 
   ReactionTemplate(
-    id: 'e2_elimination',
+    id: 'e2_elimination_simple',
     name: 'E2 Elimination',
     iupacName: 'Bimolecular Elimination',
     description: 'Concerted elimination of a proton and leaving group by a strong base.',

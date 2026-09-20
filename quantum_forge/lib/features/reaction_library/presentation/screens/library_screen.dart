@@ -1,10 +1,18 @@
 // ============================================================================
 // Library Screen — Searchable, filterable template browser
+//
+// Performance notes (the library now holds thousands of templates):
+//   * filtering happens once per input change, not on every build;
+//   * the search box is debounced so typing does not rebuild the grid per key;
+//   * the grid itself builds only the cards inside the viewport (see LibraryGrid).
 // ============================================================================
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
+import 'package:quantum_forge/features/reaction_library/data/reaction_template_generator.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_header.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_filter_bar.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_grid.dart';
@@ -21,10 +29,14 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  String _searchQuery = '';
+  static const Duration _searchDebounce = Duration(milliseconds: 180);
+
+  String _query = '';
   ReactionCategory? _filterCategory;
-  List<ReactionTemplate> _allTemplates = [];
+  List<ReactionTemplate> _allTemplates = const [];
+  List<ReactionTemplate> _filtered = const [];
   bool _isLoading = true;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -32,34 +44,81 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _loadTemplates();
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadTemplates() async {
-    List<ReactionTemplate> templates = const [];
+    // The bundled library (curated + generated variants) is always present, so
+    // start from it and layer any cloud-only extras on top instead of replacing
+    // it — the library must keep working signed-out and offline.
+    final bundled = allReactionTemplates;
+    var merged = bundled;
+
     try {
-      templates = await FirestoreLibraryRepository().getLibraryTemplates();
+      final cloud = await FirestoreLibraryRepository().getLibraryTemplates();
+      if (cloud.isNotEmpty) {
+        final known = bundled.map((t) => t.id).toSet();
+        merged = <ReactionTemplate>[
+          ...bundled,
+          ...cloud.where((t) => !known.contains(t.id)),
+        ];
+      }
     } catch (e) {
       debugPrint('Library fetch failed, using bundled templates: $e');
     }
-    // The library must work signed-out and offline, so fall back to the
-    // templates bundled with the app whenever the cloud copy is unavailable.
-    if (templates.isEmpty) templates = kReactionTemplates;
-    if (mounted) {
-      setState(() {
-        _allTemplates = templates;
-        _isLoading = false;
-      });
-    }
+
+    if (!mounted) return;
+    setState(() {
+      _allTemplates = merged;
+      _recomputeFiltered();
+      _isLoading = false;
+    });
   }
 
-  List<ReactionTemplate> get _filtered {
-    return _allTemplates.where((t) {
-      final matchesSearch = _searchQuery.isEmpty ||
-          t.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          t.description.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          t.tags.any((tag) => tag.toLowerCase().contains(_searchQuery.toLowerCase()));
-      final matchesCategory =
-          _filterCategory == null || t.category == _filterCategory;
-      return matchesSearch && matchesCategory;
-    }).toList();
+  /// Filters once per input change rather than on every build.
+  ///
+  /// The previous `_filtered` getter re-scanned and re-allocated the entire
+  /// library on every rebuild — including every hover and animation frame.
+  void _recomputeFiltered() {
+    final query = _query.trim().toLowerCase();
+    final category = _filterCategory;
+
+    if (query.isEmpty && category == null) {
+      _filtered = _allTemplates;
+      return;
+    }
+
+    _filtered = _allTemplates.where((t) {
+      if (category != null && t.category != category) return false;
+      if (query.isEmpty) return true;
+      return t.name.toLowerCase().contains(query) ||
+          t.iupacName.toLowerCase().contains(query) ||
+          t.description.toLowerCase().contains(query) ||
+          t.tags.any((tag) => tag.toLowerCase().contains(query));
+    }).toList(growable: false);
+  }
+
+  void _onSearchChanged(String value) {
+    // Debounced: filtering thousands of templates on every keystroke would
+    // rebuild the grid once per character typed.
+    _debounce?.cancel();
+    _debounce = Timer(_searchDebounce, () {
+      if (!mounted) return;
+      setState(() {
+        _query = value;
+        _recomputeFiltered();
+      });
+    });
+  }
+
+  void _onCategoryChanged(ReactionCategory? category) {
+    setState(() {
+      _filterCategory = category;
+      _recomputeFiltered();
+    });
   }
 
   @override
@@ -76,16 +135,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LibraryHeader(
-            onSearchChanged: (v) => setState(() => _searchQuery = v),
-          ),
+          LibraryHeader(onSearchChanged: _onSearchChanged),
           LibraryFilterBar(
             selectedCategory: _filterCategory,
-            onCategoryChanged: (cat) => setState(() => _filterCategory = cat),
+            onCategoryChanged: _onCategoryChanged,
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: _isLoading 
+            child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : LibraryGrid(
                     items: _filtered,

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:quantum_forge/features/reaction_library/data/reaction_template_generator.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 
 class LibraryHeader extends StatelessWidget {
@@ -32,7 +33,9 @@ class LibraryHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${kReactionTemplates.length} curated reaction templates with embedded XYZ coordinates',
+                  '${allReactionTemplates.length} templates · '
+                  '${kReactionTemplates.length} curated from the literature, '
+                  '${allReactionTemplates.length - kReactionTemplates.length} systematic variants',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 14,

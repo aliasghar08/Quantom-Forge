@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:quantum_forge/features/reaction_library/data/reaction_template_generator.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
 import 'package:quantum_forge/core/utils/avogadro_codec.dart';
@@ -348,10 +349,26 @@ class DashboardViewModel extends ChangeNotifier {
 
     if (state['activeTemplate'] != null) {
       final tId = state['activeTemplate'] as String;
-      _activeTemplate = kReactionTemplates.firstWhere(
-        (t) => t.id == tId, 
-        orElse: () => kReactionTemplates.first
-      );
+      // Resolve against the curated set first (cheap), then fall back to the full
+      // library so a DERIVED variant still resolves. Looking only at the curated
+      // list would silently load the first unrelated reaction instead.
+      ReactionTemplate? found;
+      for (final t in kReactionTemplates) {
+        if (t.id == tId) {
+          found = t;
+          break;
+        }
+      }
+      if (found == null) {
+        // Only pay for building the generated library when actually needed.
+        for (final t in allReactionTemplates) {
+          if (t.id == tId) {
+            found = t;
+            break;
+          }
+        }
+      }
+      _activeTemplate = found ?? kReactionTemplates.first;
     }
 
     if (state['reactants'] != null) {
