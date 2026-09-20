@@ -46,3 +46,6 @@ app.*.map.json
 
 # Nested Hugging Face Space clone — has its own git repo
 /uma-backend/
+
+# Firebase CLI deploy cache — regenerated on every `firebase deploy`
+/.firebase/

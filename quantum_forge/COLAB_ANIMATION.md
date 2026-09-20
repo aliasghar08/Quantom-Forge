@@ -54,3 +54,34 @@ await tester.pump(const Duration(milliseconds: 250));   // tween advances
 
 Steps that assert the frame index read it back out of the `N / M` readout rather than
 matching a literal string, so the assertions survive changes to the surrounding copy.
+
+## Deployment
+
+The animation is live at **https://quantom-forge.web.app**, built and deployed from
+**this branch**:
+
+```powershell
+git checkout colab-animation
+cd quantum_forge
+flutter build web --release
+firebase deploy --only hosting
+```
+
+`main` deliberately does **not** contain this work, so **do not deploy from `main`** —
+that would rebuild the live site without the animation and silently revert it. If the work
+should join the mainline later, fast-forward `main` to this branch; the build output is a
+pure function of the source, so no redeploy is needed.
+
+Verify the live bundle rather than trusting the deploy status — these strings are compiled
+into `main.dart.js`:
+
+```powershell
+$js = (Invoke-WebRequest https://quantom-forge.web.app/main.dart.js).Content
+$js.Contains('pingpong')      # loop mode
+$js.Contains('Step forward')  # navigation row
+$js.Contains('ms/frame')      # frame-interval slider
+```
+
+`quantum_forge/.firebase/` holds the CLI's deploy cache. It is regenerated on every deploy,
+so it is git-ignored rather than tracked.
+
