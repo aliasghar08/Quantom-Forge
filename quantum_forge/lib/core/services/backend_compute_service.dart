@@ -179,4 +179,31 @@ class BackendComputeService {
       return BackendHealth(false, 'Cannot reach $base/health — $e');
     }
   }
+
+  // ── Hybrid UMA → DFT handoff ──────────────────────────────────────────────
+
+  /// Fetches the transition-state geometry as an XYZ document.
+  ///
+  /// The backend writes the provenance into the comment line (reaction id, UMA
+  /// barrier, max energy index), so the text is downloaded verbatim rather than
+  /// re-serialised here — re-serialising would drop that comment.
+  Future<String> exportTransitionState(String backendUrl, String reactionId) {
+    final base = _base(backendUrl);
+    return WebServices.fetchString('$base/reactions/$reactionId/export-ts');
+  }
+
+  /// Attaches a DFT refinement. Returns what the backend stored, including the
+  /// barrier it derived from the two Hartree energies.
+  Future<DftAttachment> attachDft(
+    String backendUrl,
+    String reactionId,
+    Map<String, dynamic> body,
+  ) async {
+    final base = _base(backendUrl);
+    final json = await WebServices.postJson(
+      '$base/reactions/$reactionId/attach-dft',
+      body,
+    );
+    return DftAttachment.fromJson(json);
+  }
 }

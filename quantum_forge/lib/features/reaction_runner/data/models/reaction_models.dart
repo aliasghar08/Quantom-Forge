@@ -20,6 +20,56 @@ class VibrationalMode {
   }
 }
 
+/// One DFT refinement attached to a reaction, as returned by the backend.
+///
+/// The barrier is derived server-side from the two absolute energies, so the app
+/// never repeats the Hartree conversion and cannot disagree with the API about it.
+class DftAttachment {
+  final String attachmentId;
+  final String levelOfTheory;
+  final double? tsEnergyHartree;
+  final double? reactantEnergyHartree;
+  final double? imaginaryFrequencyCm1;
+  final String notes;
+  final String? logFileName;
+  final String attachedAt;
+
+  /// (E_TS − E_reactant) in kcal/mol, computed by the backend from the Hartrees.
+  final double? barrierKcalMol;
+
+  const DftAttachment({
+    required this.attachmentId,
+    this.levelOfTheory = '',
+    this.tsEnergyHartree,
+    this.reactantEnergyHartree,
+    this.imaginaryFrequencyCm1,
+    this.notes = '',
+    this.logFileName,
+    this.attachedAt = '',
+    this.barrierKcalMol,
+  });
+
+  factory DftAttachment.fromJson(Map<String, dynamic> j) => DftAttachment(
+        attachmentId: j['attachment_id'] as String? ?? '',
+        levelOfTheory: j['level_of_theory'] as String? ?? '',
+        tsEnergyHartree: (j['ts_energy_hartree'] as num?)?.toDouble(),
+        reactantEnergyHartree: (j['reactant_energy_hartree'] as num?)?.toDouble(),
+        imaginaryFrequencyCm1: (j['imaginary_frequency_cm1'] as num?)?.toDouble(),
+        notes: j['notes'] as String? ?? '',
+        logFileName: j['log_file_name'] as String?,
+        attachedAt: j['attached_at'] as String? ?? '',
+        barrierKcalMol: (j['barrier_kcal_mol'] as num?)?.toDouble(),
+      );
+
+  /// A DFT barrier only means something when the backend could derive it, which
+  /// needs BOTH absolute energies.
+  bool get hasBarrier => barrierKcalMol != null;
+
+  /// Label to show when the user left the level of theory blank.
+  String get displayLevel =>
+      levelOfTheory.trim().isEmpty ? 'DFT (level not stated)' : levelOfTheory.trim();
+}
+
 class ReactionStatusResponse {
   final String reactionId;
   final ReactionState state;
@@ -54,6 +104,10 @@ class ReactionStatusResponse {
 
   final DateTime? createdAt;
 
+  /// DFT refinements attached to this reaction, oldest first. Empty until the user
+  /// pastes cluster output into the "Attach DFT result" panel.
+  final List<DftAttachment> dftAttachments;
+
   /// True when this result came from the ColabReaction (DMF/UMA) compute
   /// backend rather than the local illustrative simulation.
   ///
@@ -74,6 +128,7 @@ class ReactionStatusResponse {
     this.vibrationalModes,
     this.maxEnergyIndex,
     this.createdAt,
+    this.dftAttachments = const [],
     this.fromBackend = false,
   });
 
@@ -116,6 +171,10 @@ class ReactionStatusResponse {
       vibrationalModes: (json['vibrational_modes'] as List<dynamic>?)
           ?.map((e) => VibrationalMode.fromJson(e as Map<String, dynamic>))
           .toList(),
+      dftAttachments: (json['dft_attachments'] as List<dynamic>?)
+              ?.map((e) => DftAttachment.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
     );
   }

@@ -77,7 +77,8 @@ class ResultsHeaderCard extends StatelessWidget {
                     'Values are surrogate estimates (no ab initio engine) with '
                     '±1σ error bars. The energy profile carries a '
                     '±${summary.profileUncertainty.toStringAsFixed(1)} kcal·mol⁻¹ band. '
-                    'Use for planning, not publication.',
+                    'UMA is a screening method. Publication requires DFT refinement '
+                    'of TS geometries. See the Attach DFT result panel.',
                     style: TextStyle(
                       color: palette.textSecondary,
                       fontSize: 11.5,

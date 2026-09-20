@@ -36,6 +36,7 @@ import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dash
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/reaction_status_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/reaction_error_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/reaction_animation_card.dart';
+import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/dft_workflow_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/reaction_progress_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/left_nav_rail.dart';
 import 'history_screen.dart';
@@ -1452,6 +1453,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // Reaction animation card (extracted widget)
             ReactionAnimationCard(status: status),
+            const SizedBox(height: 16),
+
+            // Hybrid workflow: hand the TS to DFT and take the refinement back.
+            DftWorkflowCard(
+              status: status,
+              backendUrl: appSettings.backendUrl,
+              mlipModel: settings.mlipModel,
+              solvent: settings.solventModel,
+              onNotify: _notify,
+              onError: _showError,
+            ),
             const SizedBox(height: 16),
 
             // Vibrational Analysis Card
