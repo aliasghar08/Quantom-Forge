@@ -82,17 +82,60 @@ void main() {
           'machine-learned interatomic potential.'));
       expect(p, contains('Transition state geometries were refined at the '
           'ωB97X-D/def2-TZVP level of theory.'));
-      expect(p, contains('Single-point energies were computed at ωB97X-D/def2-TZVP.'));
       expect(p, contains('Implicit solvation was modeled with SMD '
           '(Dichloromethane).'));
 
       // The old, wrong wording must be gone.
       expect(p.contains('UMA-MLIP screening used'), isFalse);
+    });
 
-      // No unsubstituted placeholder may reach a thesis.
-      for (final ph in ['{model}', '{method}', '{solvent}',
-                        '{solvation_clause}', '{single_point_method}']) {
-        expect(p.contains(ph), isFalse, reason: ph);
+    test('includes the single-point sentence when one is supplied', () {
+      final p = buildMethodsParagraph(
+        model: 'UMA-SM',
+        method: 'ωB97X-D/def2-TZVP',
+        solvent: 'Vacuum',
+        singlePointMethod: 'DLPNO-CCSD(T)/def2-QZVP',
+      );
+      expect(p, contains('Single-point energies were computed at '
+          'DLPNO-CCSD(T)/def2-QZVP.'));
+      expect(p, contains('refined at the ωB97X-D/def2-TZVP level'));
+    });
+
+    test('OMITS the sentence when no single-point level is given', () {
+      // The rule: an absent value produces an absent sentence, never one that
+      // silently reuses the geometry level.
+      final omitted = buildMethodsParagraph(
+        model: 'UMA-SM',
+        method: 'ωB97X-D/def2-TZVP',
+        solvent: 'Vacuum',
+      );
+      expect(omitted.contains('Single-point energies'), isFalse);
+      expect(omitted, endsWith('level of theory.'));
+
+      // Whitespace is not a value either.
+      final blank = buildMethodsParagraph(
+        model: 'UMA-SM',
+        method: 'ωB97X-D/def2-TZVP',
+        solvent: 'Vacuum',
+        singlePointMethod: '   ',
+      );
+      expect(blank.contains('Single-point energies'), isFalse);
+    });
+
+    test('no placeholder survives, with or without a single-point level', () {
+      const placeholders = ['{model}', '{method}', '{solvent}',
+                            '{solvation_clause}', '{single_point_method}'];
+      final variants = [
+        buildMethodsParagraph(model: 'UMA-SM', method: 'M', solvent: 'Water'),
+        buildMethodsParagraph(
+            model: 'UMA-SM', method: 'M', solvent: 'Water',
+            singlePointMethod: 'SP'),
+        buildMethodsParagraph(model: 'UMA-SM', method: '', solvent: 'Vacuum'),
+      ];
+      for (final p in variants) {
+        for (final ph in placeholders) {
+          expect(p.contains(ph), isFalse, reason: '$ph in: $p');
+        }
       }
     });
 
@@ -100,23 +143,10 @@ void main() {
       final vacuum = buildMethodsParagraph(
           model: 'UMA-SM', method: 'B3LYP/6-31G*', solvent: 'Vacuum');
       expect(vacuum.contains('Implicit solvation'), isFalse);
-      // The sentence must still read cleanly without the clause.
-      expect(vacuum, contains('level of theory. Single-point energies'));
 
       final blank = buildMethodsParagraph(
           model: 'UMA-SM', method: 'B3LYP/6-31G*', solvent: '   ');
       expect(blank.contains('Implicit solvation'), isFalse);
-    });
-
-    test('honours a separate single-point level', () {
-      final p = buildMethodsParagraph(
-        model: 'UMA-SM',
-        method: 'ωB97X-D/def2-TZVP',
-        solvent: 'Vacuum',
-        singlePointMethod: 'DLPNO-CCSD(T)/CBS',
-      );
-      expect(p, contains('Single-point energies were computed at DLPNO-CCSD(T)/CBS.'));
-      expect(p, contains('refined at the ωB97X-D/def2-TZVP level'));
     });
 
     test('falls back to an obvious marker when the level is blank', () {

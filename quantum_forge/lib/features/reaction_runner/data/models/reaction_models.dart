@@ -32,6 +32,10 @@ class DftAttachment {
   final double? imaginaryFrequencyCm1;
   final String notes;
   final String? logFileName;
+
+  /// Level used for single-point energies when it differs from the geometry level
+  /// — the usual hybrid case. Null means no separate single-point run was done.
+  final String? singlePointMethod;
   final String attachedAt;
 
   /// (E_TS − E_reactant) in kcal/mol, computed by the backend from the Hartrees.
@@ -45,6 +49,7 @@ class DftAttachment {
     this.imaginaryFrequencyCm1,
     this.notes = '',
     this.logFileName,
+    this.singlePointMethod,
     this.attachedAt = '',
     this.barrierKcalMol,
   });
@@ -57,6 +62,7 @@ class DftAttachment {
         imaginaryFrequencyCm1: (j['imaginary_frequency_cm1'] as num?)?.toDouble(),
         notes: j['notes'] as String? ?? '',
         logFileName: j['log_file_name'] as String?,
+        singlePointMethod: j['single_point_method'] as String?,
         attachedAt: j['attached_at'] as String? ?? '',
         barrierKcalMol: (j['barrier_kcal_mol'] as num?)?.toDouble(),
       );

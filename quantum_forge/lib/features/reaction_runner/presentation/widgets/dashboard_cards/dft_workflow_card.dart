@@ -36,9 +36,14 @@ String buildMethodsParagraph({
   String? singlePointMethod,
 }) {
   final dft = method.trim().isEmpty ? '<DFT level of theory>' : method.trim();
-  final sp = (singlePointMethod?.trim().isNotEmpty ?? false)
-      ? singlePointMethod!.trim()
-      : dft;
+
+  // A separate single-point level is claimed ONLY when one was supplied. It is
+  // deliberately not defaulted to the geometry level: an absent value means no
+  // separate single-point run happened, so the sentence is omitted rather than
+  // fabricated.
+  final sp = singlePointMethod?.trim() ?? '';
+  final singlePoint =
+      sp.isEmpty ? '' : 'Single-point energies were computed at $sp.';
 
   // Solvation clause is omitted entirely when no solvent was chosen, rather than
   // emitting a sentence about vacuum "solvation".
@@ -50,10 +55,10 @@ String buildMethodsParagraph({
       ? 'Implicit solvation was modeled with SMD ($solventName). '
       : '';
 
-  return 'Screening was performed with the $model machine-learned interatomic '
-      'potential. Transition state geometries were refined at the $dft level of '
-      'theory. $solvation'
-      'Single-point energies were computed at $sp.';
+  return ('Screening was performed with the $model machine-learned interatomic '
+          'potential. Transition state geometries were refined at the $dft level '
+          'of theory. $solvation$singlePoint')
+      .trim();
 }
 
 /// Difference beyond which UMA is no longer considered reliable for a system.
@@ -160,6 +165,9 @@ class _DftWorkflowCardState extends State<DftWorkflowCard> {
       model: widget.mlipModel,
       method: attachments.last.levelOfTheory,
       solvent: widget.solvent,
+      // Null unless the user recorded a separate single-point level; the
+      // paragraph omits the sentence rather than guessing one.
+      singlePointMethod: attachments.last.singlePointMethod,
     );
     showDialog<void>(
       context: context,
@@ -415,11 +423,21 @@ class _AttachDftDialogState extends State<_AttachDftDialog> {
   final _notes = TextEditingController();
   final _logName = TextEditingController();
   final _logText = TextEditingController();
+  final _singlePoint = TextEditingController();
   String? _validation;
 
   @override
   void dispose() {
-    for (final c in [_ts, _reactant, _imaginary, _method, _notes, _logName, _logText]) {
+    for (final c in [
+      _ts,
+      _reactant,
+      _imaginary,
+      _method,
+      _notes,
+      _logName,
+      _logText,
+      _singlePoint,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -493,12 +511,15 @@ class _AttachDftDialogState extends State<_AttachDftDialog> {
       'reactant_energy_hartree': reactant,
       'imaginary_frequency_cm1': _number(_imaginary),
       'notes': _notes.text.trim(),
+      'single_point_method':
+          _singlePoint.text.trim().isEmpty ? null : _singlePoint.text.trim(),
       'log_file_name': _logName.text.trim().isEmpty ? null : _logName.text.trim(),
       'log_file_text': _logText.text.trim().isEmpty ? null : _logText.text,
     });
   }
 
-  Widget _field(TextEditingController c, String label, {String? hint, int lines = 1}) {
+  Widget _field(TextEditingController c, String label,
+      {String? hint, String? helper, int lines = 1}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
@@ -508,6 +529,8 @@ class _AttachDftDialogState extends State<_AttachDftDialog> {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
+          helperText: helper,
+          helperMaxLines: 3,
           isDense: true,
           border: const OutlineInputBorder(),
         ),
@@ -526,7 +549,19 @@ class _AttachDftDialogState extends State<_AttachDftDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _field(_method, 'DFT level of theory', hint: 'e.g. wB97X-D3/def2-TZVP'),
+              _field(_method, 'DFT level of theory', hint: 'e.g. ωB97X-D/def2-TZVP'),
+              // A separate single-point level is usually a higher level than the
+              // geometry method. Left blank it produces NO single-point sentence in
+              // the methods paragraph — the value is never defaulted to the geometry
+              // level.
+              _field(
+                _singlePoint,
+                'Single-point method (optional)',
+                hint: 'e.g. DLPNO-CCSD(T)/def2-QZVP',
+                helper: 'Leave blank if no separate single-point calculation was '
+                    'performed. This is usually a higher level than the geometry '
+                    'method.',
+              ),
               _field(_ts, 'DFT energy of TS (Hartree)', hint: '-1538.000000'),
               _field(_reactant, 'DFT energy of reactant (Hartree)', hint: '-1538.060000'),
               _field(_imaginary, 'Imaginary frequency (cm⁻¹)', hint: '-1180.0'),
