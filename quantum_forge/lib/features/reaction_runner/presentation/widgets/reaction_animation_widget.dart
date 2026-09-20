@@ -16,6 +16,7 @@
 //     a Column; each grows to its own natural height.
 // ============================================================================
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
@@ -25,6 +26,9 @@ import 'package:quantum_forge/core/utils/xyz_parser.dart';
 const double _kAtomRadiusFactor = 0.70;
 const double _kMinAtomRadius    = 7.0;
 const double _kSeparationPad    = 2.0;   // used only inside _buildAtoms offsets
+
+/// Playback direction mode, matching ColabReaction's loop selector.
+enum _LoopMode { forward, backward, pingpong }
 
 // ── Electron-transfer / mechanism overlay ──────────────────────────────────
 // Pauling electronegativities for the elements that appear in reaction
@@ -94,10 +98,23 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   bool _showEnergies = false;
   bool _showMechanism = false;
 
-  /// Playback speed multiplier for the loop. 1.0× is the base 24 s cycle;
-  /// lower values slow the (already slowed) transition-state dwell further.
-  double _speed = 1.0;
-  static const Duration _baseDuration = Duration(seconds: 24);
+  // ── Frame-based playback (mirrors ColabReaction's visualiser) ─────────────
+  // ColabReaction drives an explicit frame index at a millisecond interval with
+  // a selectable loop mode, rather than one continuous cycle. The same controls
+  // are reproduced here; the painter still consumes a normalised 0..1 coordinate,
+  // so each step is tweened across one interval instead of jumping.
+  int _frameIndex = 0;
+
+  /// Interval between frames in ms — the notebook's default is 200, bounds 10-2000.
+  int _speedMs = 200;
+  static const int _minSpeedMs = 10;
+  static const int _maxSpeedMs = 2000;
+
+  _LoopMode _loopMode = _LoopMode.forward;
+
+  /// +1 forward, -1 backward; used by the ping-pong mode.
+  int _direction = 1;
+  Timer? _ticker;
 
   // Reaction-coordinate phases. The transition-state window (t1 → t2) is the
   // widest and slowest band — it is the chemically decisive moment, so the loop
@@ -110,28 +127,116 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: _baseDuration)
-      ..repeat();
+        vsync: this, duration: Duration(milliseconds: _speedMs));
     _repaint = Listenable.merge([_ctrl, _rotNotifier]);
     _load();
+    // Frame-based playback: advance one trajectory frame every _speedMs.
+    _startTicker();
   }
 
-  /// Changes the playback speed by re-timing the repeating controller. The
-  /// normalised `value` (0..1) is preserved, so the loop position doesn't jump.
-  void _setSpeed(double speed) {
-    final clamped = speed.clamp(0.25, 3.0);
-    if ((clamped - _speed).abs() < 0.001) return;
-    final value = _ctrl.value;
-    final wasPlaying = _playing;
+  // ── Frame playback (ColabReaction-compatible) ─────────────────────────────
+
+  int get _frameCount => widget.trajectoryFrames.isEmpty
+      ? 1
+      : widget.trajectoryFrames.length;
+
+  /// Normalised painter coordinate for a frame index.
+  double _tForFrame(int index) =>
+      _frameCount <= 1 ? 0.0 : index / (_frameCount - 1);
+
+  /// Frame currently on screen, derived from the painter coordinate.
+  int get _shownFrame => _frameCount <= 1
+      ? 0
+      : (_ctrl.value * (_frameCount - 1)).round().clamp(0, _frameCount - 1);
+
+  double? get _energyAtShownFrame {
+    final ep = widget.energyProfile;
+    if (ep == null || ep.isEmpty) return null;
+    return ep[_shownFrame.clamp(0, ep.length - 1)];
+  }
+
+  double get _shownProgress =>
+      _frameCount <= 1 ? 0.0 : _shownFrame / (_frameCount - 1) * 100.0;
+
+  void _startTicker() {
+    _ticker?.cancel();
+    if (_frameCount <= 1) return;
+    _ticker = Timer.periodic(
+      Duration(milliseconds: _speedMs),
+      (_) => _advanceFrame(),
+    );
+  }
+
+  /// Moves to [index], tweening the painter across one interval so the motion
+  /// stays smooth even though the stepping itself is discrete.
+  void _gotoFrame(int index) {
+    if (!mounted) return;
+    final target = index.clamp(0, _frameCount - 1);
+    setState(() => _frameIndex = target);
+    _ctrl.animateTo(
+      _tForFrame(target),
+      duration: Duration(milliseconds: _speedMs),
+      curve: Curves.linear,
+    );
+  }
+
+  void _advanceFrame() {
+    if (!mounted || !_playing) return;
+    final last = _frameCount - 1;
+    var next = _frameIndex + _direction;
+
+    if (next > last) {
+      switch (_loopMode) {
+        case _LoopMode.forward:
+          next = 0;
+        case _LoopMode.backward:
+          _direction = -1;
+          next = last - 1;
+        case _LoopMode.pingpong:
+          _direction = -1;
+          next = last - 1;
+      }
+    } else if (next < 0) {
+      switch (_loopMode) {
+        case _LoopMode.forward:
+          _direction = 1;
+          next = 0;
+        case _LoopMode.backward:
+          next = last;
+        case _LoopMode.pingpong:
+          _direction = 1;
+          next = 1;
+      }
+    }
+    _gotoFrame(next);
+  }
+
+  void _play() {
+    setState(() => _playing = true);
+    _startTicker();
+  }
+
+  /// Stops immediately and holds the current frame — the notebook's
+  /// stopAnimationImmediate() behaviour.
+  void _stop() {
+    _ticker?.cancel();
     _ctrl.stop();
+    setState(() => _playing = false);
+  }
+
+  void _setSpeedMs(double ms) {
+    final clamped = ms.round().clamp(_minSpeedMs, _maxSpeedMs);
+    if (clamped == _speedMs) return;
+    setState(() => _speedMs = clamped);
+    if (_playing) _startTicker(); // re-time the running loop
+  }
+
+  void _setLoopMode(_LoopMode mode) {
     setState(() {
-      _speed = clamped;
-      _ctrl.duration = Duration(
-        milliseconds: (_baseDuration.inMilliseconds / clamped).round(),
-      );
-      _ctrl.value = value;
+      _loopMode = mode;
+      if (mode == _LoopMode.backward) _direction = -1;
+      if (mode == _LoopMode.forward) _direction = 1;
     });
-    if (wasPlaying) _ctrl.repeat();
   }
 
   @override
@@ -142,6 +247,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
 
   @override
   void dispose() {
+    _ticker?.cancel();
     _ctrl.dispose();
     _rotNotifier.dispose();
     super.dispose();
@@ -288,8 +394,11 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
         children: [
           _buildHeader(),
           AspectRatio(aspectRatio: 1.2, child: _buildCanvas()),
+          _buildFrameInfo(),
           _buildTimeline(),
+          _buildTransportControls(),
           _buildSpeedControl(),
+          _buildLoopControl(),
           _buildSlider(),
         ],
       ),
@@ -350,12 +459,11 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
                   style: const TextStyle(color: Colors.white54, fontSize: 10)),
             ),
             const SizedBox(width: 6),
-            _btn(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded, () {
-              setState(() {
-                _playing = !_playing;
-                _playing ? _ctrl.repeat() : _ctrl.stop();
-              });
-            }),
+            _btn(
+              _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              () => _playing ? _stop() : _play(),
+              tooltip: _playing ? 'Stop' : 'Play',
+            ),
             const SizedBox(width: 4),
             _btn(_showEnergies ? Icons.link : Icons.link_off, () {
               setState(() => _showEnergies = !_showEnergies);
@@ -366,10 +474,10 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
             }, tooltip: 'Toggle electron flow / mechanism'),
             const SizedBox(width: 4),
             _btn(Icons.replay_rounded, () {
-              _ctrl.reset();
-              _ctrl.repeat();
-              setState(() => _playing = true);
-            }),
+              _direction = _loopMode == _LoopMode.backward ? -1 : 1;
+              _gotoFrame(0);
+              _play();
+            }, tooltip: 'Restart from frame 0'),
           ],
         ),
       ),
@@ -468,8 +576,145 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     );
   }
 
-  /// Playback-speed slider: 0.25× → 3.0×. Slower settings make the
-  /// transition-state dwell even longer; faster is for skimming a trajectory.
+  /// Frame readout — the same information the notebook's "Current Frame
+  /// Information" panel carries: index, energy, progress, state, speed, loop.
+  Widget _buildFrameInfo() {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (ctx, _) {
+        final energy = _energyAtShownFrame;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4FC3F7).withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: const Color(0xFF4FC3F7).withValues(alpha: 0.25)),
+            ),
+            child: Wrap(
+              spacing: 18,
+              runSpacing: 6,
+              children: [
+                _infoItem('Frame', '$_shownFrame / ${_frameCount - 1}'),
+                if (energy != null)
+                  _infoItem('Energy', '${energy.toStringAsFixed(2)} kcal·mol⁻¹'),
+                _infoItem('Progress', '${_shownProgress.toStringAsFixed(1)}%'),
+                _infoItem('Status', _playing ? 'Playing' : 'Stopped'),
+                _infoItem('Speed', '$_speedMs ms'),
+                _infoItem('Loop', _loopMode.name),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _infoItem(String label, String value) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Text('$label: ',
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.45), fontSize: 10)),
+      Text(value,
+          style: const TextStyle(
+              color: Color(0xFF4FC3F7),
+              fontSize: 10,
+              fontWeight: FontWeight.w600)),
+    ]);
+  }
+
+  /// Start / step back / step forward / end — the notebook's navigation row.
+  Widget _buildTransportControls() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+      child: Row(
+        children: [
+          _navBtn('⏮', 'First frame', () => _gotoFrame(0)),
+          const SizedBox(width: 6),
+          _navBtn('⏪', 'Step back', () => _gotoFrame(_shownFrame - 1)),
+          const SizedBox(width: 6),
+          _navBtn('⏩', 'Step forward', () => _gotoFrame(_shownFrame + 1)),
+          const SizedBox(width: 6),
+          _navBtn('⏭', 'Last frame', () => _gotoFrame(_frameCount - 1)),
+        ],
+      ),
+    );
+  }
+
+  Widget _navBtn(String glyph, String tooltip, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          child: Text(glyph,
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        ),
+      ),
+    );
+  }
+
+  /// Loop mode: forward / backward / pingpong, as in the notebook.
+  Widget _buildLoopControl() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Row(
+        children: [
+          const Icon(Icons.loop, size: 15, color: Colors.white54),
+          const SizedBox(width: 6),
+          const Text('Loop',
+              style: TextStyle(color: Colors.white54, fontSize: 11)),
+          const SizedBox(width: 10),
+          for (final mode in _LoopMode.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _loopChip(mode),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _loopChip(_LoopMode mode) {
+    final active = _loopMode == mode;
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => _setLoopMode(mode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: active
+              ? const Color(0xFF4FC3F7).withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: active
+                  ? const Color(0xFF4FC3F7).withValues(alpha: 0.6)
+                  : Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: Text(
+          mode.name,
+          style: TextStyle(
+            color: active ? const Color(0xFF4FC3F7) : Colors.white54,
+            fontSize: 10,
+            fontWeight: active ? FontWeight.w700 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Frame interval in milliseconds. The notebook exposes 10 ms (ultra fast) to
+  /// 2000 ms (very slow) and defaults to 200 ms.
   Widget _buildSpeedControl() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -492,19 +737,19 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
                     const RoundSliderOverlayShape(overlayRadius: 12),
               ),
               child: Slider(
-                value: _speed,
-                min: 0.25,
-                max: 3.0,
-                divisions: 11,
-                label: '${_speed.toStringAsFixed(2)}×',
-                onChanged: _setSpeed,
+                value: _speedMs.toDouble(),
+                min: _minSpeedMs.toDouble(),
+                max: _maxSpeedMs.toDouble(),
+                divisions: (_maxSpeedMs - _minSpeedMs) ~/ 10,
+                label: '$_speedMs ms/frame',
+                onChanged: _setSpeedMs,
               ),
             ),
           ),
           SizedBox(
-            width: 40,
+            width: 76,
             child: Text(
-              '${_speed.toStringAsFixed(2)}×',
+              '$_speedMs ms',
               textAlign: TextAlign.right,
               style: const TextStyle(
                 color: Color(0xFF4FC3F7),
@@ -538,16 +783,17 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
             child: Slider(
               value: _ctrl.value,
               onChanged: (val) {
-                if (_playing) {
-                  setState(() {
-                    _playing = false;
-                    _ctrl.stop();
-                  });
-                }
+                // Scrubbing takes over playback and keeps _frameIndex in sync, so
+                // the step buttons resume from wherever the user let go.
+                if (_playing) _stop();
                 if (_isRendering) return;
                 _isRendering = true;
 
-                _ctrl.value = val;
+                final frame = _frameCount <= 1
+                    ? 0
+                    : (val * (_frameCount - 1)).round();
+                setState(() => _frameIndex = frame);
+                _ctrl.value = _tForFrame(frame);
 
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _isRendering = false;

@@ -69,7 +69,8 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('exposes a playback-speed slider', (tester) async {
+  testWidgets('exposes the ColabReaction-style playback controls',
+      (tester) async {
     tester.view.physicalSize = const Size(1280, 1100);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -89,11 +90,114 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 50));
 
-    // The speed control renders alongside the position scrubber (two sliders).
+    // Speed is a per-frame interval (not a multiplier), matching the notebook:
+    // default 200 ms, bounds 10-2000 ms.
     expect(find.text('Speed'), findsOneWidget);
+    expect(find.text('200 ms'), findsWidgets);
+
+    // Position scrubber + speed slider.
     expect(find.byType(Slider), findsNWidgets(2));
-    // Default speed label.
-    expect(find.text('1.00×'), findsOneWidget);
+
+    // The frame readout carries the same fields as the notebook's
+    // "Current Frame Information" panel.
+    expect(find.text('Frame: '), findsOneWidget);
+    expect(find.text('Energy: '), findsOneWidget);
+    expect(find.text('Progress: '), findsOneWidget);
+    expect(find.text('Status: '), findsOneWidget);
+    expect(find.text('Speed: '), findsOneWidget);
+    expect(find.text('Loop: '), findsOneWidget);
+
+    // Starts on the first of three frames.
+    expect(find.text('0 / 2'), findsOneWidget);
+
+    // Navigation row.
+    expect(find.byTooltip('First frame'), findsOneWidget);
+    expect(find.byTooltip('Step back'), findsOneWidget);
+    expect(find.byTooltip('Step forward'), findsOneWidget);
+    expect(find.byTooltip('Last frame'), findsOneWidget);
+
+    // Loop modes (each appears as a chip AND as the readout value).
+    expect(find.text('forward'), findsWidgets);
+    expect(find.text('backward'), findsWidgets);
+    expect(find.text('pingpong'), findsWidgets);
+
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('steps frame-by-frame and holds position when stopped',
+      (tester) async {
+    tester.view.physicalSize = const Size(1280, 1100);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: const ReactionAnimationWidget(
+              trajectoryFrames: [_frameR, _frameTS, _frameP],
+              energyProfile: [0.0, 5.2, -2.1],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // Stop first: while playing, the frame ticker keeps scheduling and the tree
+    // never settles.
+    await tester.tap(find.byTooltip('Stop'));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Stopped'), findsOneWidget);
+
+    // The transport row sits below a tall canvas inside a nested scroll view, so
+    // a synthesised tap can miss it entirely. Invoke the button's callback
+    // directly to exercise the frame-stepping logic itself.
+    Future<void> tapControl(String tooltip) async {
+      final inkWell = tester.widget<InkWell>(
+        find.descendant(of: find.byTooltip(tooltip), matching: find.byType(InkWell)),
+      );
+      inkWell.onTap!();
+      // A freshly scheduled ticker takes its first tick at elapsed 0, so the
+      // tween only advances on the pump AFTER that.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    // Read the frame index straight out of the "N / M" readout.
+    int frameIndexNow() {
+      final finder = find.byWidgetPredicate((w) =>
+          w is Text &&
+          w.data != null &&
+          RegExp(r'^\d+ / \d+$').hasMatch(w.data!));
+      final data = tester.widget<Text>(finder.first).data!;
+      return int.parse(data.split('/').first.trim());
+    }
+
+    await tapControl('First frame');
+    expect(frameIndexNow(), 0);
+
+    await tapControl('Step forward');
+    expect(frameIndexNow(), 1);
+
+    // The middle frame carries the 5.2 kcal/mol reference energy.
+    expect(find.text('5.20 kcal·mol⁻¹'), findsOneWidget);
+
+    await tapControl('Last frame');
+    expect(frameIndexNow(), 2);
+
+    // Stepping past the end must clamp, not wrap.
+    await tapControl('Step forward');
+    expect(frameIndexNow(), 2);
+
+    // Stepping back from the first frame must clamp too.
+    await tapControl('First frame');
+    await tapControl('Step back');
+    expect(frameIndexNow(), 0);
+
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
