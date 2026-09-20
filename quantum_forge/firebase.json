@@ -1,1 +1,90 @@
-{"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"quantom-forge","appId":"1:227207155336:android:5e88f11d1c63967fbd993d","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"quantom-forge","configurations":{"android":"1:227207155336:android:5e88f11d1c63967fbd993d","ios":"1:227207155336:ios:b88e726cf5a37253bd993d","macos":"1:227207155336:ios:b88e726cf5a37253bd993d","web":"1:227207155336:web:6e8f49a3a0ac4241bd993d","windows":"1:227207155336:web:a06476d3c580d33cbd993d"}}}}},"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "quantom-forge",
+          "appId": "1:227207155336:android:5e88f11d1c63967fbd993d",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "quantom-forge",
+          "configurations": {
+            "android": "1:227207155336:android:5e88f11d1c63967fbd993d",
+            "ios": "1:227207155336:ios:b88e726cf5a37253bd993d",
+            "macos": "1:227207155336:ios:b88e726cf5a37253bd993d",
+            "web": "1:227207155336:web:6e8f49a3a0ac4241bd993d",
+            "windows": "1:227207155336:web:a06476d3c580d33cbd993d"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/index.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/flutter_service_worker.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/flutter_bootstrap.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/version.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/main.dart.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
+    ]
+  }
+}
