@@ -378,7 +378,9 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
       final result = await _backend.poll(url, reactionId);
       _isLoading = false;
       if (result.state == ReactionState.error) {
-        _error = result.message ?? 'Backend optimisation failed.';
+        // The backend's own reason is the useful one; `message` is the generic
+        // "DMF/UMA optimisation failed." line.
+        _error = result.error ?? result.message ?? 'Backend optimisation failed.';
       }
       value = result;
       notifyListeners();

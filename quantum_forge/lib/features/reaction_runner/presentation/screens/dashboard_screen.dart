@@ -56,6 +56,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late DashboardViewModel _viewModel;
   int? _selectedFrameIndex;
 
+  /// Reaction whose fallback-data warning has already been shown, so the SnackBar
+  /// fires once per result instead of on every rebuild.
+  String? _warnedFallbackFor;
+
   /// Set when a deep link arrived but auto-load is disabled (or was rejected),
   /// so the user still gets told what happened instead of silence.
   AvogadroDeepLink? _pendingLink;
@@ -1104,6 +1108,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ));
   }
 
+  /// Warning-toned SnackBar, used to flag fallback (non-UMA) data.
+  ///
+  /// Distinct from [_notify] on purpose: this one has to be noticed, so it carries
+  /// an icon, the theme's warning colour and a longer dwell.
+  void _warn(String msg) {
+    if (!mounted) return;
+    final palette = context.read<ThemeNotifier>().palette;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: palette.warning, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(msg)),
+          ],
+        ),
+        backgroundColor: palette.warning.withValues(alpha: 0.18),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 10),
+      ));
+  }
+
   /// Writes the converged structure (final frame) to a file.
   ///
   /// The old "Export Results (.zip)" button called a web stub that returned a
@@ -1272,9 +1299,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final energyProfile = status.energyProfile ?? [];
 
+    // The backend reports the highest-energy image it actually solved for, so
+    // prefer that over re-deriving the transition state here.
     if (_selectedFrameIndex == null && energyProfile.isNotEmpty) {
-      final maxE = energyProfile.reduce((a, b) => a > b ? a : b);
-      _selectedFrameIndex = energyProfile.indexWhere((e) => e == maxE);
+      final backendTs = status.maxEnergyIndex;
+      _selectedFrameIndex =
+          (backendTs != null && backendTs >= 0 && backendTs < energyProfile.length)
+              ? backendTs
+              : energyProfile
+                  .indexWhere((e) => e == energyProfile.reduce((a, b) => a > b ? a : b));
+    }
+
+    // Tell the user, once per reaction, exactly which numbers are not UMA output.
+    if (status.reactionId.isNotEmpty && _warnedFallbackFor != status.reactionId) {
+      _warnedFallbackFor = status.reactionId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _warn(fallbackDataWarning(fromBackend: status.fromBackend));
+        }
+      });
     }
 
     return ValueListenableBuilder<QuantumSettings>(

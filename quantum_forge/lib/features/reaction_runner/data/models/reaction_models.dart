@@ -25,9 +25,33 @@ class ReactionStatusResponse {
   final ReactionState state;
   final double progress;
   final String? message;
+
+  /// The backend's own failure reason, kept separate from [message].
+  ///
+  /// The API returns both: `message` is the generic "DMF/UMA optimisation failed."
+  /// and `error` carries the real cause ("ase.io.extxyz: Frame has 1 atoms…").
+  /// Merging them — as this did — made the generic string win and discarded the
+  /// only useful line.
+  final String? error;
+
   final List<double>? energyProfile;
+
+  /// Absolute potential energies from the UMA model, in eV.
+  ///
+  /// The backend has always returned these; the app discarded them. They are the
+  /// model's own numbers (relative profile is derived from them), so they are kept
+  /// and shown rather than recomputed.
+  final List<double>? energyProfileEv;
+
   final List<String>? trajectoryFrames;
   final List<VibrationalMode>? vibrationalModes;
+
+  /// Index of the highest-energy image, computed by DMF on the optimised path.
+  ///
+  /// Authoritative: the app previously re-derived the transition state by scanning
+  /// the profile for its maximum, which can disagree with the solver.
+  final int? maxEnergyIndex;
+
   final DateTime? createdAt;
 
   /// True when this result came from the ColabReaction (DMF/UMA) compute
@@ -43,9 +67,12 @@ class ReactionStatusResponse {
     required this.state,
     required this.progress,
     this.message,
+    this.error,
     this.energyProfile,
+    this.energyProfileEv,
     this.trajectoryFrames,
     this.vibrationalModes,
+    this.maxEnergyIndex,
     this.createdAt,
     this.fromBackend = false,
   });
@@ -75,9 +102,14 @@ class ReactionStatusResponse {
       state: parseState(json['state'] as String),
       progress: (json['progress'] as num).toDouble(),
       message: json['message'] as String?,
+      error: json['error'] as String?,
       energyProfile: (json['energy_profile'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
+      energyProfileEv: (json['energy_profile_ev'] as List<dynamic>?)
+          ?.map((e) => (e as num).toDouble())
+          .toList(),
+      maxEnergyIndex: (json['max_energy_index'] as num?)?.toInt(),
       trajectoryFrames: (json['trajectory_frames'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),

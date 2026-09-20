@@ -203,6 +203,25 @@ const double _h = 6.62607015e-34; // J·s
 const double _gasConstant = 8.314462618; // J/mol·K
 const double _kcalToJ = 4184.0;
 
+/// Names which displayed values are **not** from the UMA model.
+///
+/// Kept beside the surrogate model it describes so the wording cannot drift from
+/// the metrics. The backend returns geometry, energies and imaginary frequencies
+/// computed by DMF/UMA; everything thermodynamic or kinetic below is still
+/// produced in-app, and the user has to be told which is which rather than being
+/// left to assume the whole panel is computed.
+String fallbackDataWarning({required bool fromBackend}) {
+  const estimated = 'ΔG‡, ΔS‡, ZPE, rate constant, Arrhenius fit, dipole, '
+      'HOMO–LUMO gap, polarizability, RMS gradient and partition function';
+
+  if (!fromBackend) {
+    return 'Fallback data — no UMA backend was used, so every value on this panel '
+        '(geometry, energies, $estimated) is a local illustrative estimate.';
+  }
+  return 'From UMA: geometry, relative and absolute energies, and the imaginary '
+      'frequency. Still estimated in-app, NOT from the model: $estimated.';
+}
+
 /// Computes the full, uncertainty-aware results summary for the given settings
 /// and energy profile.
 ///

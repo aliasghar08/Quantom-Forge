@@ -129,11 +129,19 @@ class BackendComputeService {
       reactionId: json['reaction_id'] as String? ?? '',
       state: state,
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
-      message: json['message'] as String? ?? json['error'] as String?,
+      message: json['message'] as String?,
+      // Kept separate: collapsing this into `message` let the generic
+      // "DMF/UMA optimisation failed." shadow the actual cause.
+      error: json['error'] as String?,
       fromBackend: true,
       energyProfile: (json['energy_profile'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
+      // Both of these have always been in the API response and were being dropped.
+      energyProfileEv: (json['energy_profile_ev'] as List<dynamic>?)
+          ?.map((e) => (e as num).toDouble())
+          .toList(),
+      maxEnergyIndex: (json['max_energy_index'] as num?)?.toInt(),
       trajectoryFrames: (json['trajectory_frames'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),

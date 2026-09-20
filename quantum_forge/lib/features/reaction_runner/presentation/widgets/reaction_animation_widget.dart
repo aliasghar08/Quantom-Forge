@@ -68,10 +68,26 @@ class ReactionAnimationWidget extends StatefulWidget {
   final List<String> trajectoryFrames;
   final List<double>? energyProfile;
 
+  /// Absolute potential energies straight from the UMA model, in eV. Shown in the
+  /// readout rather than discarded.
+  final List<double>? energyProfileEv;
+
+  /// Highest-energy image index as computed by DMF on the optimised path. When
+  /// present it is authoritative, so the transition state is not guessed at by
+  /// scanning the profile.
+  final int? maxEnergyIndex;
+
+  /// Explicit per-frame interval in ms, overriding the derived default. The
+  /// template preview uses this to read slower than a 3-frame path otherwise would.
+  final int? speedMsOverride;
+
   const ReactionAnimationWidget({
     super.key,
     required this.trajectoryFrames,
     this.energyProfile,
+    this.energyProfileEv,
+    this.maxEnergyIndex,
+    this.speedMsOverride,
   });
 
   /// Per-frame interval bounds, in milliseconds.
@@ -134,8 +150,16 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   /// True once the user moves the slider — suppresses re-deriving the default.
   bool _speedUserSet = false;
 
-  int _deriveDefaultSpeed() =>
-      ReactionAnimationWidget.defaultSpeedMsFor(_frameCount);
+  int _deriveDefaultSpeed() {
+    final override = widget.speedMsOverride;
+    if (override != null) {
+      return override.clamp(
+        ReactionAnimationWidget._minSpeedMs,
+        ReactionAnimationWidget._maxSpeedMs,
+      );
+    }
+    return ReactionAnimationWidget.defaultSpeedMsFor(_frameCount);
+  }
 
   _LoopMode _loopMode = _LoopMode.forward;
 
@@ -181,6 +205,13 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     final ep = widget.energyProfile;
     if (ep == null || ep.isEmpty) return null;
     return ep[_shownFrame.clamp(0, ep.length - 1)];
+  }
+
+  /// Absolute UMA energy (eV) at the shown frame, when the backend supplied it.
+  double? get _absEnergyAtShownFrame {
+    final ev = widget.energyProfileEv;
+    if (ev == null || ev.isEmpty) return null;
+    return ev[_shownFrame.clamp(0, ev.length - 1)];
   }
 
   double get _shownProgress =>
@@ -296,14 +327,16 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   @override
   void didUpdateWidget(covariant ReactionAnimationWidget old) {
     super.didUpdateWidget(old);
-    if (old.trajectoryFrames != widget.trajectoryFrames) {
-      // A different trajectory wants its own default pace, unless the user has
-      // already dialled in a speed they like.
+    final framesChanged = old.trajectoryFrames != widget.trajectoryFrames;
+    final overrideChanged = old.speedMsOverride != widget.speedMsOverride;
+    if (framesChanged || overrideChanged) {
+      // A different trajectory (or an explicit pace) wants its own default,
+      // unless the user has already dialled in a speed they like.
       if (!_speedUserSet) {
         _speedMs = _deriveDefaultSpeed();
         if (_playing) _startTicker();
       }
-      _load();
+      if (framesChanged) _load();
     }
   }
 
@@ -319,12 +352,24 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     final frames = widget.trajectoryFrames;
     if (frames.length < 3) return;
 
-    int tsIdx = frames.length ~/ 2;
-    final ep = widget.energyProfile;
-    if (ep != null && ep.length == frames.length) {
-      double maxE = double.negativeInfinity;
-      for (int i = 0; i < ep.length; i++) {
-        if (ep[i] > maxE) { maxE = ep[i]; tsIdx = i; }
+    // Prefer the index DMF computed on the optimised path; only fall back to
+    // scanning the profile when the backend supplied no index (e.g. the local
+    // simulation), because the two can disagree.
+    final backendTs = widget.maxEnergyIndex;
+    int tsIdx;
+    if (backendTs != null && backendTs >= 0 && backendTs < frames.length) {
+      tsIdx = backendTs;
+    } else {
+      tsIdx = frames.length ~/ 2;
+      final ep = widget.energyProfile;
+      if (ep != null && ep.length == frames.length) {
+        double maxE = double.negativeInfinity;
+        for (int i = 0; i < ep.length; i++) {
+          if (ep[i] > maxE) {
+            maxE = ep[i];
+            tsIdx = i;
+          }
+        }
       }
     }
 
@@ -645,6 +690,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
       animation: _ctrl,
       builder: (ctx, _) {
         final energy = _energyAtShownFrame;
+        final absEnergy = _absEnergyAtShownFrame;
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
           child: Container(
@@ -662,6 +708,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
                 _infoItem('Frame', '$_shownFrame / ${_frameCount - 1}'),
                 if (energy != null)
                   _infoItem('Energy', '${energy.toStringAsFixed(2)} kcal·mol⁻¹'),
+                if (absEnergy != null)
+                  _infoItem('UMA E', '${absEnergy.toStringAsFixed(4)} eV'),
                 _infoItem('Progress', '${_shownProgress.toStringAsFixed(1)}%'),
                 _infoItem('Status', _playing ? 'Playing' : 'Stopped'),
                 _infoItem('Speed', '$_speedMs ms/frame'),
