@@ -17,7 +17,7 @@ The notebook uses `panel_3dmol.Mol3DViewer` plus `param` for its controls.
 | ColabReaction | Quantum Forge |
 |---|---|
 | `current_frame = param.Integer(0, bounds=(0, n-1))` | `_frameIndex`, clamped to the trajectory length |
-| `animation_speed = param.Integer(200, bounds=(10, 2000))` | speed slider in **ms per frame**, 10–2000, default 200 |
+| `animation_speed = param.Integer(200, bounds=(10, 2000))` | speed slider in **ms per frame**, 50–4000, default **derived** (see below) |
 | `loop_mode = param.Selector('forward', ['forward','backward','pingpong'])` | loop chips: `forward` / `backward` / `pingpong` |
 | `Mol3DViewer(animate=False, current_frame=0, total_frames=n)` | starts at frame 0, driven by `_startTicker()` |
 | `mol_viewer.addFrames(xyz_frames, 'xyz')` | trajectory frames parsed from the API response or bundled XYZ |
@@ -39,17 +39,27 @@ The notebook uses `panel_3dmol.Mol3DViewer` plus `param` for its controls.
   at the transition state. Uniform frame stepping — what the notebook does — removes that.
   The phase band labels (*Approach → Transition State → Separation → Products*) still track
   position, so the TS is still called out; it simply is not slowed down.
+- **Speed scale.** The notebook's fixed 200 ms over 10–2000 ms is far too fast for this
+  renderer: a 12-frame path looped in **2.4 s**, against the 24 s cycle the app used before.
+  So the default is *derived* from the frame count to target a ≈18 s cycle
+  (`ReactionAnimationWidget.defaultSpeedMsFor`), the range is widened to **50–4000 ms**, and
+  the slider is mapped **logarithmically** so the useful slow end is not crammed into the
+  last sliver of the track. The readout reports the resulting cycle time next to ms/frame,
+  because cycle duration is what actually reads as "speed". Once the user moves the slider,
+  the derived default is no longer applied to that widget.
 
 ## Testing note
 
 A freshly scheduled ticker takes its **first tick at elapsed 0**, so a single
 `pump(duration)` leaves a tween at its starting value. Frame-stepping tests must pump
-twice:
+twice, and the second pump must cover the *actual* interval — now derived, so a fixed
+value no longer completes the tween:
 
 ```dart
+final stepMs = ReactionAnimationWidget.defaultSpeedMsFor(3);
 inkWell.onTap!();
-await tester.pump();                                    // ticker starts
-await tester.pump(const Duration(milliseconds: 250));   // tween advances
+await tester.pump();                                          // ticker starts
+await tester.pump(Duration(milliseconds: stepMs + 50));       // tween advances
 ```
 
 Steps that assert the frame index read it back out of the `N / M` readout rather than

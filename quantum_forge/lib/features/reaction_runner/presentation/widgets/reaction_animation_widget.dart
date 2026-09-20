@@ -74,6 +74,28 @@ class ReactionAnimationWidget extends StatefulWidget {
     this.energyProfile,
   });
 
+  /// Per-frame interval bounds, in milliseconds.
+  ///
+  /// ColabReaction uses a fixed 200 ms over 10–2000 ms, which is far too fast for
+  /// this renderer: a 12-frame path looped in 2.4 s, against the 24 s cycle the
+  /// app used before. The range is widened at the slow end so a comfortable pace
+  /// is actually reachable.
+  static const int _minSpeedMs = 50;
+  static const int _maxSpeedMs = 4000;
+
+  /// A full pass through the trajectory should take roughly this long, whatever
+  /// the frame count.
+  static const int _targetCycleMs = 18000;
+
+  /// Default per-frame interval for a trajectory of [frameCount] frames.
+  ///
+  /// Derived rather than fixed so a 5-frame and a 40-frame path both loop in about
+  /// [_targetCycleMs]; a constant ms-per-frame makes short paths flicker past.
+  static int defaultSpeedMsFor(int frameCount) {
+    if (frameCount <= 1) return _minSpeedMs;
+    return (_targetCycleMs / frameCount).round().clamp(_minSpeedMs, _maxSpeedMs);
+  }
+
   @override
   State<ReactionAnimationWidget> createState() =>
       _ReactionAnimationWidgetState();
@@ -105,10 +127,15 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   // so each step is tweened across one interval instead of jumping.
   int _frameIndex = 0;
 
-  /// Interval between frames in ms — the notebook's default is 200, bounds 10-2000.
-  int _speedMs = 200;
-  static const int _minSpeedMs = 10;
-  static const int _maxSpeedMs = 2000;
+  /// Interval between frames, in milliseconds. Derived on load — see
+  /// [ReactionAnimationWidget.defaultSpeedMsFor].
+  int _speedMs = 600;
+
+  /// True once the user moves the slider — suppresses re-deriving the default.
+  bool _speedUserSet = false;
+
+  int _deriveDefaultSpeed() =>
+      ReactionAnimationWidget.defaultSpeedMsFor(_frameCount);
 
   _LoopMode _loopMode = _LoopMode.forward;
 
@@ -126,6 +153,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   @override
   void initState() {
     super.initState();
+    _speedMs = _deriveDefaultSpeed();
     _ctrl = AnimationController(
         vsync: this, duration: Duration(milliseconds: _speedMs));
     _repaint = Listenable.merge([_ctrl, _rotNotifier]);
@@ -224,12 +252,38 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     setState(() => _playing = false);
   }
 
+  /// Slider position (0..1) for the current interval.
+  ///
+  /// Mapped logarithmically: on a linear 50–4000 ms track the whole useful slow
+  /// range would be crammed into the last sliver and the fast end would dominate.
+  double get _speedSliderValue {
+    final lo = math.log(ReactionAnimationWidget._minSpeedMs.toDouble());
+    final hi = math.log(ReactionAnimationWidget._maxSpeedMs.toDouble());
+    return ((math.log(_speedMs.toDouble()) - lo) / (hi - lo)).clamp(0.0, 1.0);
+  }
+
+  void _setSpeedFromSlider(double t) {
+    final lo = math.log(ReactionAnimationWidget._minSpeedMs.toDouble());
+    final hi = math.log(ReactionAnimationWidget._maxSpeedMs.toDouble());
+    _setSpeedMs(math.exp(lo + (hi - lo) * t.clamp(0.0, 1.0)));
+  }
+
   void _setSpeedMs(double ms) {
-    final clamped = ms.round().clamp(_minSpeedMs, _maxSpeedMs);
+    final clamped = ms
+        .round()
+        .clamp(ReactionAnimationWidget._minSpeedMs,
+            ReactionAnimationWidget._maxSpeedMs);
+    // Once the user touches the slider, stop re-deriving the default for them.
+    _speedUserSet = true;
     if (clamped == _speedMs) return;
     setState(() => _speedMs = clamped);
     if (_playing) _startTicker(); // re-time the running loop
   }
+
+  /// Wall-clock duration of one full pass — the number that actually reads as
+  /// "speed" to a user.
+  String get _cycleLabel =>
+      '${(_frameCount * _speedMs / 1000).toStringAsFixed(1)} s';
 
   void _setLoopMode(_LoopMode mode) {
     setState(() {
@@ -242,7 +296,15 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
   @override
   void didUpdateWidget(covariant ReactionAnimationWidget old) {
     super.didUpdateWidget(old);
-    if (old.trajectoryFrames != widget.trajectoryFrames) _load();
+    if (old.trajectoryFrames != widget.trajectoryFrames) {
+      // A different trajectory wants its own default pace, unless the user has
+      // already dialled in a speed they like.
+      if (!_speedUserSet) {
+        _speedMs = _deriveDefaultSpeed();
+        if (_playing) _startTicker();
+      }
+      _load();
+    }
   }
 
   @override
@@ -602,7 +664,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
                   _infoItem('Energy', '${energy.toStringAsFixed(2)} kcal·mol⁻¹'),
                 _infoItem('Progress', '${_shownProgress.toStringAsFixed(1)}%'),
                 _infoItem('Status', _playing ? 'Playing' : 'Stopped'),
-                _infoItem('Speed', '$_speedMs ms'),
+                _infoItem('Speed', '$_speedMs ms/frame'),
+                _infoItem('Cycle', _cycleLabel),
                 _infoItem('Loop', _loopMode.name),
               ],
             ),
@@ -737,12 +800,11 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
                     const RoundSliderOverlayShape(overlayRadius: 12),
               ),
               child: Slider(
-                value: _speedMs.toDouble(),
-                min: _minSpeedMs.toDouble(),
-                max: _maxSpeedMs.toDouble(),
-                divisions: (_maxSpeedMs - _minSpeedMs) ~/ 10,
+                value: _speedSliderValue,
+                min: 0.0,
+                max: 1.0,
                 label: '$_speedMs ms/frame',
-                onChanged: _setSpeedMs,
+                onChanged: _setSpeedFromSlider,
               ),
             ),
           ),

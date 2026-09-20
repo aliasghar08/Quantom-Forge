@@ -90,10 +90,19 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 50));
 
-    // Speed is a per-frame interval (not a multiplier), matching the notebook:
-    // default 200 ms, bounds 10-2000 ms.
+    // Speed is a per-frame interval, but derived from a target cycle duration
+    // rather than the notebook's fixed 200 ms — at 3 frames that looped in 0.6 s.
     expect(find.text('Speed'), findsOneWidget);
-    expect(find.text('200 ms'), findsWidgets);
+    final expectedMs = ReactionAnimationWidget.defaultSpeedMsFor(3);
+    expect(expectedMs, greaterThanOrEqualTo(1000),
+        reason: 'the default must not be as fast as the notebook 200 ms');
+    expect(find.text('$expectedMs ms/frame'), findsOneWidget);
+
+    // The readout also reports the resulting cycle time, which is what a user
+    // actually perceives as speed.
+    expect(find.text('Cycle: '), findsOneWidget);
+    expect(find.text('${(3 * expectedMs / 1000).toStringAsFixed(1)} s'),
+        findsOneWidget);
 
     // Position scrubber + speed slider.
     expect(find.byType(Slider), findsNWidgets(2));
@@ -156,6 +165,9 @@ void main() {
     // The transport row sits below a tall canvas inside a nested scroll view, so
     // a synthesised tap can miss it entirely. Invoke the button's callback
     // directly to exercise the frame-stepping logic itself.
+    // The default interval is derived from the frame count, so the tween must be
+    // given its full duration for the frame index to land.
+    final stepMs = ReactionAnimationWidget.defaultSpeedMsFor(3);
     Future<void> tapControl(String tooltip) async {
       final inkWell = tester.widget<InkWell>(
         find.descendant(of: find.byTooltip(tooltip), matching: find.byType(InkWell)),
@@ -164,7 +176,7 @@ void main() {
       // A freshly scheduled ticker takes its first tick at elapsed 0, so the
       // tween only advances on the pump AFTER that.
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump(Duration(milliseconds: stepMs + 50));
     }
 
     // Read the frame index straight out of the "N / M" readout.
