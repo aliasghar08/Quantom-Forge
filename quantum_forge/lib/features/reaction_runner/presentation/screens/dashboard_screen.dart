@@ -37,6 +37,7 @@ import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dash
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/reaction_error_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/reaction_animation_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/dft_workflow_card.dart';
+import 'package:quantum_forge/features/reaction_runner/presentation/screens/method_validation_screen.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/reaction_progress_card.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/left_nav_rail.dart';
 import 'history_screen.dart';
@@ -284,6 +285,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: switch (_viewModel.navDest) {
         NavDestination.library  => LibraryScreen(onTemplateSelected: _viewModel.loadTemplate),
         NavDestination.history  => const HistoryScreen(),
+        NavDestination.methodValidation => MethodValidationScreen(
+              backendUrl:
+                  context.watch<AppSettingsNotifier>().settings.backendUrl,
+              settings: context.read<QuantumSettingsNotifier>().value,
+            ),
         NavDestination.editor   => CoordinateEditorScreen(
             // Keyed on the import revision, not on the structure's hashCode:
             // a new import rebuilds the editor, anything else leaves the user's

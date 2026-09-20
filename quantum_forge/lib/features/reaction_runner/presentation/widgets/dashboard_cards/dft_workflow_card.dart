@@ -9,10 +9,13 @@
 //   * emit a LaTeX-ready methods sentence
 // ============================================================================
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:quantum_forge/core/services/backend_compute_service.dart';
+import 'package:quantum_forge/core/services/file_picker_service.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/core/utils/avogadro_bridge.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
@@ -20,12 +23,12 @@ import 'package:quantum_forge/features/reaction_runner/data/models/reaction_mode
 /// Builds the LaTeX-ready methods sentence.
 ///
 /// Kept as a pure function so it can be tested without a widget, and so the exact
-/// wording is in one place.
+/// wording lives in one place.
 ///
-/// NOTE: the first clause is reproduced from the requested template verbatim. It
-/// says the *screening* ran "at the {method} level of theory", where {method} is
-/// the DFT level of theory — read literally that attributes the DFT level to the
-/// UMA screen, which is not what happened. Edit before submitting.
+/// The screening step is attributed to the MACHINE-LEARNED POTENTIAL only. An
+/// earlier template read "UMA-MLIP screening used {model} at the {method} level of
+/// theory", which attributes a DFT functional and basis set to a machine-learned
+/// interatomic potential — UMA has no DFT level of theory.
 String buildMethodsParagraph({
   required String model,
   required String method,
@@ -36,8 +39,20 @@ String buildMethodsParagraph({
   final sp = (singlePointMethod?.trim().isNotEmpty ?? false)
       ? singlePointMethod!.trim()
       : dft;
-  return 'UMA-MLIP screening used $model at the $dft level of theory. '
-      'TS geometries were refined at $dft with $solvent solvation. '
+
+  // Solvation clause is omitted entirely when no solvent was chosen, rather than
+  // emitting a sentence about vacuum "solvation".
+  final solventName = solvent.trim();
+  final hasSolvent = solventName.isNotEmpty &&
+      solventName.toLowerCase() != 'vacuum' &&
+      solventName.toLowerCase() != 'none';
+  final solvation = hasSolvent
+      ? 'Implicit solvation was modeled with SMD ($solventName). '
+      : '';
+
+  return 'Screening was performed with the $model machine-learned interatomic '
+      'potential. Transition state geometries were refined at the $dft level of '
+      'theory. $solvation'
       'Single-point energies were computed at $sp.';
 }
 
@@ -416,6 +431,52 @@ class _AttachDftDialogState extends State<_AttachDftDialog> {
     return double.tryParse(raw);
   }
 
+  /// Accepted cluster-output types and the upload ceiling.
+  static const List<String> _logExtensions = ['.log', '.out', '.txt'];
+  static const int _maxLogBytes = 5 * 1024 * 1024;
+
+  /// Reads a .log/.out/.txt file into the SAME text field the paste path uses, so
+  /// one downstream parser will serve both. Stores the original filename.
+  Future<void> _pickLogFile() async {
+    try {
+      final picked = await FilePickerService().pickAnyFile();
+      if (picked == null) return; // cancelled
+
+      final name = picked.name;
+      final lower = name.toLowerCase();
+      if (!_logExtensions.any(lower.endsWith)) {
+        setState(() => _validation =
+            'Unsupported file "$name" — choose a .log, .out or .txt file.');
+        return;
+      }
+      if (picked.size > _maxLogBytes) {
+        setState(() => _validation =
+            'That file is ${(picked.size / 1048576).toStringAsFixed(1)} MB; '
+            'the limit is 5 MB.');
+        return;
+      }
+
+      final bytes = picked.bytes;
+      if (bytes == null) {
+        setState(() => _validation = 'Could not read "$name" — no bytes returned.');
+        return;
+      }
+      final text = utf8.decode(bytes, allowMalformed: true);
+      if (text.trim().isEmpty) {
+        setState(() => _validation = 'That file is empty — nothing to attach.');
+        return;
+      }
+
+      setState(() {
+        _validation = null;
+        _logName.text = name;
+        _logText.text = text;
+      });
+    } catch (e) {
+      setState(() => _validation = 'Could not read that file: $e');
+    }
+  }
+
   void _submit() {
     final ts = _number(_ts);
     final reactant = _number(_reactant);
@@ -474,8 +535,25 @@ class _AttachDftDialogState extends State<_AttachDftDialog> {
               const Text('Optional ORCA / Gaussian output',
                   style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _pickLogFile,
+                    icon: const Icon(Icons.upload_file, size: 15),
+                    label: const Text('Choose .log file',
+                        style: TextStyle(fontSize: 12)),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text('.log, .out or .txt · max 5 MB · read into the '
+                        'field below',
+                        style: TextStyle(fontSize: 10.5)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               _field(_logName, 'Output file name', hint: 'ts_freq.out'),
-              _field(_logText, 'Paste the .log / .out contents (kept for later parsing)',
+              _field(_logText, 'Paste, or load a file above (kept for later parsing)',
                   lines: 4),
               if (_validation != null)
                 Text(_validation!,

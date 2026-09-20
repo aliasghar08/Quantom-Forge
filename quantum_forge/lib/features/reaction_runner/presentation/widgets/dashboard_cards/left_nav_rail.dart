@@ -15,7 +15,7 @@ import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/features/auth/presentation/screens/auth_screen.dart';
 import 'package:quantum_forge/features/settings/presentation/screens/settings_screen.dart';
 
-enum NavDestination { library, newReaction, editor, history }
+enum NavDestination { library, newReaction, editor, history, methodValidation }
 
 class ProfessionalDrawer extends StatelessWidget {
   final NavDestination current;
@@ -142,6 +142,11 @@ class ProfessionalDrawer extends StatelessWidget {
             _navItem(context, Icons.history, 'History',
                 NavDestination.history, showTooltips,
                 'Previously dispatched reactions and their results.'),
+            // Reachable entry point for the validation screen: without one the whole
+            // screen is tree-shaken out of the release build.
+            _navItem(context, Icons.verified_outlined, 'Method validation',
+                NavDestination.methodValidation, showTooltips,
+                'UMA barriers against known literature values — the table a reviewer asks for.'),
 
             const Spacer(),
 
