@@ -1281,15 +1281,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       valueListenable: context.read<QuantumSettingsNotifier>(),
       builder: (context, settings, _) {
         // Real backend results carry their own imaginary frequency at the TS.
+        // Take the LARGEST-magnitude one: that is the reaction coordinate. The
+        // backend also reports small companion modes (ASE's finite-difference
+        // Hessian is not projected, and adds ~1 cm^-1 and ~-160 cm^-1 artefacts),
+        // so picking whichever happened to come first would sometimes show an
+        // artefact instead of the physical mode.
         final imaginaryModes =
-            (status.vibrationalModes ?? []).where((m) => m.frequency < 0).toList();
+            (status.vibrationalModes ?? []).where((m) => m.frequency < 0);
+        double mostNegative = 0.0;
+        for (final mode in imaginaryModes) {
+          if (mode.frequency < mostNegative) mostNegative = mode.frequency;
+        }
         final summary = computeResultsSummary(
           settings: settings,
           energyProfile: energyProfile,
           referenceEa: _viewModel.activeTemplate?.referenceEa,
           isRealData: status.fromBackend,
           realImaginaryFrequency:
-              imaginaryModes.isEmpty ? null : imaginaryModes.first.frequency,
+              mostNegative < 0.0 ? mostNegative : null,
         );
 
         return Column(
