@@ -712,7 +712,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
                   _infoItem('UMA E', '${absEnergy.toStringAsFixed(4)} eV'),
                 _infoItem('Progress', '${_shownProgress.toStringAsFixed(1)}%'),
                 _infoItem('Status', _playing ? 'Playing' : 'Stopped'),
-                _infoItem('Speed', '$_speedMs ms/frame'),
+                // "Frame duration", not "Speed": a larger value means a SLOWER
+                // animation, so calling it speed read backwards.
+                _infoItem('Frame duration', '$_speedMs ms/frame'),
                 _infoItem('Cycle', _cycleLabel),
                 _infoItem('Loop', _loopMode.name),
               ],
@@ -833,7 +835,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
         children: [
           const Icon(Icons.speed, size: 15, color: Colors.white54),
           const SizedBox(width: 6),
-          const Text('Speed',
+          // Milliseconds per frame: a higher value slows the animation down,
+          // which is the opposite of what "Speed" implies.
+          const Text('Frame duration',
               style: TextStyle(color: Colors.white54, fontSize: 11)),
           Expanded(
             child: SliderTheme(
@@ -873,43 +877,69 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
     );
   }
 
+  /// Frame scrubber.
+  ///
+  /// Labelled "Frame" with the current index: it previously sat directly under the
+  /// duration slider with no label at all, so nothing said what it controlled.
   Widget _buildSlider() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: AnimatedBuilder(
         animation: _ctrl,
         builder: (context, child) {
-          return SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: const Color(0xFF4FC3F7),
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
-              thumbColor: Colors.white,
-              trackHeight: 2,
-              thumbShape:
-                  const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape:
-                  const RoundSliderOverlayShape(overlayRadius: 14),
-            ),
-            child: Slider(
-              value: _ctrl.value,
-              onChanged: (val) {
-                // Scrubbing takes over playback and keeps _frameIndex in sync, so
-                // the step buttons resume from wherever the user let go.
-                if (_playing) _stop();
-                if (_isRendering) return;
-                _isRendering = true;
+          return Row(
+            children: [
+              const Icon(Icons.timeline, size: 15, color: Colors.white54),
+              const SizedBox(width: 6),
+              const Text('Frame',
+                  style: TextStyle(color: Colors.white54, fontSize: 11)),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: const Color(0xFF4FC3F7),
+                    inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+                    thumbColor: Colors.white,
+                    trackHeight: 2,
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 6),
+                    overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 14),
+                  ),
+                  child: Slider(
+                    value: _ctrl.value,
+                    onChanged: (val) {
+                      // Scrubbing takes over playback and keeps _frameIndex in
+                      // sync, so the step buttons resume from where the user left.
+                      if (_playing) _stop();
+                      if (_isRendering) return;
+                      _isRendering = true;
 
-                final frame = _frameCount <= 1
-                    ? 0
-                    : (val * (_frameCount - 1)).round();
-                setState(() => _frameIndex = frame);
-                _ctrl.value = _tForFrame(frame);
+                      final frame = _frameCount <= 1
+                          ? 0
+                          : (val * (_frameCount - 1)).round();
+                      setState(() => _frameIndex = frame);
+                      _ctrl.value = _tForFrame(frame);
 
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _isRendering = false;
-                });
-              },
-            ),
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _isRendering = false;
+                      });
+                    },
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 62,
+                child: Text(
+                  '$_shownFrame / ${_frameCount - 1}',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: Color(0xFF4FC3F7),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),

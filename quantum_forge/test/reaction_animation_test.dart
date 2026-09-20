@@ -90,9 +90,10 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 50));
 
-    // Speed is a per-frame interval, but derived from a target cycle duration
-    // rather than the notebook's fixed 200 ms — at 3 frames that looped in 0.6 s.
-    expect(find.text('Speed'), findsOneWidget);
+    // Labelled "Frame duration", not "Speed": a larger value means a SLOWER
+    // animation, so "Speed" read backwards. The default is derived from a target
+    // cycle duration rather than the notebook's fixed 200 ms.
+    expect(find.text('Frame duration'), findsOneWidget);
     final expectedMs = ReactionAnimationWidget.defaultSpeedMsFor(3);
     expect(expectedMs, greaterThanOrEqualTo(1000),
         reason: 'the default must not be as fast as the notebook 200 ms');
@@ -113,11 +114,14 @@ void main() {
     expect(find.text('Energy: '), findsOneWidget);
     expect(find.text('Progress: '), findsOneWidget);
     expect(find.text('Status: '), findsOneWidget);
-    expect(find.text('Speed: '), findsOneWidget);
+    expect(find.text('Frame duration: '), findsOneWidget);
     expect(find.text('Loop: '), findsOneWidget);
 
-    // Starts on the first of three frames.
-    expect(find.text('0 / 2'), findsOneWidget);
+    // The frame scrubber is now labelled, and shows the index beside it — it
+    // previously sat under the duration slider with no label at all.
+    expect(find.text('Frame'), findsOneWidget);
+    // "0 / 2" appears twice now: in the readout and beside the scrubber.
+    expect(find.text('0 / 2'), findsWidgets);
 
     // Navigation row.
     expect(find.byTooltip('First frame'), findsOneWidget);

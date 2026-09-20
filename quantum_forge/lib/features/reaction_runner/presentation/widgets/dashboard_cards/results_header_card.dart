@@ -129,12 +129,31 @@ class _AccuracyRow extends StatelessWidget {
   final ResultsSummary summary;
   const _AccuracyRow({required this.summary});
 
+  /// Above this percentage error a signed percentage stops communicating: at
+  /// +1200% the number says less than "13×". The ratio form takes over from here.
+  static const double _ratioThresholdPct = 100.0;
+
   @override
   Widget build(BuildContext context) {
     final palette = ThemeNotifier.paletteOf(context);
     final err = summary.eaError!;
+    final pct = summary.eaErrorPct!;
+    final reference = summary.referenceEa!;
+    final estimated = summary.estimatedEa;
     final within = err.abs() <= 1.6;
     final color = within ? palette.success : palette.warning;
+
+    // Out of domain: the computed barrier exceeds the literature value by more
+    // than 100%, where a percentage reads as a confusingly large signed number.
+    final ratio = reference > 0 ? estimated / reference : null;
+    final outOfDomain = ratio != null && pct > _ratioThresholdPct;
+
+    final headline = outOfDomain
+        ? 'Overestimate: ${ratio.toStringAsFixed(1)}× the literature Ea of '
+            '${reference.toStringAsFixed(1)} kcal·mol⁻¹'
+        : 'vs literature Ea ${reference.toStringAsFixed(1)} kcal·mol⁻¹: '
+            '${err >= 0 ? '+' : ''}${err.toStringAsFixed(1)} kcal·mol⁻¹ '
+            '(${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(0)}%)';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -143,18 +162,40 @@ class _AccuracyRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(within ? Icons.verified : Icons.error_outline, size: 15, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'vs literature Ea ${summary.referenceEa!.toStringAsFixed(1)} kcal·mol⁻¹: '
-              '${err >= 0 ? '+' : ''}${err.toStringAsFixed(1)} kcal·mol⁻¹ '
-              '(${err >= 0 ? '+' : ''}${summary.eaErrorPct!.toStringAsFixed(0)}%)',
-              style: TextStyle(color: palette.textPrimary, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
+          Row(
+            children: [
+              Icon(within ? Icons.verified : Icons.error_outline,
+                  size: 15, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  headline,
+                  style: TextStyle(
+                      color: palette.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
+          // Only shown when the comparison is not meaningful — the literature
+          // number describes a different chemical system from the one that ran.
+          if (outOfDomain) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(left: 23),
+              child: Text(
+                '⚠️ This literature value describes the catalyzed solution-phase '
+                'reaction; UMA ran uncatalyzed in vacuum. Some of this gap reflects '
+                'chemistry, not model error.',
+                style: TextStyle(
+                    color: palette.textSecondary, fontSize: 11, height: 1.4),
+              ),
+            ),
+          ],
         ],
       ),
     );
