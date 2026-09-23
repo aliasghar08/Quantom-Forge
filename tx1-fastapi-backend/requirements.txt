@@ -1,5 +1,17 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
+
+# Pinned exactly: the checkpoint was trained against this build, and the model
+# file is tied to the torch version that serialised it.
 torch==2.14.0+cpu
-fastapi
-uvicorn
-pydantic
+
+# Lower-bounded rather than pinned. `lifespan` (used by main.py) requires
+# FastAPI >= 0.93; the old `@app.on_event("startup")` it replaced is deprecated
+# and removed in current releases. Pydantic 2 is what this environment resolves
+# to, and `list[int]` annotations in the request model are validated against it.
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.7
+
+# Not listed here, deliberately: pytest and httpx. `test_main.py` runs standalone
+# with `python test_main.py` (httpx arrives with starlette's TestClient), so the
+# runtime image does not carry a test runner.

@@ -14,6 +14,8 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import 'package:quantum_forge/core/services/web_services.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
 import 'package:quantum_forge/state/settings_provider.dart';
@@ -176,7 +178,38 @@ class BackendComputeService {
       }
       return BackendHealth(false, 'Unexpected /health payload: $raw');
     } catch (e) {
-      return BackendHealth(false, 'Cannot reach $base/health — $e');
+      return BackendHealth(false, 'Cannot reach $base/health —$e');
+    }
+  }
+
+  // ── Transition1x GNN Energy Prediction ────────────────────────────────────
+
+  /// Predicts the energy of a single molecule using the deployed FastAPI GNN.
+  Future<double?> predictEnergy(
+    String gnnBackendUrl,
+    List<int> atomicNumbers,
+    List<List<double>> positions,
+  ) async {
+    final base = _base(gnnBackendUrl);
+    try {
+      final json = await WebServices.postJson(
+        '$base/predict',
+        {
+          'atomic_numbers': atomicNumbers,
+          'positions': positions,
+        },
+      );
+
+      if (json['status'] == 'success' && json['energy_ev'] != null) {
+        return (json['energy_ev'] as num).toDouble();
+      }
+      return null;
+    } catch (e) {
+      // Catch network exceptions or JSON parsing errors. `debugPrint`, not
+      // `print`: this is stripped from release builds and does not trip
+      // `avoid_print`, while still reaching the console during development.
+      debugPrint('GNN Backend Error: $e');
+      return null;
     }
   }
 

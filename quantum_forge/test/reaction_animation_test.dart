@@ -1,221 +1,468 @@
 // ============================================================================
-// Reaction animation smoke test
+// Reaction animation — Avogadro Player parity tests
 // ----------------------------------------------------------------------------
-// The reaction animation is an infinite CustomPainter loop, so it cannot be
-// exercised with `pumpAndSettle`. This test pumps a fixed number of frames,
-// turns on the electron-transfer / mechanism overlay, and asserts the painter
-// draws without throwing — covering the curved-arrow, partial-charge and
-// lone-pair code paths that were added on top of the original ball-and-stick
-// interpolator.
+// These exercise the widget the way the Player tool is used, and they run
+// headlessly: off the web the NGL engine resolves to its stub, so the geometry
+// path is exercised (parse -> perceive -> build) while the WebGL surface is
+// absent. That is deliberate — the numbers worth asserting on are computed in
+// Dart, and a test that needed a GPU would not be run.
+//
+// The playback expectations mirror upstream `playertool.cpp`:
+//   * discrete frames, no tweening
+//   * wrapping within [Start, End], including from the last frame forwards and
+//     the first frame backwards
+//   * `Frame rate: 0` means 5 FPS
+//
+// Surface size note: the 3D canvas is an AspectRatio(1.2) below a header, so at
+// 1280x800 the Avogadro controls sit off-screen and a synthesised tap would miss
+// them. The tests therefore use a tall, narrow surface where the whole panel is
+// visible, and assert against real taps rather than poking callbacks.
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
 
-const String _frameR = '3\nReactant\nC 0.00 0.00 0.00\nO 1.50 0.00 0.00\nH 2.40 0.90 0.00\n';
-const String _frameTS = '3\nTransition state\nC 0.00 0.00 0.00\nO 1.20 0.00 0.00\nH 2.00 0.80 0.00\n';
-const String _frameP = '3\nProduct\nC 0.00 0.00 0.00\nO 1.00 0.00 0.00\nH 1.80 0.70 0.00\n';
+const String _frame1 =
+    '3\nReactant\nC 0.00 0.00 0.00\nO 1.43 0.00 0.00\nH 2.39 0.00 0.00\n';
+const String _frame2 =
+    '3\nTransition state\nC 0.00 0.00 0.00\nO 1.20 0.00 0.00\nH 2.10 0.60 0.00\n';
+const String _frame3 =
+    '3\nProduct\nC 0.00 0.00 0.00\nO 1.16 0.00 0.00\nH 1.80 0.70 0.00\n';
 
-void main() {
-  testWidgets('renders the trajectory and the mechanism overlay', (tester) async {
-    tester.view.physicalSize = const Size(1280, 1100);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+const List<String> _trajectory = <String>[_frame1, _frame2, _frame3];
+const List<double> _energies = <double>[0.0, 5.2, -2.1];
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: const ReactionAnimationWidget(
-              trajectoryFrames: [_frameR, _frameTS, _frameP],
-              energyProfile: [0.0, 5.2, -2.1],
-            ),
+/// Builds the widget on a surface tall enough that every control is tappable.
+Future<void> pumpAnimation(
+  WidgetTester tester, {
+  List<String> frames = _trajectory,
+  List<double>? energyProfile = _energies,
+  List<double>? energyProfileEv,
+  int? maxEnergyIndex,
+  int? frameRateOverride,
+  Size surface = const Size(900, 1700),
+}) async {
+  tester.view.physicalSize = surface;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: ReactionAnimationWidget(
+            trajectoryFrames: frames,
+            energyProfile: energyProfile,
+            energyProfileEv: energyProfileEv,
+            maxEnergyIndex: maxEnergyIndex,
+            frameRateOverride: frameRateOverride,
           ),
         ),
       ),
-    );
+    ),
+  );
+  await tester.pump();
+}
 
-    // Initial pump: parse the frames asynchronously.
-    await tester.pump(const Duration(milliseconds: 50));
+/// The 1-based frame index shown by the `Frame:` spin box.
+int shownFrame(WidgetTester tester) {
+  final field = tester.widget<TextField>(
+    find.descendant(
+      of: find.byKey(const Key('qf-frame-spinbox')),
+      matching: find.byType(TextField),
+    ),
+  );
+  return int.parse(field.controller!.text);
+}
+
+/// The value of a spin box, by key.
+int spinValue(WidgetTester tester, String key) {
+  final field = tester.widget<TextField>(
+    find.descendant(of: find.byKey(Key(key)), matching: find.byType(TextField)),
+  );
+  return int.parse(field.controller!.text);
+}
+
+/// Types [value] into the spin box identified by [key] and commits it.
+Future<void> setSpin(WidgetTester tester, String key, int value) async {
+  final field = find.descendant(
+    of: find.byKey(Key(key)),
+    matching: find.byType(TextField),
+  );
+  await tester.tap(field);
+  await tester.pump();
+  await tester.enterText(field, '$value');
+  await tester.testTextInput.receiveAction(TextInputAction.done);
+  await tester.pump();
+}
+
+/// Stops playback first, so the frame ticker stops scheduling and the tree can
+/// settle — otherwise every assertion races the timer.
+Future<void> pause(WidgetTester tester) async {
+  final button = find.byKey(const Key('qf-play-button'));
+  if (tester.widget<FilledButton>(button).onPressed != null &&
+      find.text('Pause').evaluate().isNotEmpty) {
+    await tester.tap(button);
+    await tester.pump();
+  }
+}
+
+void main() {
+  testWidgets('renders a trajectory without throwing', (tester) async {
+    await pumpAnimation(tester);
     expect(tester.takeException(), isNull);
 
-    // A few animation frames so the ball-and-stick painter runs.
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
+    // The composition is on screen with real geometry behind it.
+    expect(find.text('Approach'), findsWidgets);
+    expect(find.text('1 / 3'), findsWidgets);
     expect(tester.takeException(), isNull);
 
-    // The mechanism toggle is present and off by default.
-    final bolt = find.byIcon(Icons.electric_bolt_outlined);
-    expect(bolt, findsOneWidget);
-
-    // Turn on the electron-transfer overlay and render again.
-    await tester.tap(bolt);
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(tester.takeException(), isNull);
-    expect(find.byIcon(Icons.electric_bolt), findsOneWidget);
-
-    // Pause, scrub to the transition-state region (where breaking/forming
-    // bonds and electron flow are most visible), and render once more.
-    final pause = find.byIcon(Icons.pause_rounded);
-    await tester.tap(pause);
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(tester.takeException(), isNull);
-
-    // Dispose the infinite animation controller cleanly.
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('exposes the ColabReaction-style playback controls',
-      (tester) async {
-    tester.view.physicalSize = const Size(1280, 1100);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'exposes Avogadro\'s Player controls, labelled as upstream does',
+    (tester) async {
+      await pumpAnimation(tester);
+      await pause(tester);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: const ReactionAnimationWidget(
-              trajectoryFrames: [_frameR, _frameTS, _frameP],
-              energyProfile: [0.0, 5.2, -2.1],
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 50));
+      // The exact label strings from playertool.cpp's toolWidget().
+      expect(find.text('Frame:'), findsOneWidget);
+      expect(find.text('Start:'), findsOneWidget);
+      expect(find.text('End:'), findsOneWidget);
+      expect(find.text('Dynamic bonding?'), findsOneWidget);
+      expect(find.text('Frame rate:'), findsOneWidget);
+      expect(find.text('FPS'), findsOneWidget);
 
-    // Labelled "Frame duration", not "Speed": a larger value means a SLOWER
-    // animation, so "Speed" read backwards. The default is derived from a target
-    // cycle duration rather than the notebook's fixed 200 ms.
-    expect(find.text('Frame duration'), findsOneWidget);
-    final expectedMs = ReactionAnimationWidget.defaultSpeedMsFor(3);
-    expect(expectedMs, greaterThanOrEqualTo(1000),
-        reason: 'the default must not be as fast as the notebook 200 ms');
-    expect(find.text('$expectedMs ms/frame'), findsOneWidget);
+      // The frame spin box and its `/<count>` suffix, as QSpinBox renders it.
+      expect(find.byKey(const Key('qf-frame-spinbox')), findsOneWidget);
+      expect(find.text('/3'), findsOneWidget);
 
-    // The readout also reports the resulting cycle time, which is what a user
-    // actually perceives as speed.
-    expect(find.text('Cycle: '), findsOneWidget);
-    expect(find.text('${(3 * expectedMs / 1000).toStringAsFixed(1)} s'),
-        findsOneWidget);
+      // Step buttons are `<` and `>`, not glyph arrows.
+      expect(find.text('<'), findsOneWidget);
+      expect(find.text('>'), findsOneWidget);
+      expect(find.byTooltip('Step back one frame (←)'), findsOneWidget);
+      expect(find.byTooltip('Step forward one frame (→)'), findsOneWidget);
 
-    // Position scrubber + speed slider.
-    expect(find.byType(Slider), findsNWidgets(2));
+      // Avogadro starts with Dynamic bonding unchecked.
+      expect(
+        tester
+            .widget<Checkbox>(find.byKey(const Key('qf-dynamic-bonding')))
+            .value,
+        isFalse,
+      );
 
-    // The frame readout carries the same fields as the notebook's
-    // "Current Frame Information" panel.
+      // Avogadro's frame-rate default is 5.
+      expect(
+        spinValue(tester, 'qf-framerate-spinbox'),
+        ReactionAnimationWidget.defaultFrameRate,
+      );
+      expect(find.text('5 FPS'), findsOneWidget);
+
+      // Start/End default to the full range, shown 1-based.
+      expect(spinValue(tester, 'qf-start-spinbox'), 1);
+      expect(spinValue(tester, 'qf-end-spinbox'), 3);
+
+      // Ball and Stick is Avogadro's default display type and the only one
+      // enabled out of the box.
+      expect(find.text('Ball and Stick'), findsOneWidget);
+
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('shows the research readout alongside the player', (
+    tester,
+  ) async {
+    await pumpAnimation(tester);
+    await pause(tester);
+
     expect(find.text('Frame: '), findsOneWidget);
     expect(find.text('Energy: '), findsOneWidget);
     expect(find.text('Progress: '), findsOneWidget);
     expect(find.text('Status: '), findsOneWidget);
-    expect(find.text('Frame duration: '), findsOneWidget);
+    expect(find.text('Speed: '), findsOneWidget);
+    expect(find.text('Cycle: '), findsOneWidget);
     expect(find.text('Loop: '), findsOneWidget);
+    expect(find.text('Bonds: '), findsOneWidget);
 
-    // The frame scrubber is now labelled, and shows the index beside it — it
-    // previously sat under the duration slider with no label at all.
-    expect(find.text('Frame'), findsOneWidget);
-    // "0 / 2" appears twice now: in the readout and beside the scrubber.
-    expect(find.text('0 / 2'), findsWidgets);
+    // Cycle duration is span / FPS — the number that actually reads as speed.
+    expect(find.text('0.6 s'), findsOneWidget); // 3 frames at 5 FPS
+    expect(find.text('Stopped'), findsOneWidget);
+    expect(find.text('0.00 kcal·mol⁻¹'), findsOneWidget);
+    expect(find.text('0.0%'), findsOneWidget);
 
-    // Navigation row.
-    expect(find.byTooltip('First frame'), findsOneWidget);
-    expect(find.byTooltip('Step back'), findsOneWidget);
-    expect(find.byTooltip('Step forward'), findsOneWidget);
-    expect(find.byTooltip('Last frame'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
-    // Loop modes (each appears as a chip AND as the readout value).
-    expect(find.text('forward'), findsWidgets);
-    expect(find.text('backward'), findsWidgets);
-    expect(find.text('pingpong'), findsWidgets);
+  testWidgets('steps frame by frame and wraps like Avogadro', (tester) async {
+    await pumpAnimation(tester);
+    await pause(tester);
 
+    expect(shownFrame(tester), 1);
+
+    await tester.tap(find.byTooltip('Step forward one frame (→)'));
+    await tester.pump();
+    expect(shownFrame(tester), 2);
+    expect(find.text('5.20 kcal·mol⁻¹'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Step forward one frame (→)'));
+    await tester.pump();
+    expect(shownFrame(tester), 3);
+
+    // Stepping past End wraps to Start — `first + ((frame - first) % span +
+    // span) % span` — rather than clamping.
+    await tester.tap(find.byTooltip('Step forward one frame (→)'));
+    await tester.pump();
+    expect(shownFrame(tester), 1);
+
+    // And stepping back from the first frame wraps to the last.
+    await tester.tap(find.byTooltip('Step back one frame (←)'));
+    await tester.pump();
+    expect(shownFrame(tester), 3);
+
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('jumps straight to a frame typed into the spin box', (
+    tester,
+  ) async {
+    await pumpAnimation(tester);
+    await pause(tester);
+
+    await setSpin(tester, 'qf-frame-spinbox', 2);
+    expect(shownFrame(tester), 2);
+    expect(find.text('5.20 kcal·mol⁻¹'), findsOneWidget);
+
+    // Out-of-range input is clamped, not rejected.
+    await setSpin(tester, 'qf-frame-spinbox', 99);
+    expect(shownFrame(tester), 3);
+
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Start and End bound playback, and the current frame follows', (
+    tester,
+  ) async {
+    await pumpAnimation(tester);
+    await pause(tester);
+
+    // Narrow the range to frames 2..3.
+    await setSpin(tester, 'qf-start-spinbox', 2);
+    expect(spinValue(tester, 'qf-start-spinbox'), 2);
+    expect(
+      shownFrame(tester),
+      2,
+      reason: 'the current frame must be pulled into the new range',
+    );
+
+    await setSpin(tester, 'qf-end-spinbox', 2);
+    expect(spinValue(tester, 'qf-end-spinbox'), 2);
+    expect(shownFrame(tester), 2);
+
+    // With a single-frame range, stepping cannot leave it.
+    await tester.tap(find.byTooltip('Step forward one frame (→)'));
+    await tester.pump();
+    expect(shownFrame(tester), 2);
+
+    // Cycle is span / FPS, so a one-frame range is one frame long.
+    expect(find.text('0.2 s'), findsOneWidget);
+
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('remaps Frame rate 0 to 5 FPS, as Avogadro does', (tester) async {
+    await pumpAnimation(tester);
+    await pause(tester);
+
+    await setSpin(tester, 'qf-framerate-spinbox', 10);
+    expect(find.text('10 FPS'), findsOneWidget);
+    // 3 frames at 10 FPS.
+    expect(find.text('0.3 s'), findsOneWidget);
+
+    await setSpin(tester, 'qf-framerate-spinbox', 0);
+    // Avogadro: `if (fps < 0.00001) fps = 5;` — 0 is not "unbounded".
+    expect(find.text('5 FPS'), findsOneWidget);
+    expect(find.text('0.6 s'), findsOneWidget);
+
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Dynamic bonding re-perceives bonds from the current frame', (
+    tester,
+  ) async {
+    await pumpAnimation(tester);
+    await pause(tester);
+
+    // Frame 1: C–O 1.43 A and O–H 0.96 A are both bonded -> two bonds, one
+    // fragment. The first frame's bonds are what a static view draws.
+    expect(find.text('2'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('qf-dynamic-bonding')));
+    await tester.pump();
+    expect(
+      tester
+          .widget<Checkbox>(find.byKey(const Key('qf-dynamic-bonding')))
+          .value,
+      isTrue,
+    );
+
+    // Frame 3 is O 1.16 A from C, H 0.64 A from O: still bonded, still 2.
+    await tester.tap(find.byTooltip('Step forward one frame (→)'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Step forward one frame (→)'));
+    await tester.pump();
+    expect(shownFrame(tester), 3);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('steps frame-by-frame and holds position when stopped',
-      (tester) async {
-    tester.view.physicalSize = const Size(1280, 1100);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('play/pause toggles the label and stops the frame ticker', (
+    tester,
+  ) async {
+    await pumpAnimation(tester);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: const ReactionAnimationWidget(
-              trajectoryFrames: [_frameR, _frameTS, _frameP],
-              energyProfile: [0.0, 5.2, -2.1],
-            ),
-          ),
-        ),
-      ),
+    // Autoplay is a deliberate deviation from Avogadro's stopped start, kept
+    // from the previous release: a frozen molecule reads as a broken widget.
+    expect(find.text('Pause'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((w) => w is Text && w.data == 'Playing'),
+      findsOneWidget,
     );
-    await tester.pump(const Duration(milliseconds: 50));
 
-    // Stop first: while playing, the frame ticker keeps scheduling and the tree
-    // never settles.
-    await tester.tap(find.byTooltip('Stop'));
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byKey(const Key('qf-play-button')));
+    await tester.pump();
+    expect(find.text('Play'), findsOneWidget);
     expect(find.text('Stopped'), findsOneWidget);
 
-    // The transport row sits below a tall canvas inside a nested scroll view, so
-    // a synthesised tap can miss it entirely. Invoke the button's callback
-    // directly to exercise the frame-stepping logic itself.
-    // The default interval is derived from the frame count, so the tween must be
-    // given its full duration for the frame index to land.
-    final stepMs = ReactionAnimationWidget.defaultSpeedMsFor(3);
-    Future<void> tapControl(String tooltip) async {
-      final inkWell = tester.widget<InkWell>(
-        find.descendant(of: find.byTooltip(tooltip), matching: find.byType(InkWell)),
-      );
-      inkWell.onTap!();
-      // A freshly scheduled ticker takes its first tick at elapsed 0, so the
-      // tween only advances on the pump AFTER that.
-      await tester.pump();
-      await tester.pump(Duration(milliseconds: stepMs + 50));
-    }
+    // Stopped means stopped: no frame advance over several frame intervals.
+    final before = shownFrame(tester);
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(shownFrame(tester), before);
 
-    // Read the frame index straight out of the "N / M" readout.
-    int frameIndexNow() {
-      final finder = find.byWidgetPredicate((w) =>
-          w is Text &&
-          w.data != null &&
-          RegExp(r'^\d+ / \d+$').hasMatch(w.data!));
-      final data = tester.widget<Text>(finder.first).data!;
-      return int.parse(data.split('/').first.trim());
-    }
+    await tester.tap(find.byKey(const Key('qf-play-button')));
+    await tester.pump();
+    expect(find.text('Pause'), findsOneWidget);
 
-    await tapControl('First frame');
-    expect(frameIndexNow(), 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
-    await tapControl('Step forward');
-    expect(frameIndexNow(), 1);
+  testWidgets('autoplay advances frames at the configured rate', (
+    tester,
+  ) async {
+    await pumpAnimation(tester);
+    expect(find.text('Pause'), findsOneWidget);
+    expect(shownFrame(tester), 1);
 
-    // The middle frame carries the 5.2 kcal/mol reference energy.
-    expect(find.text('5.20 kcal·mol⁻¹'), findsOneWidget);
+    // 5 FPS -> 200 ms per frame. Two intervals should advance two frames; the
+    // path is three frames long, so this also exercises the wrap.
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(shownFrame(tester), 3);
 
-    await tapControl('Last frame');
-    expect(frameIndexNow(), 2);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(shownFrame(tester), 1, reason: 'wraps to Start after End');
 
-    // Stepping past the end must clamp, not wrap.
-    await tapControl('Step forward');
-    expect(frameIndexNow(), 2);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
-    // Stepping back from the first frame must clamp too.
-    await tapControl('First frame');
-    await tapControl('Step back');
-    expect(frameIndexNow(), 0);
+  testWidgets('keyboard: Space, arrows and Shift for ten', (tester) async {
+    await pumpAnimation(tester);
+    await pause(tester);
+
+    // Tapping a transport control claims keyboard focus for the panel, which is
+    // how the shortcuts become active without stealing the page's arrow keys.
+    await tester.tap(find.byTooltip('Step forward one frame (→)'));
+    await tester.pump();
+    expect(shownFrame(tester), 2);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(shownFrame(tester), 3);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(shownFrame(tester), 2);
+
+    // Shift + arrow steps ten, wrapping within [Start, End].
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(shownFrame(tester), 1);
+
+    // Up jumps to Start, Down to End.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(shownFrame(tester), 3);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    expect(shownFrame(tester), 1);
+
+    // Space toggles playback.
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(find.text('Pause'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(find.text('Play'), findsOneWidget);
 
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
+  testWidgets('uses the backend transition-state index for the TS readout', (
+    tester,
+  ) async {
+    // max_energy_index is 0-based on the wire; the readout is 1-based like the
+    // rest of the Avogadro-style controls.
+    await pumpAnimation(tester, maxEnergyIndex: 2);
+    await pause(tester);
+    expect(find.text('TS frame: '), findsOneWidget);
+    expect(find.text('3 / 3'), findsWidgets);
+
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('falls back to the energy-profile maximum when the backend is '
+      'silent', (tester) async {
+    await pumpAnimation(tester, maxEnergyIndex: null);
+    await pause(tester);
+    // _energies peaks at index 1 -> frame 2.
+    expect(find.text('2 / 3'), findsWidgets);
+
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('reports a missing trajectory instead of an empty canvas', (
+    tester,
+  ) async {
+    await pumpAnimation(tester, frames: const <String>[]);
+    expect(find.text('No trajectory frames to animate'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('honours a frame-rate override', (tester) async {
+    await pumpAnimation(tester, frameRateOverride: 1);
+    await pause(tester);
+    expect(find.text('1 FPS'), findsOneWidget);
+    // 3 frames at 1 FPS.
+    expect(find.text('3.0 s'), findsOneWidget);
+
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

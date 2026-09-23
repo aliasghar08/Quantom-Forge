@@ -62,9 +62,8 @@ class TemplateDetailScreen extends StatelessWidget {
                   // home-screen animation is where that is displayed.
                   trajectoryFrames: _previewTrajectory(template),
                   energyProfile: _generateSyntheticProfile(template.referenceEa),
-                  // Slower than the derived default. This is a short preview and the
-                  // point is to read the geometry change, not to loop it quickly.
-                  speedMsOverride: _previewSpeedMs,
+                  // A deliberately slower cadence than Avogadro's 5 FPS default.
+                  frameRateOverride: _previewFps,
                 ),
               ),
             ),
@@ -273,9 +272,13 @@ class TemplateDetailScreen extends StatelessWidget {
   /// point on the path.
   static const int _previewFrames = 31;
 
-  /// Per-frame interval for the preview (~28 s per pass). Slower than the derived
-  /// default because this short path is meant to be read, not skimmed.
-  static const int _previewSpeedMs = 900;
+  /// Playback rate for the preview (~31 s per pass at one frame per second).
+  ///
+  /// Slower than Avogadro's 5 FPS default because this short path is meant to be
+  /// read, not skimmed. Expressed in FPS rather than ms/frame because the
+  /// animation panel now mirrors Avogadro's Player tool, whose frame-rate
+  /// control is an integer frames-per-second spin box.
+  static const int _previewFps = 1;
 
   /// A smooth preview path — linear interpolation between the reactant and product
   /// coordinates, which is all the template data supports.

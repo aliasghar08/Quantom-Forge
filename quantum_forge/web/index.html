@@ -31,6 +31,26 @@
 
   <title>Quantum Forge</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    NGL is vendored rather than pulled from a CDN, for two reasons that matter
+    to a research tool:
+
+      1. Reproducibility. `ngl.js` is pinned to an exact version whose SHA-256 is
+         recorded in `web/ngl/README.md`, so a figure regenerated in two years
+         renders identically. The previous CDN link pinned `2.0.0-dev.39` — a
+         2017 pre-release — which was never the version this code was tested
+         against.
+      2. Availability. A reaction animation that depends on a third-party CDN
+         being reachable is a liability in a seminar room or an offline lab
+         machine.
+
+    Both scripts are classic (non-module) scripts and must run before Flutter
+    boots, since `main.dart.js` reads `window.NGL` and `window.QuantumForgeNgl`
+    as soon as the first animation widget is built.
+  -->
+  <script src="ngl/ngl.js"></script>
+  <script src="ngl/quantum_forge_ngl.js"></script>
 </head>
 <body>
   <!--

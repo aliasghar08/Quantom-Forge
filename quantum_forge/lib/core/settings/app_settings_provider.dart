@@ -21,6 +21,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String kDefaultComputeBackendUrl =
     'https://aliasgharinnocent-uma-backend.hf.space';
 
+/// Default Transition1x GNN compute backend.
+///
+/// The deployed Render service hosting the FastAPI GNN molecular energy prediction
+/// endpoint.
+const String kDefaultGnnBackendUrl = 'https://quantom-forge-1.onrender.com';
+
 /// Where exported structures are stored when handed to Avogadro.
 ///
 /// Avogadro 2 has no desktop "read from URL" hook, so Quantum Forge ships the
@@ -32,16 +38,16 @@ enum BridgeTarget {
   custom;
 
   String get label => switch (this) {
-        BridgeTarget.production => 'Quantum Forge (hosted)',
-        BridgeTarget.localhost => 'Local dev server (localhost)',
-        BridgeTarget.custom => 'Custom URL',
-      };
+    BridgeTarget.production => 'Quantum Forge (hosted)',
+    BridgeTarget.localhost => 'Local dev server (localhost)',
+    BridgeTarget.custom => 'Custom URL',
+  };
 
   String? get defaultBaseUrl => switch (this) {
-        BridgeTarget.production => 'https://quantom-forge.web.app',
-        BridgeTarget.localhost => 'http://localhost:8080',
-        BridgeTarget.custom => null,
-      };
+    BridgeTarget.production => 'https://quantom-forge.web.app',
+    BridgeTarget.localhost => 'http://localhost:8080',
+    BridgeTarget.custom => null,
+  };
 }
 
 /// Structure formats Quantum Forge can write.
@@ -52,36 +58,38 @@ enum ExportFormat {
   sdf;
 
   String get label => switch (this) {
-        ExportFormat.xyz => 'XYZ — universal cartesian coordinates',
-        ExportFormat.cjson => 'CJSON — native Avogadro 2 format',
-        ExportFormat.cml => 'CML — Chemical Markup Language',
-        ExportFormat.sdf => 'SDF / MOL — V2000 connection table',
-      };
+    ExportFormat.xyz => 'XYZ — universal cartesian coordinates',
+    ExportFormat.cjson => 'CJSON — native Avogadro 2 format',
+    ExportFormat.cml => 'CML — Chemical Markup Language',
+    ExportFormat.sdf => 'SDF / MOL — V2000 connection table',
+  };
 
   String get shortLabel => switch (this) {
-        ExportFormat.xyz => 'XYZ',
-        ExportFormat.cjson => 'CJSON',
-        ExportFormat.cml => 'CML',
-        ExportFormat.sdf => 'SDF',
-      };
+    ExportFormat.xyz => 'XYZ',
+    ExportFormat.cjson => 'CJSON',
+    ExportFormat.cml => 'CML',
+    ExportFormat.sdf => 'SDF',
+  };
 
   /// File extension (without the dot) used for downloads.
   String get extension => name;
 
   /// MIME type used for the browser download.
   String get mimeType => switch (this) {
-        ExportFormat.xyz => 'chemical/x-xyz',
-        ExportFormat.cjson => 'chemical/x-cjson',
-        ExportFormat.cml => 'chemical/x-cml',
-        ExportFormat.sdf => 'chemical/x-mdl-molfile',
-      };
+    ExportFormat.xyz => 'chemical/x-xyz',
+    ExportFormat.cjson => 'chemical/x-cjson',
+    ExportFormat.cml => 'chemical/x-cml',
+    ExportFormat.sdf => 'chemical/x-mdl-molfile',
+  };
 
   bool get isAvogadroNative => this == ExportFormat.cjson;
 
   static ExportFormat fromName(String? name) => ExportFormat.values.firstWhere(
-        (f) => f.name == name || f.shortLabel.toLowerCase() == (name ?? '').toLowerCase(),
-        orElse: () => ExportFormat.xyz,
-      );
+    (f) =>
+        f.name == name ||
+        f.shortLabel.toLowerCase() == (name ?? '').toLowerCase(),
+    orElse: () => ExportFormat.xyz,
+  );
 }
 
 /// Atom decoration used by the molecular painters.
@@ -91,16 +99,16 @@ enum AtomScale {
   wireframe;
 
   String get label => switch (this) {
-        AtomScale.ballAndStick => 'Ball & stick',
-        AtomScale.spaceFilling => 'Space filling (VDW)',
-        AtomScale.wireframe => 'Wireframe',
-      };
+    AtomScale.ballAndStick => 'Ball & stick',
+    AtomScale.spaceFilling => 'Space filling (VDW)',
+    AtomScale.wireframe => 'Wireframe',
+  };
 
   double get radiusFactor => switch (this) {
-        AtomScale.ballAndStick => 0.25,
-        AtomScale.spaceFilling => 1.0,
-        AtomScale.wireframe => 0.10,
-      };
+    AtomScale.ballAndStick => 0.25,
+    AtomScale.spaceFilling => 1.0,
+    AtomScale.wireframe => 0.10,
+  };
 }
 
 @immutable
@@ -137,6 +145,10 @@ class AppSettings {
   /// `<backendUrl>/reactions/submit`.
   final String backendUrl;
 
+  /// Transition1x GNN compute backend base URL. Defaults to
+  /// [kDefaultGnnBackendUrl].
+  final String gnnBackendUrl;
+
   const AppSettings({
     this.isCompactMode = false,
     this.reduceMotion = false,
@@ -157,16 +169,22 @@ class AppSettings {
     this.cleanUrlAfterImport = true,
     this.autoImportDeepLink = true,
     this.backendUrl = kDefaultComputeBackendUrl,
+    this.gnnBackendUrl = kDefaultGnnBackendUrl,
   });
 
   /// True when a real compute backend has been configured.
   bool get hasComputeBackend => backendUrl.trim().isNotEmpty;
 
+  /// True when a real GNN backend has been configured.
+  bool get hasGnnBackend => gnnBackendUrl.trim().isNotEmpty;
+
   /// Base URL used to build Avogadro deep links.
   String get bridgeBaseUrl {
     final custom = customBaseUrl.trim();
     if (bridgeTarget == BridgeTarget.custom && custom.isNotEmpty) {
-      return custom.endsWith('/') ? custom.substring(0, custom.length - 1) : custom;
+      return custom.endsWith('/')
+          ? custom.substring(0, custom.length - 1)
+          : custom;
     }
     return bridgeTarget.defaultBaseUrl ?? 'https://quantom-forge.web.app';
   }
@@ -191,6 +209,7 @@ class AppSettings {
     bool? cleanUrlAfterImport,
     bool? autoImportDeepLink,
     String? backendUrl,
+    String? gnnBackendUrl,
   }) {
     return AppSettings(
       isCompactMode: isCompactMode ?? this.isCompactMode,
@@ -205,13 +224,16 @@ class AppSettings {
       defaultExportFormat: defaultExportFormat ?? this.defaultExportFormat,
       exportPrecision: exportPrecision ?? this.exportPrecision,
       includeTitleLine: includeTitleLine ?? this.includeTitleLine,
-      autoSaveIntervalMinutes: autoSaveIntervalMinutes ?? this.autoSaveIntervalMinutes,
-      avogadroBridgeEnabled: avogadroBridgeEnabled ?? this.avogadroBridgeEnabled,
+      autoSaveIntervalMinutes:
+          autoSaveIntervalMinutes ?? this.autoSaveIntervalMinutes,
+      avogadroBridgeEnabled:
+          avogadroBridgeEnabled ?? this.avogadroBridgeEnabled,
       bridgeTarget: bridgeTarget ?? this.bridgeTarget,
       customBaseUrl: customBaseUrl ?? this.customBaseUrl,
       cleanUrlAfterImport: cleanUrlAfterImport ?? this.cleanUrlAfterImport,
       autoImportDeepLink: autoImportDeepLink ?? this.autoImportDeepLink,
       backendUrl: backendUrl ?? this.backendUrl,
+      gnnBackendUrl: gnnBackendUrl ?? this.gnnBackendUrl,
     );
   }
 
@@ -243,36 +265,38 @@ class AppSettings {
         other.customBaseUrl == customBaseUrl &&
         other.cleanUrlAfterImport == cleanUrlAfterImport &&
         other.autoImportDeepLink == autoImportDeepLink &&
-        other.backendUrl == backendUrl;
+        other.backendUrl == backendUrl &&
+        other.gnnBackendUrl == gnnBackendUrl;
   }
 
   @override
   int get hashCode => Object.hashAll([
-        isCompactMode,
-        reduceMotion,
-        showTooltips,
-        defaultElement,
-        defaultAutoOptimize,
-        atomScale,
-        showBonds,
-        showHydrogens,
-        bondTolerance,
-        defaultExportFormat,
-        exportPrecision,
-        includeTitleLine,
-        autoSaveIntervalMinutes,
-        avogadroBridgeEnabled,
-        bridgeTarget,
-        customBaseUrl,
-        cleanUrlAfterImport,
-        autoImportDeepLink,
-        backendUrl,
-      ]);
+    isCompactMode,
+    reduceMotion,
+    showTooltips,
+    defaultElement,
+    defaultAutoOptimize,
+    atomScale,
+    showBonds,
+    showHydrogens,
+    bondTolerance,
+    defaultExportFormat,
+    exportPrecision,
+    includeTitleLine,
+    autoSaveIntervalMinutes,
+    avogadroBridgeEnabled,
+    bridgeTarget,
+    customBaseUrl,
+    cleanUrlAfterImport,
+    autoImportDeepLink,
+    backendUrl,
+    gnnBackendUrl,
+  ]);
 }
 
 class AppSettingsNotifier extends ChangeNotifier {
   AppSettingsNotifier({AppSettings? initialSettings})
-      : _settings = initialSettings ?? const AppSettings() {
+    : _settings = initialSettings ?? const AppSettings() {
     if (initialSettings == null) {
       _load();
     } else {
@@ -298,6 +322,7 @@ class AppSettingsNotifier extends ChangeNotifier {
   static const _keyBridgeTarget = '${_keyPrefix}bridge_target';
   static const _keyCustomBaseUrl = '${_keyPrefix}bridge_custom_url';
   static const _keyBackendUrl = '${_keyPrefix}compute_backend_url';
+  static const _keyGnnBackendUrl = '${_keyPrefix}gnn_backend_url';
   static const _keyCleanUrl = '${_keyPrefix}clean_url_after_import';
   static const _keyAutoImport = '${_keyPrefix}auto_import_deep_link';
 
@@ -345,8 +370,9 @@ class AppSettingsNotifier extends ChangeNotifier {
         showBonds: prefs.getBool(_keyShowBonds) ?? true,
         showHydrogens: prefs.getBool(_keyShowHydrogens) ?? true,
         bondTolerance: prefs.getDouble(_keyBondTolerance) ?? 1.6,
-        defaultExportFormat:
-            ExportFormat.fromName(prefs.getString(_keyDefaultExportFormat)),
+        defaultExportFormat: ExportFormat.fromName(
+          prefs.getString(_keyDefaultExportFormat),
+        ),
         exportPrecision: prefs.getInt(_keyExportPrecision) ?? 5,
         includeTitleLine: prefs.getBool(_keyIncludeTitle) ?? true,
         autoSaveIntervalMinutes: prefs.getInt(_keyAutoSaveInterval) ?? 5,
@@ -355,7 +381,10 @@ class AppSettingsNotifier extends ChangeNotifier {
         customBaseUrl: prefs.getString(_keyCustomBaseUrl) ?? '',
         cleanUrlAfterImport: prefs.getBool(_keyCleanUrl) ?? true,
         autoImportDeepLink: prefs.getBool(_keyAutoImport) ?? true,
-        backendUrl: prefs.getString(_keyBackendUrl) ?? kDefaultComputeBackendUrl,
+        backendUrl:
+            prefs.getString(_keyBackendUrl) ?? kDefaultComputeBackendUrl,
+        gnnBackendUrl:
+            prefs.getString(_keyGnnBackendUrl) ?? kDefaultGnnBackendUrl,
       );
     } catch (e) {
       debugPrint('AppSettingsNotifier: could not load settings — $e');
@@ -365,17 +394,11 @@ class AppSettingsNotifier extends ChangeNotifier {
     }
   }
 
-  static AtomScale _atomScaleFromName(String? name) =>
-      AtomScale.values.firstWhere(
-        (s) => s.name == name,
-        orElse: () => AtomScale.ballAndStick,
-      );
+  static AtomScale _atomScaleFromName(String? name) => AtomScale.values
+      .firstWhere((s) => s.name == name, orElse: () => AtomScale.ballAndStick);
 
-  static BridgeTarget _bridgeTargetFromName(String? name) =>
-      BridgeTarget.values.firstWhere(
-        (t) => t.name == name,
-        orElse: () => BridgeTarget.production,
-      );
+  static BridgeTarget _bridgeTargetFromName(String? name) => BridgeTarget.values
+      .firstWhere((t) => t.name == name, orElse: () => BridgeTarget.production);
 
   Future<void> _save(AppSettings s) async {
     try {
@@ -389,7 +412,10 @@ class AppSettingsNotifier extends ChangeNotifier {
       await prefs.setBool(_keyShowBonds, s.showBonds);
       await prefs.setBool(_keyShowHydrogens, s.showHydrogens);
       await prefs.setDouble(_keyBondTolerance, s.bondTolerance);
-      await prefs.setString(_keyDefaultExportFormat, s.defaultExportFormat.name);
+      await prefs.setString(
+        _keyDefaultExportFormat,
+        s.defaultExportFormat.name,
+      );
       await prefs.setInt(_keyExportPrecision, s.exportPrecision);
       await prefs.setBool(_keyIncludeTitle, s.includeTitleLine);
       await prefs.setInt(_keyAutoSaveInterval, s.autoSaveIntervalMinutes);
@@ -399,6 +425,7 @@ class AppSettingsNotifier extends ChangeNotifier {
       await prefs.setBool(_keyCleanUrl, s.cleanUrlAfterImport);
       await prefs.setBool(_keyAutoImport, s.autoImportDeepLink);
       await prefs.setString(_keyBackendUrl, s.backendUrl);
+      await prefs.setString(_keyGnnBackendUrl, s.gnnBackendUrl);
     } catch (e) {
       debugPrint('AppSettingsNotifier: could not persist settings — $e');
     }
@@ -452,8 +479,9 @@ class AppSettingsNotifier extends ChangeNotifier {
       updateSettings((s) => s.copyWith(exportPrecision: value.clamp(2, 8)));
   void setIncludeTitleLine(bool value) =>
       updateSettings((s) => s.copyWith(includeTitleLine: value));
-  void setAutoSaveIntervalMinutes(int value) =>
-      updateSettings((s) => s.copyWith(autoSaveIntervalMinutes: value.clamp(1, 120)));
+  void setAutoSaveIntervalMinutes(int value) => updateSettings(
+    (s) => s.copyWith(autoSaveIntervalMinutes: value.clamp(1, 120)),
+  );
   void setAvogadroBridgeEnabled(bool value) =>
       updateSettings((s) => s.copyWith(avogadroBridgeEnabled: value));
   void setBridgeTarget(BridgeTarget value) =>
@@ -468,6 +496,10 @@ class AppSettingsNotifier extends ChangeNotifier {
   /// Sets the ColabReaction (DMF/UMA) compute backend base URL.
   void setBackendUrl(String value) =>
       updateSettings((s) => s.copyWith(backendUrl: value.trim()));
+
+  /// Sets the Transition1x GNN compute backend base URL.
+  void setGnnBackendUrl(String value) =>
+      updateSettings((s) => s.copyWith(gnnBackendUrl: value.trim()));
 
   void resetToDefaults() {
     updateSettings((_) => const AppSettings());

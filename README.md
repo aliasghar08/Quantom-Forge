@@ -39,8 +39,39 @@ Linux.
   animates image by image.
 
 ### 3. Transition-state modelling & animation
-* Interpolates reactants → transition state → products with a timeline scrubber that
-  can be parked exactly on the saddle point.
+
+The animation reproduces **Avogadro 2's Animation Tool** (the *Player* tool) —
+see [`AVOGADRO_ANIMATION_PARITY.md`](quantum_forge/AVOGADRO_ANIMATION_PARITY.md)
+for the full control-by-control mapping, the upstream source each number came
+from, and an honest account of where the render matches Avogadro and where it
+deliberately does not.
+
+* **WebGL playback through NGL**, using NGL's own impostor spheres and cylinder
+  bonds with its built-in ambient/diffuse/specular shading, at
+  `radiusScale 0.5 / aspectRatio 2.0`. Four display types: Ball and Stick,
+  Licorice, Van der Waals and Wireframe.
+* **Orthographic camera** with 4× MSAA, antialiasing, display-matched pixel ratio
+  and matched clip planes — the settings that separate "fine on a laptop" from
+  "publication-grade on a projector".
+* **Two element palettes**, switchable from the header: Avogadro's own
+  `element_color` table and the Jmol/CPK table NGL calls `element`. They differ on
+  hydrogen, carbon and fluorine, by Avogadro's design.
+* **Avogadro's Player panel** — `<` / `>` frame stepping, a 1-based `Frame: N/M`
+  spin box, a frame slider, `Start:` / `End:` range controls, a
+  `Dynamic bonding?` checkbox, a `Frame rate:` box in FPS (default 5, 0 remapped
+  to 5), a `Play` ⇄ `Pause` button, and Avogadro's keyboard map
+  (Space, ← →, Shift+← →, ↑ Start, ↓ End).
+* **Discrete images, never interpolation.** An NEB image is a computed geometry;
+  blending two of them would draw a structure no calculation produced. Looping
+  wraps within `[Start, End]` exactly as `animate()` does upstream.
+* **Dynamic bonding** re-perceives every bond from the current frame's
+  coordinates using Avogadro's rule — covalent radii plus a 0.45 Å tolerance,
+  hydrogen–hydrogen and the noble gases excluded — so a breaking bond really
+  disappears.
+* **An x/y/z orientation triad** in the corner, drawn in Flutter because NGL has
+  no orientation widget.
+* A research readout alongside it: frame, relative energy, absolute UMA energy,
+  path progress, cycle duration, transition-state frame and live bond count.
 * Energy-profile, Arrhenius and IR-spectrum plots drawn with the active theme's
   colour palette.
 

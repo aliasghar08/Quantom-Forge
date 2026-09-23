@@ -212,7 +212,8 @@ Test coverage added (8 new files):
 | `test/settings_and_theme_test.dart` | Defaults, `copyWith`/equality, endpoint resolution, format metadata, **persistence incl. the write-ordering regression**, clamping, all 7 themes' `ThemeData`, palette distinctness |
 | `test/parsers_and_zip_test.dart` | XYZ header/frame handling, serialise round-trip, molecular analysis, ZIP structure and the known CRC-32 check value |
 | `test/settings_screen_test.dart` | The full settings screen mounted with real providers: theme catalogue, theme switching + persistence, toggle write-through, export preview regeneration, Avogadro endpoint, compute settings, light-theme rendering and small-screen scrolling |
-| `test/reaction_animation_test.dart` | The reaction animation mounts and the electron-transfer/mechanism overlay paints without throwing |
+| `test/reaction_animation_test.dart` | The Avogadro-parity Player panel: upstream label strings, the 1-based `Frame: N/M` box, `Start:`/`End:` bounding, the `animate()` wrap in both directions, `Frame rate: 0` → 5 FPS, the full keyboard map, and that `Stop` really stops the ticker |
+| `test/avogadro_geometry_test.dart` | The numbers behind Avogadro parity: the `element_color` palette (incl. carbon `#7F7F7F`, not Jmol's `#909090`), Alvarez/Pyykkö radii, the 0.45 Å bond tolerance and its exact boundaries, the H–H and noble-gas exclusions, and the sphere/cylinder radii for Ball and Stick, Licorice, Van der Waals and Wireframe |
 | `test/results_summary_test.dart` | ΔG = ΔH − TΔS, Ea ≈ ΔH‡ + RT, the Eyring equation, the Arrhenius series, uncertainty propagation, significant-digit formatting and the literature-Ea accuracy metric |
 | `test/results_ui_test.dart` | The full results surface (header, energy profile, hero metrics, Arrhenius, thermo grid) renders inside a scroll view without layout errors |
 

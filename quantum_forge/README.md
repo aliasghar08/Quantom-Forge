@@ -19,8 +19,12 @@ Quantum Forge is optimized specifically for web browsers. By leveraging WebGL an
 *   **Avogadro Compatibility**: Fully supports loading structure files exported directly from Avogadro.
 
 ### 3. Transition State (TS) Modeling & Animation
-*   **Reaction Path Interpolation**: Smoothly animates chemical reactions, transitioning atoms from their Reactant state through the Transition State (TS), and finally into the Product state.
-*   **Play/Pause Controls**: Detailed timeline scrubber to pause animations exactly at the transition state to study bond-breaking and bond-forming geometries.
+*   **Avogadro Player parity**: the panel is a faithful rebuild of Avogadro 2's Animation Tool (`playertool.cpp`) — `<` / `>` stepping, a 1-based `Frame: N/M` box, a frame slider, `Start:` / `End:` range controls, a `Dynamic bonding?` checkbox, a `Frame rate:` box in FPS (default 5, with 0 remapped to 5), `Play` / `Pause`, and Avogadro's keyboard map (Space, ← →, Shift for ten frames, ↑ Start, ↓ End).
+*   **WebGL rendering through NGL** with its impostor spheres and cylinder bonds, at `radiusScale 0.5 / aspectRatio 2.0`, under an **orthographic camera** with 4x MSAA, antialiasing and a display-matched pixel ratio. Four display types: Ball and Stick, Licorice, Van der Waals, Wireframe.
+*   **Two element palettes**, switchable from the header: Avogadro's own `element_color` table (carbon `#7F7F7F`) and the Jmol/CPK table NGL calls `element` (carbon `#909090`).
+*   **Discrete frames, never interpolation**: each NEB image is a computed geometry, so images are shown exactly as calculated. Looping wraps within `[Start, End]`, matching Avogadro's `animate()`.
+*   **Dynamic bonding**: re-perceives every bond per frame with Avogadro's rule (covalent radii + a 0.45 Å tolerance, H–H and the noble gases excluded), so bond breaking and forming is visible in the geometry.
+*   Paths are handed to NGL as **multi-model SDF**, not XYZ — NGL has no XYZ parser. [`AVOGADRO_ANIMATION_PARITY.md`](AVOGADRO_ANIMATION_PARITY.md) documents that finding with evidence, every other measured API detail, and the known divergences from Avogadro.
 
 ### 4. Advanced Analytics & Reaction Dashboards
 *   **Energy Profile Graphs**: Interactive 2D line charts plotting the reaction coordinate against relative energy (Activation Energy and Enthalpy).

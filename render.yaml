@@ -1,0 +1,45 @@
+# Render blueprint for the Transition1x GNN service.
+#
+# Deploy with `render.com` → New → Blueprint, pointing at this repository. Render
+# reads this file from the repo root, and `rootDir` narrows the build context to
+# this folder so the Dockerfile and the checkpoint are both in scope.
+#
+# IMPORTANT — the service name below determines the URL, and it is NOT the URL the
+# Flutter app currently defaults to:
+#
+#   this blueprint   -> https://quantom-forge-gnn.onrender.com
+#   app default      -> https://quantom-forge-1.onrender.com
+#                       (kDefaultGnnBackendUrl in
+#                        quantum_forge/lib/core/settings/app_settings_provider.dart)
+#
+# Either rename `name:` to `quantom-forge-1` to keep the existing URL, or update
+# that constant (and the value saved in Settings ▸ Compute) to the new one. Left
+# different on purpose rather than guessed at, because getting it wrong produces
+# a service that deploys cleanly and is never called.
+services:
+  - type: web
+    name: quantom-forge-gnn
+    runtime: docker
+    # `free` spins the instance down when idle; the first request afterwards pays
+    # a cold start plus the checkpoint load. Fine for occasional use, and worth
+    # knowing before demoing it — the app's "Test connection" button will be slow
+    # on the first press rather than broken.
+    plan: free
+    rootDir: tx1-fastapi-backend
+    dockerfilePath: ./Dockerfile
+    # Render treats a failed health check as a failed deploy. /health reports
+    # "degraded" when the checkpoint did not load, so a broken model fails the
+    # deploy instead of silently serving 503s.
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Browser origins allowed to call the service. "*" is the default and is
+      # what makes `flutter run -d chrome` work, since the dev-server port changes
+      # every run. Narrow it for a public deployment, e.g.
+      #   value: https://quantom-forge.web.app
+      - key: T1X_ALLOWED_ORIGINS
+        value: "*"
+      # Matches the path the Dockerfile bakes the checkpoint into. Set explicitly
+      # so the resolution does not depend on the platform's working directory.
+      - key: T1X_CHECKPOINT
+        value: /app/t1x_model_checkpoint.pt

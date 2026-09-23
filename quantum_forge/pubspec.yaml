@@ -41,6 +41,11 @@ dependencies:
   provider: ^6.1.5+1
   shared_preferences: ^2.5.5
   http: ^1.6.0
+  # DOM interop for the reaction animation's NGL surface. Web-only by design:
+  # `ngl_engine_web.dart` is the single file allowed to touch it, and everything
+  # else resolves to `ngl_engine_stub.dart` via a conditional import.
+  web: ^1.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
