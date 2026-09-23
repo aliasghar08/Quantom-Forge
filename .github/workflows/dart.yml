@@ -14,6 +14,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # ADDED: This tells GitHub to run all commands inside your Flutter app folder
+    defaults:
+      run:
+        working-directory: ./quantum_forge
 
     steps:
       - uses: actions/checkout@v4
