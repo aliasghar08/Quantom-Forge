@@ -251,30 +251,41 @@ deleted with its tests with no impact on the animation.
 
 ## 10. Deploying
 
-Live at **https://quantom-forge.web.app**, built and deployed from the
-`colab-animation` branch:
+Live at **https://quantom-forge.web.app**, built and deployed from **`main`**:
 
 ```powershell
-git checkout colab-animation
+git checkout main
+git pull
 cd quantum_forge
 flutter build web --release
 firebase deploy --only hosting
 ```
 
-`main` deliberately does **not** contain this work, so **do not deploy from
-`main`** — that would rebuild the live site without the animation and silently
-revert it.
+This section used to say the opposite — build from `colab-animation`, and do not
+deploy from `main`. That was true when the animation lived alone on its own
+branch, but `colab-animation` has since been merged into `main` (it is now an
+ancestor), so the old instruction had become actively dangerous: its tip is older
+than `main`, and checking it out to build would revert the animation *and*
+everything merged since — precisely the outcome the warning was trying to
+prevent. Deploy from `main`.
 
-Verify the live bundle rather than trusting the deploy status:
+Verify the live bundle rather than trusting the deploy status — these strings are
+compiled into `main.dart.js`:
 
 ```powershell
 $js = (Invoke-WebRequest https://quantom-forge.web.app/main.dart.js).Content
-$js.Contains('Dynamic bonding?')
-$js.Contains('CPK (Jmol)')
-$js.Contains('loadSdf')
+$js.Contains('Dynamic bonding?')   # Avogadro Player control label
+$js.Contains('CPK (Jmol)')         # the palette toggle
+$js.Contains('loadSdf')            # the SDF trajectory path, i.e. the NGL renderer
 $ngl = (Invoke-WebRequest https://quantom-forge.web.app/ngl/ngl.js).Content
-$ngl.Length -gt 1000000
+$ngl.Length -gt 1000000            # the vendored NGL bundle is being served
 ```
+
+A quick manual check of the same build: the animation should render a lit
+molecule on black under an orthographic camera, `Dynamic bonding?` should make a
+stretching C–H bond disappear as it leaves the 1.52 Å cutoff, and the Colours
+picker should visibly darken carbon when switched from `CPK (Jmol)` to
+`Avogadro`.
 
 `quantum_forge/.firebase/` holds the CLI's deploy cache; it is regenerated on
 every deploy and git-ignored.
