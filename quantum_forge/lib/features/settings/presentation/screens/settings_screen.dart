@@ -5,7 +5,7 @@
 // dropdown inside the navigation drawer; the whole AppSettings model was dead
 // code. This screen is now the single place to configure appearance, the
 // editor/viewer, export defaults and the Avogadro bridge — and every control
-// writes through to SharedPreferences immediately.
+// writes through to `AppStorage` immediately.
 // ============================================================================
 
 import 'package:flutter/material.dart';

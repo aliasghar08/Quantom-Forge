@@ -189,9 +189,63 @@ reproduced in the code before being fixed.
 * `settings_provider.dart`: compute settings migrated off the web-only `LocalPrefs`
   onto `shared_preferences`, so the settings screen is unit-testable; added
   `flush()` and `resetToDefaults()`. `local_auth_service.dart` migrated the same
-  way.
+  way. (The `shared_preferences` half of this was later replaced — see §2.5.)
 * `settings_screen.dart`: settings cards are `Material` (not `DecoratedBox`), so
   `ListTile` ink splashes are visible — a bug the widget tests caught.
+
+### 2.5 Persistence: `shared_preferences` → `AppStorage`
+
+**The defect.** In the deployed web build nothing persisted. `shared_preferences_web`
+was in the lock file, but no registrant for it is generated into the web bundle, so
+every call threw:
+
+```
+MissingPluginException(No implementation found for method getAll on channel
+  plugins.flutter.io/shared_preferences)
+```
+
+Every provider caught that and fell back to its default, so the symptom was not a
+crash but *"my settings reset every time I refresh"* — plus one exception per
+provider in the console on every page load. Four call sites were affected: the
+theme, `AppSettingsNotifier`, `QuantumSettingsNotifier`, `LocalAuthService` and
+`SessionStateService`.
+
+**Why not repair the registration.** `shared_preferences_web` is a thin wrapper
+over the browser's `localStorage` anyway, so the package bought nothing here except
+an async `getInstance()` that forced every notifier to load behind an `await` and
+publish an "initialised" flag. The app already boots without Firebase and needs its
+local state to survive that; the fewer moving parts in that path, the better.
+
+**What replaced it.** `core/services/app_storage.dart`, a conditional export of
+`app_storage_web.dart` (direct `localStorage`, with an automatic in-process
+fallback when the page is sandboxed, third-party storage is blocked, or a write is
+rejected for quota) and `app_storage_stub.dart` (an in-memory store for the VM and
+non-web targets). The API is `getString/setString/getBool/setBool/getInt/setInt/
+getDouble/setDouble/containsKey/remove/clear`, all synchronous, plus `isPersistent`
+so a degraded page can say "session only" instead of silently losing writes.
+
+Two details worth keeping:
+
+* The stub is a **working** store, not a throwing one. "Settings survive a round
+  trip through storage" is exactly what the settings and theme tests assert, and
+  they can assert it against the stub; a throwing stub would have forced every one
+  of them to mock persistence instead of exercising it.
+* Values are one plain string per key rather than an opaque JSON blob, so they stay
+  readable in the browser's storage inspector.
+
+**Also fixed while here.** `core/services/local_storage_service.dart` (blob storage
+for reaction artefacts, unrelated to settings) had a `dart.library.io` branch
+pointing at `local_storage_service_io.dart`, which does not exist. The analyzer does
+not verify that a conditional target exists, so it read as fine — but every
+non-web compile failed with *"Error when reading '…_io.dart': The system cannot find
+the file specified"*, which made this module and its importers (`main.dart`,
+`ReactionNotifier`) impossible to unit-test on the VM and would have broken a
+desktop build. The dead branch is gone and `test/local_storage_service_test.dart`
+now imports the library so the mistake cannot return unnoticed.
+
+`web_services_web.dart` also carried an unused second `localStorage` binding
+(`getPref/setPref/removePref`) with no callers in either the web or stub
+implementation; it was removed so there is exactly one storage path.
 
 ---
 
@@ -199,16 +253,18 @@ reproduced in the code before being fixed.
 
 ```
 flutter analyze   →  0 issues
-flutter test      →  116 tests pass
+flutter test      →  276 tests pass
 flutter build web →  succeeds
 ```
 
-Test coverage added (8 new files):
+Test coverage added (11 new files):
 
 | File | Covers |
 | --- | --- |
 | `test/avogadro_interchange_test.dart` | Formula/element tables, bond perception, and all five writers incl. CJSON round-trip, V2000 column layout, XML escaping |
 | `test/avogadro_deep_link_test.dart` | The exact payload the Python plugin emits, padding-residue handling, size/atom caps, legacy `import_xyz`, URL build → parse round-trip, multi-frame XYZ |
+| `test/app_storage_test.dart` | The storage contract for every type: round trips, absent keys, wrong-typed text reading as `null` rather than throwing, overwrite/remove/clear, a JSON session payload, and that the VM stub reports `isPersistent == false` |
+| `test/local_storage_service_test.dart` | That the conditional export in `local_storage_service.dart` resolves off the web (it did not compile before), and that the non-web stub fails loudly |
 | `test/settings_and_theme_test.dart` | Defaults, `copyWith`/equality, endpoint resolution, format metadata, **persistence incl. the write-ordering regression**, clamping, all 7 themes' `ThemeData`, palette distinctness |
 | `test/parsers_and_zip_test.dart` | XYZ header/frame handling, serialise round-trip, molecular analysis, ZIP structure and the known CRC-32 check value |
 | `test/settings_screen_test.dart` | The full settings screen mounted with real providers: theme catalogue, theme switching + persistence, toggle write-through, export preview regeneration, Avogadro endpoint, compute settings, light-theme rendering and small-screen scrolling |
@@ -216,6 +272,36 @@ Test coverage added (8 new files):
 | `test/avogadro_geometry_test.dart` | The numbers behind Avogadro parity: the `element_color` palette (incl. carbon `#7F7F7F`, not Jmol's `#909090`), Alvarez/Pyykkö radii, the 0.45 Å bond tolerance and its exact boundaries, the H–H and noble-gas exclusions, and the sphere/cylinder radii for Ball and Stick, Licorice, Van der Waals and Wireframe |
 | `test/results_summary_test.dart` | ΔG = ΔH − TΔS, Ea ≈ ΔH‡ + RT, the Eyring equation, the Arrhenius series, uncertainty propagation, significant-digit formatting and the literature-Ea accuracy metric |
 | `test/results_ui_test.dart` | The full results surface (header, energy profile, hero metrics, Arrhenius, thermo grid) renders inside a scroll view without layout errors |
+
+Persistence was then verified in a **real browser against the release build**, not
+only on the VM, because "survives a refresh" is a claim about the browser:
+
+```
+$ flutter build web --release        # → build/web, copied to build/serve
+$ node build/serve.cjs               # static snapshot on 127.0.0.1:8202
+$ node tool/persistence_check.cjs
+  baseline (fresh profile)   : localStorage empty, 0 exceptions
+  WRITE  type into the "Hugging Face API Token" field of the live UI
+         → localStorage.qs_hf_token = "qf-persist-probe-token"   (22 qs_* keys written)
+  RELOAD (Page.reload)
+         → qs_hf_token still present, and the app rebuilt the field with it
+  THEME  seed qf_theme_id = scientific_light, reload
+         → near-white pixel fraction 0.0044 → 0.6842 (dark → light page)
+  MissingPluginException occurrences: 0
+  FAILURES: (none)
+```
+
+The theme step is deliberately a *different* provider and a different kind of
+evidence: the rendered pixels change, so the restore is visible rather than merely
+present in storage. `tool/persistence_check.cjs` addresses the canvas-rendered UI
+through Flutter's semantics tree (assistive tech has to be switched on for Flutter
+to build it), which yields real, addressable DOM elements for the click and the
+keystroke; enabling it does not affect persistence.
+
+Note the read of the restored text field: Flutter mirrors the editing value into
+that semantic element only while it is the active edit target, so the probe clicks
+the field before reading it — which is also the honest check, since it is what a
+user would see in it. An unfocused read returns `""` even when the field holds text.
 
 The plugin was additionally exercised end to end from the shell:
 
@@ -289,3 +375,12 @@ which is the correct thing to show until a real engine (e.g. XTB/DFT) is wired i
   `UnsupportedError` off the web, which is correct for a web-only app but means the
   resolver itself is not exercised by VM tests; the resolver's parsing logic is
   tested indirectly through the rest of the suite.
+* **Persistence is durable on the web only.** `AppStorage` keeps state in the
+  browser's `localStorage`, which is what the deployed app runs on. On a desktop or
+  mobile build the conditional export selects the in-memory stub, so settings
+  survive navigation within a session but not a restart — `isPersistent` reports
+  that honestly rather than implying otherwise. A `dart:io`/`path_provider` variant
+  is the obvious next step if desktop becomes a target; it was not written because
+  it could not be verified here (no desktop toolchain, and the shipped target is
+  Flutter Web). This is strictly better than the state it replaced, where writes
+  failed on *every* platform with `MissingPluginException`.

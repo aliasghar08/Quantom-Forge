@@ -1,18 +1,20 @@
 // ============================================================================
 // Quantum Settings Provider
 // Persistent state for all researcher-controlled computation parameters.
-// Saved through shared_preferences so settings survive app restarts.
+// Saved through `AppStorage` so settings survive app restarts and, in the web
+// build, a plain browser refresh — no re-hydration dance required.
 // Includes: catalyst selection, solvent, MLIP model, optimizer, analysis flags.
 //
 // Storage note: this used to go through `LocalPrefs`, a bespoke localStorage
 // wrapper built on `dart:js_interop`. That made the module — and every widget
 // importing it — uncompilable off the web, so none of it could be unit-tested.
-// It now uses the same `shared_preferences` backend as the workspace settings,
-// which also means one storage story instead of two.
+// It then went through `shared_preferences`, which on this web build threw
+// `MissingPluginException` on every read. It now uses `AppStorage`, the same
+// backend as the workspace settings, so there is one storage story again.
 // ============================================================================
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:quantum_forge/core/services/app_storage.dart';
 
 class QuantumSettings {
   // --- System ---
@@ -250,30 +252,29 @@ class QuantumSettingsNotifier extends ValueNotifier<QuantumSettings> {
 
   Future<void> _load() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       value = QuantumSettings(
-        charge: prefs.getInt(_keyCharge) ?? 0,
-        spinMultiplicity: prefs.getInt(_keySpin) ?? 1,
-        mlipModel: prefs.getString(_keyMlip) ?? 'UMA-SM',
-        solventModel: prefs.getString(_keySolvent) ?? 'Vacuum',
-        temperatureK: prefs.getDouble(_keyTemp) ?? 298.15,
-        catalyst: prefs.getString(_keyCatalyst) ?? 'None',
-        optimizerAlgorithm: prefs.getString(_keyAlgo) ?? 'NEB-CI',
-        maxSteps: prefs.getInt(_keySteps) ?? 300,
-        convergence: prefs.getString(_keyConv) ?? 'Normal',
-        dmfConvergence: prefs.getString(_keyDmfConv) ?? 'Normal',
-        nmove: prefs.getInt(_keyNmove) ?? 20,
-        updateTeval: prefs.getBool(_keyUpdateTeval) ?? false,
-        maxForceNorm: prefs.getDouble(_keyForce) ?? 0.05,
-        nebImages: prefs.getInt(_keyImages) ?? 12,
-        springConstant: prefs.getDouble(_keySpring) ?? 0.1,
-        hfToken: prefs.getString(_keyToken) ?? '',
-        zpeCorrection: prefs.getBool(_keyZpe) ?? true,
-        computeThermochemistry: prefs.getBool(_keyThermo) ?? true,
-        runIrc: prefs.getBool(_keyIrc) ?? false,
-        frequencyAnalysis: prefs.getBool(_keyFreq) ?? true,
-        exportFormat: prefs.getString(_keyExport) ?? 'XYZ',
-        conformationalSearch: prefs.getBool(_keyConf) ?? false,
+        charge: AppStorage.getInt(_keyCharge) ?? 0,
+        spinMultiplicity: AppStorage.getInt(_keySpin) ?? 1,
+        mlipModel: AppStorage.getString(_keyMlip) ?? 'UMA-SM',
+        solventModel: AppStorage.getString(_keySolvent) ?? 'Vacuum',
+        temperatureK: AppStorage.getDouble(_keyTemp) ?? 298.15,
+        catalyst: AppStorage.getString(_keyCatalyst) ?? 'None',
+        optimizerAlgorithm: AppStorage.getString(_keyAlgo) ?? 'NEB-CI',
+        maxSteps: AppStorage.getInt(_keySteps) ?? 300,
+        convergence: AppStorage.getString(_keyConv) ?? 'Normal',
+        dmfConvergence: AppStorage.getString(_keyDmfConv) ?? 'Normal',
+        nmove: AppStorage.getInt(_keyNmove) ?? 20,
+        updateTeval: AppStorage.getBool(_keyUpdateTeval) ?? false,
+        maxForceNorm: AppStorage.getDouble(_keyForce) ?? 0.05,
+        nebImages: AppStorage.getInt(_keyImages) ?? 12,
+        springConstant: AppStorage.getDouble(_keySpring) ?? 0.1,
+        hfToken: AppStorage.getString(_keyToken) ?? '',
+        zpeCorrection: AppStorage.getBool(_keyZpe) ?? true,
+        computeThermochemistry: AppStorage.getBool(_keyThermo) ?? true,
+        runIrc: AppStorage.getBool(_keyIrc) ?? false,
+        frequencyAnalysis: AppStorage.getBool(_keyFreq) ?? true,
+        exportFormat: AppStorage.getString(_keyExport) ?? 'XYZ',
+        conformationalSearch: AppStorage.getBool(_keyConf) ?? false,
       );
     } catch (e) {
       debugPrint('QuantumSettingsNotifier: could not load settings — $e');
@@ -285,29 +286,28 @@ class QuantumSettingsNotifier extends ValueNotifier<QuantumSettings> {
 
   Future<void> _save(QuantumSettings s) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_keyCharge, s.charge);
-      await prefs.setInt(_keySpin, s.spinMultiplicity);
-      await prefs.setString(_keyMlip, s.mlipModel);
-      await prefs.setString(_keySolvent, s.solventModel);
-      await prefs.setDouble(_keyTemp, s.temperatureK);
-      await prefs.setString(_keyCatalyst, s.catalyst);
-      await prefs.setString(_keyAlgo, s.optimizerAlgorithm);
-      await prefs.setInt(_keySteps, s.maxSteps);
-      await prefs.setString(_keyConv, s.convergence);
-      await prefs.setString(_keyDmfConv, s.dmfConvergence);
-      await prefs.setInt(_keyNmove, s.nmove);
-      await prefs.setBool(_keyUpdateTeval, s.updateTeval);
-      await prefs.setDouble(_keyForce, s.maxForceNorm);
-      await prefs.setInt(_keyImages, s.nebImages);
-      await prefs.setDouble(_keySpring, s.springConstant);
-      await prefs.setString(_keyToken, s.hfToken);
-      await prefs.setBool(_keyZpe, s.zpeCorrection);
-      await prefs.setBool(_keyThermo, s.computeThermochemistry);
-      await prefs.setBool(_keyIrc, s.runIrc);
-      await prefs.setBool(_keyFreq, s.frequencyAnalysis);
-      await prefs.setString(_keyExport, s.exportFormat);
-      await prefs.setBool(_keyConf, s.conformationalSearch);
+      AppStorage.setInt(_keyCharge, s.charge);
+      AppStorage.setInt(_keySpin, s.spinMultiplicity);
+      AppStorage.setString(_keyMlip, s.mlipModel);
+      AppStorage.setString(_keySolvent, s.solventModel);
+      AppStorage.setDouble(_keyTemp, s.temperatureK);
+      AppStorage.setString(_keyCatalyst, s.catalyst);
+      AppStorage.setString(_keyAlgo, s.optimizerAlgorithm);
+      AppStorage.setInt(_keySteps, s.maxSteps);
+      AppStorage.setString(_keyConv, s.convergence);
+      AppStorage.setString(_keyDmfConv, s.dmfConvergence);
+      AppStorage.setInt(_keyNmove, s.nmove);
+      AppStorage.setBool(_keyUpdateTeval, s.updateTeval);
+      AppStorage.setDouble(_keyForce, s.maxForceNorm);
+      AppStorage.setInt(_keyImages, s.nebImages);
+      AppStorage.setDouble(_keySpring, s.springConstant);
+      AppStorage.setString(_keyToken, s.hfToken);
+      AppStorage.setBool(_keyZpe, s.zpeCorrection);
+      AppStorage.setBool(_keyThermo, s.computeThermochemistry);
+      AppStorage.setBool(_keyIrc, s.runIrc);
+      AppStorage.setBool(_keyFreq, s.frequencyAnalysis);
+      AppStorage.setString(_keyExport, s.exportFormat);
+      AppStorage.setBool(_keyConf, s.conformationalSearch);
     } catch (e) {
       debugPrint('QuantumSettingsNotifier: could not persist settings — $e');
     }

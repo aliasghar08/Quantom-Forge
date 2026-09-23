@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:quantum_forge/core/services/app_storage.dart';
 
 import 'quantum_theme.dart';
 
@@ -84,8 +84,7 @@ class ThemeNotifier extends ChangeNotifier {
 
   Future<void> _restore() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _currentTheme = AppTheme.fromId(prefs.getString(storageKey));
+      _currentTheme = AppTheme.fromId(AppStorage.getString(storageKey));
     } catch (e) {
       debugPrint('ThemeNotifier: could not restore theme — $e');
     } finally {
@@ -100,8 +99,7 @@ class ThemeNotifier extends ChangeNotifier {
     _currentTheme = theme;
     notifyListeners();
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(storageKey, theme.id);
+      AppStorage.setString(storageKey, theme.id);
     } catch (e) {
       debugPrint('ThemeNotifier: could not persist theme — $e');
     }

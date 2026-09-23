@@ -15,8 +15,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:quantum_forge/core/services/app_storage.dart';
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/state/settings_provider.dart';
@@ -25,7 +25,9 @@ import 'package:quantum_forge/features/settings/presentation/screens/settings_sc
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  // `AppStorage` is the app's own localStorage-backed store; off the web it
+  // resolves to an in-memory stub, so clearing it resets state per test.
+  setUp(AppStorage.clear);
 
   Widget harness({
     required AppSettingsNotifier appSettings,
@@ -158,8 +160,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(notifier.currentTheme, AppTheme.neonSynth);
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString(ThemeNotifier.storageKey), 'neon_synth');
+    expect(AppStorage.getString(ThemeNotifier.storageKey), 'neon_synth');
   });
 
   testWidgets('a toggle writes through to the notifier and to storage',
@@ -181,8 +182,7 @@ void main() {
 
     expect(appSettings.settings.isCompactMode, isTrue);
     await appSettings.flush();
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('app_settings_compact_mode'), isTrue);
+    expect(AppStorage.getBool('app_settings_compact_mode'), isTrue);
   });
 
   testWidgets('the export tab previews a real, regenerated document',

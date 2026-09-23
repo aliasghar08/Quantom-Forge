@@ -14,30 +14,6 @@ import 'dart:js_interop_unsafe';
 @JS('window')
 external JSObject get _window;
 
-/// Minimal typed view of `window.localStorage`, kept for callers that need raw
-/// browser storage rather than `shared_preferences`.
-@JS('window.localStorage')
-external Storage get _localStorage;
-
-@JS()
-@staticInterop
-class Storage {}
-
-extension StorageExt on Storage {
-  @JS('getItem')
-  external JSString? _getItem(JSString key);
-
-  @JS('setItem')
-  external void _setItem(JSString key, JSString value);
-
-  @JS('removeItem')
-  external void _removeItem(JSString key);
-
-  String? getItem(String key) => _getItem(key.toJS)?.toDart;
-  void setItem(String key, String value) => _setItem(key.toJS, value.toJS);
-  void removeItem(String key) => _removeItem(key.toJS);
-}
-
 class WebServices {
   const WebServices._();
 
@@ -129,11 +105,6 @@ class WebServices {
     (open as JSFunction).callAsFunction(_window, url.toJS, '_blank'.toJS);
     return true;
   }
-
-  /// Raw localStorage access for callers that predate `shared_preferences`.
-  static String? getPref(String key) => _localStorage.getItem(key);
-  static void setPref(String key, String value) => _localStorage.setItem(key, value);
-  static void removePref(String key) => _localStorage.removeItem(key);
 
   /// Awaits a value that may already be resolved or may be a JS Promise, and
   /// returns it as a [JSAny?]. The previous version only returned JSObjects,

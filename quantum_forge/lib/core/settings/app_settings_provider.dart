@@ -5,11 +5,11 @@
 // the provider tree, so every preference it held (compact mode, export format,
 // tooltips, auto-save) silently did nothing. It is now instantiated in
 // `main.dart`, consumed by the dashboard/editor/settings screen, and persisted
-// through SharedPreferences.
+// through `AppStorage` (a thin wrapper over the browser's `localStorage`).
 // ============================================================================
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:quantum_forge/core/services/app_storage.dart';
 
 /// Default ColabReaction (DMF/UMA) compute backend.
 ///
@@ -359,32 +359,31 @@ class AppSettingsNotifier extends ChangeNotifier {
 
   Future<void> _load() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       _settings = AppSettings(
-        isCompactMode: prefs.getBool(_keyCompactMode) ?? false,
-        reduceMotion: prefs.getBool(_keyReduceMotion) ?? false,
-        showTooltips: prefs.getBool(_keyShowTooltips) ?? true,
-        defaultElement: prefs.getString(_keyDefaultElement) ?? 'C',
-        defaultAutoOptimize: prefs.getBool(_keyAutoOptimize) ?? true,
-        atomScale: _atomScaleFromName(prefs.getString(_keyAtomScale)),
-        showBonds: prefs.getBool(_keyShowBonds) ?? true,
-        showHydrogens: prefs.getBool(_keyShowHydrogens) ?? true,
-        bondTolerance: prefs.getDouble(_keyBondTolerance) ?? 1.6,
+        isCompactMode: AppStorage.getBool(_keyCompactMode) ?? false,
+        reduceMotion: AppStorage.getBool(_keyReduceMotion) ?? false,
+        showTooltips: AppStorage.getBool(_keyShowTooltips) ?? true,
+        defaultElement: AppStorage.getString(_keyDefaultElement) ?? 'C',
+        defaultAutoOptimize: AppStorage.getBool(_keyAutoOptimize) ?? true,
+        atomScale: _atomScaleFromName(AppStorage.getString(_keyAtomScale)),
+        showBonds: AppStorage.getBool(_keyShowBonds) ?? true,
+        showHydrogens: AppStorage.getBool(_keyShowHydrogens) ?? true,
+        bondTolerance: AppStorage.getDouble(_keyBondTolerance) ?? 1.6,
         defaultExportFormat: ExportFormat.fromName(
-          prefs.getString(_keyDefaultExportFormat),
+          AppStorage.getString(_keyDefaultExportFormat),
         ),
-        exportPrecision: prefs.getInt(_keyExportPrecision) ?? 5,
-        includeTitleLine: prefs.getBool(_keyIncludeTitle) ?? true,
-        autoSaveIntervalMinutes: prefs.getInt(_keyAutoSaveInterval) ?? 5,
-        avogadroBridgeEnabled: prefs.getBool(_keyBridgeEnabled) ?? true,
-        bridgeTarget: _bridgeTargetFromName(prefs.getString(_keyBridgeTarget)),
-        customBaseUrl: prefs.getString(_keyCustomBaseUrl) ?? '',
-        cleanUrlAfterImport: prefs.getBool(_keyCleanUrl) ?? true,
-        autoImportDeepLink: prefs.getBool(_keyAutoImport) ?? true,
+        exportPrecision: AppStorage.getInt(_keyExportPrecision) ?? 5,
+        includeTitleLine: AppStorage.getBool(_keyIncludeTitle) ?? true,
+        autoSaveIntervalMinutes: AppStorage.getInt(_keyAutoSaveInterval) ?? 5,
+        avogadroBridgeEnabled: AppStorage.getBool(_keyBridgeEnabled) ?? true,
+        bridgeTarget: _bridgeTargetFromName(AppStorage.getString(_keyBridgeTarget)),
+        customBaseUrl: AppStorage.getString(_keyCustomBaseUrl) ?? '',
+        cleanUrlAfterImport: AppStorage.getBool(_keyCleanUrl) ?? true,
+        autoImportDeepLink: AppStorage.getBool(_keyAutoImport) ?? true,
         backendUrl:
-            prefs.getString(_keyBackendUrl) ?? kDefaultComputeBackendUrl,
+            AppStorage.getString(_keyBackendUrl) ?? kDefaultComputeBackendUrl,
         gnnBackendUrl:
-            prefs.getString(_keyGnnBackendUrl) ?? kDefaultGnnBackendUrl,
+            AppStorage.getString(_keyGnnBackendUrl) ?? kDefaultGnnBackendUrl,
       );
     } catch (e) {
       debugPrint('AppSettingsNotifier: could not load settings — $e');
@@ -402,30 +401,29 @@ class AppSettingsNotifier extends ChangeNotifier {
 
   Future<void> _save(AppSettings s) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyCompactMode, s.isCompactMode);
-      await prefs.setBool(_keyReduceMotion, s.reduceMotion);
-      await prefs.setBool(_keyShowTooltips, s.showTooltips);
-      await prefs.setString(_keyDefaultElement, s.defaultElement);
-      await prefs.setBool(_keyAutoOptimize, s.defaultAutoOptimize);
-      await prefs.setString(_keyAtomScale, s.atomScale.name);
-      await prefs.setBool(_keyShowBonds, s.showBonds);
-      await prefs.setBool(_keyShowHydrogens, s.showHydrogens);
-      await prefs.setDouble(_keyBondTolerance, s.bondTolerance);
-      await prefs.setString(
+      AppStorage.setBool(_keyCompactMode, s.isCompactMode);
+      AppStorage.setBool(_keyReduceMotion, s.reduceMotion);
+      AppStorage.setBool(_keyShowTooltips, s.showTooltips);
+      AppStorage.setString(_keyDefaultElement, s.defaultElement);
+      AppStorage.setBool(_keyAutoOptimize, s.defaultAutoOptimize);
+      AppStorage.setString(_keyAtomScale, s.atomScale.name);
+      AppStorage.setBool(_keyShowBonds, s.showBonds);
+      AppStorage.setBool(_keyShowHydrogens, s.showHydrogens);
+      AppStorage.setDouble(_keyBondTolerance, s.bondTolerance);
+      AppStorage.setString(
         _keyDefaultExportFormat,
         s.defaultExportFormat.name,
       );
-      await prefs.setInt(_keyExportPrecision, s.exportPrecision);
-      await prefs.setBool(_keyIncludeTitle, s.includeTitleLine);
-      await prefs.setInt(_keyAutoSaveInterval, s.autoSaveIntervalMinutes);
-      await prefs.setBool(_keyBridgeEnabled, s.avogadroBridgeEnabled);
-      await prefs.setString(_keyBridgeTarget, s.bridgeTarget.name);
-      await prefs.setString(_keyCustomBaseUrl, s.customBaseUrl);
-      await prefs.setBool(_keyCleanUrl, s.cleanUrlAfterImport);
-      await prefs.setBool(_keyAutoImport, s.autoImportDeepLink);
-      await prefs.setString(_keyBackendUrl, s.backendUrl);
-      await prefs.setString(_keyGnnBackendUrl, s.gnnBackendUrl);
+      AppStorage.setInt(_keyExportPrecision, s.exportPrecision);
+      AppStorage.setBool(_keyIncludeTitle, s.includeTitleLine);
+      AppStorage.setInt(_keyAutoSaveInterval, s.autoSaveIntervalMinutes);
+      AppStorage.setBool(_keyBridgeEnabled, s.avogadroBridgeEnabled);
+      AppStorage.setString(_keyBridgeTarget, s.bridgeTarget.name);
+      AppStorage.setString(_keyCustomBaseUrl, s.customBaseUrl);
+      AppStorage.setBool(_keyCleanUrl, s.cleanUrlAfterImport);
+      AppStorage.setBool(_keyAutoImport, s.autoImportDeepLink);
+      AppStorage.setString(_keyBackendUrl, s.backendUrl);
+      AppStorage.setString(_keyGnnBackendUrl, s.gnnBackendUrl);
     } catch (e) {
       debugPrint('AppSettingsNotifier: could not persist settings — $e');
     }

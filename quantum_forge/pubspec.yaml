@@ -39,7 +39,11 @@ dependencies:
   cloud_firestore: ^6.10.0
   flutter_staggered_animations: ^1.1.1
   provider: ^6.1.5+1
-  shared_preferences: ^2.5.5
+  # NOTE: `shared_preferences` was removed on purpose. On this web build its
+  # plugin channel was never registered, so every read threw
+  # `MissingPluginException` and nothing persisted across a refresh. Persistence
+  # now goes through `lib/core/services/app_storage.dart`, which talks to the
+  # browser's `localStorage` directly (and to an in-memory map off the web).
   http: ^1.6.0
   # DOM interop for the reaction animation's NGL surface. Web-only by design:
   # `ngl_engine_web.dart` is the single file allowed to touch it, and everything

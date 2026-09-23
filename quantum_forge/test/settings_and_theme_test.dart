@@ -9,15 +9,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:quantum_forge/core/services/app_storage.dart';
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  // Off the web `AppStorage` resolves to its in-memory stub, so clearing it
+  // gives each test the same blank slate that `setMockInitialValues({})` did.
+  setUp(AppStorage.clear);
 
   group('AppSettings defaults', () {
     test('are sensible for a first run', () {
@@ -147,12 +148,13 @@ void main() {
       notifier.setAtomScale(AtomScale.spaceFilling);
       await notifier.flush();
 
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('app_settings_default_element'), 'S');
-      expect(prefs.getInt('app_settings_export_precision'), 7);
-      expect(prefs.getBool('app_settings_compact_mode'), isTrue);
-      expect(prefs.getString('app_settings_atom_scale'), 'spaceFilling');
-      expect(prefs.getString('app_settings_bridge_target'), 'localhost');
+      // AppStorage reads are synchronous and already durable by the time
+      // flush() completes, so there is nothing left to await here.
+      expect(AppStorage.getString('app_settings_default_element'), 'S');
+      expect(AppStorage.getInt('app_settings_export_precision'), 7);
+      expect(AppStorage.getBool('app_settings_compact_mode'), isTrue);
+      expect(AppStorage.getString('app_settings_atom_scale'), 'spaceFilling');
+      expect(AppStorage.getString('app_settings_bridge_target'), 'localhost');
 
       // flush() must be idempotent and safe to call when nothing is pending.
       await notifier.flush();
@@ -318,7 +320,7 @@ void main() {
     });
 
     test('setTheme notifies and persists', () async {
-      SharedPreferences.setMockInitialValues({});
+      AppStorage.clear();
       final notifier = ThemeNotifier(initialTheme: AppTheme.darkMatter);
       var notifications = 0;
       notifier.addListener(() => notifications++);
@@ -330,16 +332,15 @@ void main() {
       await notifier.setTheme(AppTheme.spectroscopy); // no-op
       expect(notifications, 1);
 
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(ThemeNotifier.storageKey), 'spectroscopy');
+      expect(AppStorage.getString(ThemeNotifier.storageKey), 'spectroscopy');
     });
 
-    test('restores the persisted theme on construction', () async {
-      SharedPreferences.setMockInitialValues({
-        ThemeNotifier.storageKey: 'journal_mono',
-      });
+    test('restores the persisted theme on construction', () {
+      AppStorage.clear();
+      AppStorage.setString(ThemeNotifier.storageKey, 'journal_mono');
+      // AppStorage is synchronous, so the constructor has already restored the
+      // value by the time it returns — no microtask drain needed.
       final notifier = ThemeNotifier();
-      await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(notifier.currentTheme, AppTheme.journalMono);
       expect(notifier.isInitialized, isTrue);
     });
@@ -356,12 +357,10 @@ void main() {
       expect(notifier.currentTheme, AppTheme.darkMatter);
     });
 
-    test('an unknown stored id falls back without throwing', () async {
-      SharedPreferences.setMockInitialValues({
-        ThemeNotifier.storageKey: 'not-a-theme',
-      });
+    test('an unknown stored id falls back without throwing', () {
+      AppStorage.clear();
+      AppStorage.setString(ThemeNotifier.storageKey, 'not-a-theme');
       final notifier = ThemeNotifier();
-      await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(notifier.currentTheme, AppTheme.darkMatter);
     });
   });

@@ -1,40 +1,32 @@
 // ============================================================================
 // LocalAuthService — UUID-based identity, no Firebase required.
-// Stores a v4 UUID in SharedPreferences on first run and reuses it forever.
+// Stores a v4 UUID in AppStorage on first run and reuses it forever.
 // Fully offline; behaves identically to anonymous Firebase auth from the
 // app's perspective.
 // ============================================================================
 
-import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:quantum_forge/core/services/app_storage.dart';
 import 'package:quantum_forge/core/utils/uuid_util.dart';
 import 'auth_service.dart';
 
 class LocalAuthService implements AuthService {
   static const _keyUserId = 'local_user_id';
 
-
   @override
   Future<String> getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    final existing = prefs.getString(_keyUserId);
+    final existing = AppStorage.getString(_keyUserId);
     if (existing != null && existing.isNotEmpty) return existing;
     final newId = UuidUtil.v4();
-    await prefs.setString(_keyUserId, newId);
+    AppStorage.setString(_keyUserId, newId);
     return newId;
   }
 
   @override
-  Future<bool> isAuthenticated() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey(_keyUserId);
-  }
+  Future<bool> isAuthenticated() async =>
+      AppStorage.containsKey(_keyUserId);
 
   @override
-  Future<void> signOut() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyUserId);
-  }
+  Future<void> signOut() async => AppStorage.remove(_keyUserId);
 
   @override
   Future<void> signIn(String email, String password) async {}
