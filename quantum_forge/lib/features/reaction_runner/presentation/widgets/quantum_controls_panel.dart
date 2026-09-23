@@ -182,8 +182,9 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
         Row(
           children: [
             _iconButton(Icons.remove, () {
-              if (s.charge > -5)
+              if (s.charge > -5) {
                 n.update((q) => q.copyWith(charge: q.charge - 1));
+              }
             }),
             Container(
               width: 48,
@@ -198,8 +199,9 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
               ),
             ),
             _iconButton(Icons.add, () {
-              if (s.charge < 5)
+              if (s.charge < 5) {
                 n.update((q) => q.copyWith(charge: q.charge + 1));
+              }
             }),
           ],
         ),
@@ -450,7 +452,9 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
         decoration: _inputDecoration('Max Force Norm (eV/Å)'),
         onChanged: (v) {
           final parsed = double.tryParse(v);
-          if (parsed != null) n.update((q) => q.copyWith(maxForceNorm: parsed));
+          if (parsed != null) {
+            n.update((q) => q.copyWith(maxForceNorm: parsed));
+          }
         },
       ),
     ];
@@ -800,7 +804,9 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
             .map((e) => DropdownMenuItem(value: e, child: Text(e)))
             .toList(),
         onChanged: (v) {
-          if (v != null) onChanged(v);
+          if (v != null) {
+            onChanged(v);
+          }
         },
       ),
     ],
