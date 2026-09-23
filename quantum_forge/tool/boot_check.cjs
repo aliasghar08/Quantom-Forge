@@ -21,6 +21,9 @@ const CHROME = process.env.PROBE_CHROME
 const PORT = Number(process.env.BOOT_DEBUG_PORT || 9521);
 const URL = process.env.APP_URL || 'http://127.0.0.1:8202/';
 const OUT_DIR = path.join(__dirname, '..', 'build');
+// Debug builds load hundreds of DDC modules, so a cold start needs longer than a
+// release build before the first frame is a fair signal.
+const SETTLE_MS = Number(process.env.BOOT_SETTLE_MS || 30000);
 const UDD = path.join(__dirname, '..', 'build', '.chrome-boot');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -112,7 +115,7 @@ async function run(label, blockFirebase) {
   }
 
   await send('Page.navigate', { url: URL });
-  await sleep(30000); // Flutter web cold start + CanvasKit
+  await sleep(SETTLE_MS); // Flutter web cold start + CanvasKit
 
   const pixels = await whiteFraction(send, label);
   const probe = await send('Runtime.evaluate', {
@@ -122,6 +125,14 @@ async function run(label, blockFirebase) {
       nglLoaded: typeof window.NGL !== 'undefined',
       bridgeLoaded: typeof window.QuantumForgeNgl !== 'undefined',
       firebaseAppDefined: typeof window.firebase !== 'undefined',
+      // The vendored-SDK contract: these three globals are what FlutterFire
+      // reads, and their presence is what makes it skip its own CDN injection.
+      firebaseCoreDefined: typeof window.firebase_core !== 'undefined',
+      firebaseAuthDefined: typeof window.firebase_auth !== 'undefined',
+      firebaseFirestoreDefined: typeof window.firebase_firestore !== 'undefined',
+      firebaseApps: (() => {
+        try { return window.firebase_core.getApps().length; } catch (e) { return null; }
+      })(),
       bodyText: (document.body.innerText || '').slice(0, 120),
     })`,
     returnByValue: true,

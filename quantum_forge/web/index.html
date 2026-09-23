@@ -17,7 +17,7 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta content="IE=edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
 
   <!-- iOS meta tags & icons -->
@@ -51,16 +51,73 @@
   -->
   <script src="ngl/ngl.js"></script>
   <script src="ngl/quantum_forge_ngl.js"></script>
+
+  <!--
+    Firebase is vendored for the same two reasons as NGL, and one more.
+
+    FlutterFire loads the JS SDK at runtime from gstatic, which makes
+    `Firebase.initializeApp()` a network operation. When that fetch stalls, the
+    injected script's callback never fires, so FlutterFire's Dart Future never
+    resolves — and `await Firebase.initializeApp(...)` hangs forever. That was a
+    white screen, with only a `TypeError: Failed to fetch dynamically imported
+    module` in the browser console to explain it.
+
+    Loading the SDK from this origin removes the third-party fetch, so there is
+    nothing to stall and no CORS to fail.
+
+    Two details are load-bearing:
+
+      * The globals must be the module *namespace objects*, which is why this
+        uses `await import(...)`. A plain `<script src="firebase-app.js">` would
+        define nothing, because an ES module sets no global.
+      * These names are the contract `firebase_core_web` and friends read:
+        `firebase_core`, `firebase_auth`, `firebase_firestore`. When
+        `window.firebase_core` is already set, FlutterFire skips its own CDN
+        injection entirely — that check is documented in
+        `firebase_core_web.dart` ("or the user has added the scripts to their
+        html file"), which is what makes this a supported setup rather than a
+        fork.
+
+    See `web/firebasejs/README.md` for the version, hashes and update procedure.
+  -->
+  <script type="module">
+    (async () => {
+      try {
+        window.firebase_core = await import('./firebasejs/firebase-app.js');
+        window.firebase_auth = await import('./firebasejs/firebase-auth.js');
+        // Deliberately the `pipelines` bundle: the compiled app special-cases
+        // firestore to request this file, not `firebase-firestore.js`.
+        window.firebase_firestore =
+          await import('./firebasejs/firebase-firestore-pipelines.js');
+      } catch (error) {
+        // Never fatal. Cloud features are optional by design — the app is fully
+        // usable without an account and the library falls back to its bundled
+        // templates — so a failure here must not stop Flutter from starting.
+        console.warn(
+          'Quantum Forge: local Firebase SDK failed to load; continuing ' +
+            'without cloud features.',
+          error,
+        );
+      }
+
+      // Flutter is started only now, and only from here.
+      //
+      // A `type="module"` script is deferred, so if `flutter_bootstrap.js` were
+      // still a static tag in this file the Flutter loader could run first —
+      // and FlutterFire's "is firebase_core already present?" check would then
+      // fire too early, fall back to injecting from the CDN, and fail in exactly
+      // the way this vendoring exists to prevent. Injecting the bootstrap after
+      // the assignments above removes that race.
+      const bootstrap = document.createElement('script');
+      bootstrap.src = 'flutter_bootstrap.js';
+      document.body.appendChild(bootstrap);
+    })();
+  </script>
 </head>
 <body>
   <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
+    flutter_bootstrap.js is injected by the module script in <head>, not loaded
+    here, so that the Firebase globals are in place before Flutter starts.
   -->
-  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
