@@ -207,22 +207,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(1.0),
-              child: Container(color: palette.border, height: 1.0),
-            ),
-          ),
-          body: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: palette.backgroundGradient,
+              child: Container(
+                color: palette.border,
+                height: 1.0,
+                width: double.infinity, // FIX: stretch border across full width
               ),
             ),
-            child: Column(
-              children: [
-                if (_pendingLink != null) _buildImportBanner(palette),
-                Expanded(child: _buildCenter()),
-              ],
+          ),
+          // FIX: SizedBox.expand forces the body to fill the entire Scaffold
+          // area (both width and height), so nothing shows through from the
+          // browser's default white <body> when the window is maximized.
+          body: SizedBox.expand(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: palette.backgroundGradient,
+                ),
+              ),
+              child: Column(
+                // FIX: stretch makes every child (banner + center) full-width,
+                // so the gradient and controls panel never get cut off early.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_pendingLink != null) _buildImportBanner(palette),
+                  Expanded(child: _buildCenter()),
+                ],
+              ),
             ),
           ),
         );
@@ -280,8 +292,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ── Center area ────────────────────────────────────────────────────────────
   Widget _buildCenter() {
-    return Container(
-      color: Colors.transparent,
+    // FIX: force the center pane to full width so the reaction workspace
+    // (and its nested Row of Expanded columns) can stretch edge-to-edge.
+    return SizedBox(
+      width: double.infinity,
       child: switch (_viewModel.navDest) {
         NavDestination.library  => LibraryScreen(onTemplateSelected: _viewModel.loadTemplate),
         NavDestination.history  => const HistoryScreen(),
@@ -425,10 +439,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: SingleChildScrollView(child: mainContent),
                     ),
                     const SizedBox(width: 24),
+                    // FIX: use SizedBox to enforce the panel's flex share
+                    // explicitly; wrap the panel so it can never collapse
+                    // below its allocated width.
                     Expanded(
                       flex: 3,
-                      child: SingleChildScrollView(
-                        child: QuantumControlsPanel(activeTemplate: _viewModel.activeTemplate),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: SingleChildScrollView(
+                          child: QuantumControlsPanel(
+                            activeTemplate: _viewModel.activeTemplate,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -438,7 +460,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: mainContent,
+              child: SizedBox(
+                width: double.infinity, // FIX: full-width when narrow layout
+                child: mainContent,
+              ),
             );
           }
         );
