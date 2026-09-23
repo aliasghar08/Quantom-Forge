@@ -278,7 +278,7 @@ only on the VM, because "survives a refresh" is a claim about the browser:
 
 ```
 $ flutter build web --release        # → build/web, copied to build/serve
-$ node build/serve.cjs               # static snapshot on 127.0.0.1:8202
+$ node tool/serve.cjs                # static snapshot on 127.0.0.1:8202
 $ node tool/persistence_check.cjs
   baseline (fresh profile)   : localStorage empty, 0 exceptions
   WRITE  type into the "Hugging Face API Token" field of the live UI
