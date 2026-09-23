@@ -22,19 +22,8 @@ import 'package:quantum_forge/core/services/auth_service.dart';
 import 'package:quantum_forge/features/reaction_library/data/firestore_library_repository.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    // Seeding is a developer convenience: it must never block a cold start or
-    // take the app down when Firestore is unreachable or the rules reject it.
-    unawaited(_seedLibrary());
-  } catch (e) {
-    debugPrint('Firebase unavailable, continuing without cloud features: $e');
-  }
 
   final authService = FirebaseAuthService();
   final storageService = LocalStorageService();
@@ -73,6 +62,47 @@ Future<void> main() async {
       child: const QuantumForgeApp(),
     ),
   );
+
+  // Firebase is brought up *after* `runApp`, never before it.
+  //
+  // This used to be `await Firebase.initializeApp(...)` ahead of `runApp`, and
+  // that is a white screen waiting to happen: on web, FlutterFire loads its JS
+  // SDK with a dynamic `import()` from gstatic, and if that fetch never resolves
+  // — offline, a blocked CDN, a flaky network — the `await` never completes, so
+  // `runApp` is never reached and the page stays blank. The only clue is a
+  // console line like:
+  //
+  //   TypeError: Failed to fetch dynamically imported module:
+  //   https://www.gstatic.com/firebasejs/<version>/firebase-app.js
+  //
+  // Cloud features are optional by design here — the app is fully usable without
+  // an account and the library falls back to bundled templates — so nothing about
+  // them should be able to delay or prevent the first frame. If Firebase never
+  // arrives, the features that need it report their own failure when used.
+  unawaited(initialiseCloudFeatures());
+}
+
+/// Brings Firebase up in the background, bounded, and without failing the app.
+///
+/// The timeout matters as much as the try/catch: a *hung* `initializeApp` is the
+/// failure mode that produces a blank page, and it does not throw on its own.
+/// The services reach Firebase through lazy getters
+/// (`FirebaseAuthService`, `FirestoreReactionRepository`,
+/// `FirestoreLibraryRepository`) precisely so that constructing them before this
+/// completes is safe.
+Future<void> initialiseCloudFeatures() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).timeout(const Duration(seconds: 15));
+  } catch (e) {
+    debugPrint('Firebase unavailable, continuing without cloud features: $e');
+    return;
+  }
+
+  // Seeding is a developer convenience: it must never block a cold start or take
+  // the app down when Firestore is unreachable or the rules reject it.
+  unawaited(_seedLibrary());
 }
 
 Future<void> _seedLibrary() async {

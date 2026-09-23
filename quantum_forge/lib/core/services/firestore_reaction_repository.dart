@@ -5,8 +5,12 @@ import 'package:quantum_forge/features/reaction_runner/data/models/reaction_mode
 import 'reaction_repository.dart';
 
 class FirestoreReactionRepository implements ReactionRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  // Getters rather than fields: this repository is constructed in `main()` before
+  // the app boots, and touching `FirebaseFirestore.instance` at construction
+  // throws `[core/no-app]` whenever `Firebase.initializeApp` has not finished.
+  // See `FirebaseAuthService` for the same reasoning.
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+  FirebaseAuth get _auth => FirebaseAuth.instance;
 
   String? get _uid => _auth.currentUser?.uid;
 

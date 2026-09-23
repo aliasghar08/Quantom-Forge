@@ -31,6 +31,24 @@ class ProfessionalDrawer extends StatelessWidget {
     required this.onToggleControls,
   });
 
+  /// Auth state, or an empty stream when Firebase never came up.
+  ///
+  /// `FirebaseAuth.instance` throws `[core/no-app]` if
+  /// `Firebase.initializeApp` has not completed — which happens when the Firebase
+  /// JS SDK cannot be fetched (offline, blocked CDN) now that the app boots
+  /// without waiting for it. A `StreamBuilder` whose stream getter throws takes
+  /// down the whole rail, so the unavailable case is turned into "signed out"
+  /// here: the rail offers the sign-in action, which is what a signed-out user
+  /// sees anyway.
+  Stream<User?> _authStateChanges() {
+    try {
+      return FirebaseAuth.instance.authStateChanges();
+    } catch (error) {
+      debugPrint('Auth state unavailable, treating as signed out: $error');
+      return const Stream<User?>.empty();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.watch<ThemeNotifier>().palette;
@@ -237,7 +255,7 @@ class ProfessionalDrawer extends StatelessWidget {
                   ),
                   SizedBox(height: gap(14)),
                   StreamBuilder<User?>(
-                    stream: FirebaseAuth.instance.authStateChanges(),
+                    stream: _authStateChanges(),
                     builder: (context, snapshot) {
                       final user = snapshot.data;
 

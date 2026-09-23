@@ -3,10 +3,15 @@ import 'package:flutter/foundation.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 
 class FirestoreLibraryRepository {
-  final FirebaseFirestore _firestore;
-  
+  /// An explicitly supplied client, or null to resolve the default lazily.
+  final FirebaseFirestore? _injected;
+
   FirestoreLibraryRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+      : _injected = firestore;
+
+  /// Resolved per use rather than in the constructor, so constructing this
+  /// repository before `Firebase.initializeApp` has completed does not throw.
+  FirebaseFirestore get _firestore => _injected ?? FirebaseFirestore.instance;
 
   CollectionReference get _libraryCollection => _firestore.collection('library');
 
