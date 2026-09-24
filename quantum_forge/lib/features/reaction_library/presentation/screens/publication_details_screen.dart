@@ -5,7 +5,7 @@ import 'package:quantum_forge/features/reaction_library/data/reaction_templates.
 import 'package:quantum_forge/core/services/web_services.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/glass_card.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:quantum_forge/core/services/url_service.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/services/backend_compute_service.dart';
@@ -468,10 +468,8 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
       onTap: onTapOverride ??
           () async {
             if (url == null) return;
-            final uri = Uri.parse(url.trim());
             try {
-              final mode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
-              if (!await launchUrl(uri, mode: mode)) {
+              if (!await UrlService.launch(url.trim())) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not launch $url')));
                 }

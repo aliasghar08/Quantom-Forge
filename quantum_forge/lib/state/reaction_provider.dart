@@ -380,8 +380,39 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
       );
       notifyListeners();
 
+      // Fake progress during potentially long cold-start submit request
+      bool isSubmitting = true;
+      double simulatedProgress = 0.0;
+      int elapsedSeconds = 0;
+      
+      void simulateProgress() async {
+        while (isSubmitting && simulatedProgress < 0.04) {
+          await Future.delayed(const Duration(seconds: 1));
+          if (!isSubmitting) break;
+          elapsedSeconds++;
+          simulatedProgress += 0.005;
+          if (simulatedProgress > 0.04) simulatedProgress = 0.04;
+          
+          String message = value?.message ?? 'Submitting...';
+          if (elapsedSeconds > 10) {
+            message = 'Waking up compute node (this may take up to 2 minutes)…';
+          }
+          
+          value = ReactionStatusResponse(
+            reactionId: '',
+            state: ReactionState.pending,
+            progress: simulatedProgress,
+            message: message,
+          );
+          notifyListeners();
+        }
+      }
+      simulateProgress();
+
       final reactionId =
           await _backend.submit(url, reactantXyz, productXyz, settings);
+      
+      isSubmitting = false;
 
       value = ReactionStatusResponse(
         reactionId: reactionId,
