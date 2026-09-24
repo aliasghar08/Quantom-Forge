@@ -729,11 +729,28 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     return Focus(
       focusNode: _playerFocus,
       onKeyEvent: _onKeyEvent,
-      child: _buildCard(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isUnbounded = constraints.maxHeight.isInfinite;
+          final card = _buildCard(isUnbounded, constraints);
+          
+          // If bounded, we wrap in SingleChildScrollView so the timeline and controls
+          // can be scrolled if the parent's finite height is too small for them.
+          // If unbounded (Dashboard), we rely on the parent's SingleChildScrollView.
+          if (!isUnbounded) {
+            return SingleChildScrollView(
+              primary: false,
+              child: card,
+            );
+          } else {
+            return card;
+          }
+        },
+      ),
     );
   }
 
-  Widget _buildCard() {
+  Widget _buildCard(bool isUnbounded, BoxConstraints constraints) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.18),
@@ -745,7 +762,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(),
-          _buildCanvasSlot(),
+          isUnbounded
+              ? _buildCanvasSlotUnbounded(constraints)
+              : _buildCanvasSlotBounded(constraints),
           if (_showBondEnergies) _buildBondEnergiesPanel(),
           if (_frameCount > 1) ...[
             _buildTimeline(),
@@ -767,10 +786,30 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   /// still look right), but clamp the height to `[220, 420]` so desktop
   /// layouts do not blow up. The outer scroll view handles any residual
   /// overflow past the clamp.
-  Widget _buildCanvasSlot() {
-    // Dynamically give the canvas 75% of the viewport height, bypassing any strict
-    // width ratio clamps so it has "as much space as it wants" without overflowing.
+  Widget _buildCanvasSlotUnbounded(BoxConstraints constraints) {
+    // Unbounded (e.g. Dashboard): dynamically give the canvas 75% of the viewport height,
+    // bypassing any strict width ratio clamps so it has "as much space as it wants".
     final height = MediaQuery.of(context).size.height * 0.75;
+    return SizedBox(
+      height: height,
+      child: GestureDetector(
+        onTap: () {
+          _claimKeyboard();
+          _togglePlay();
+        },
+        child: _buildCanvas(),
+      ),
+    );
+  }
+
+  Widget _buildCanvasSlotBounded(BoxConstraints constraints) {
+    // Bounded (e.g. Analytics page): use a responsive ratio so it fits cleanly
+    // inside the bounded space without forcing a massive fixed height.
+    final maxH = MediaQuery.of(context).size.height * 0.50;
+    final byRatio = constraints.maxWidth.isFinite
+        ? constraints.maxWidth / 1.2
+        : maxH;
+    final height = byRatio.clamp(220.0, maxH);
     return SizedBox(
       height: height,
       child: GestureDetector(
