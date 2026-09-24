@@ -357,7 +357,7 @@ class _NglAxesTriadPainter extends CustomPainter {
     if (axes.isEmpty) return;
 
     final origin = triadOrigin(size, axisLength);
-    final paint = Paint()..strokeCap = StrokeCap.round;
+    final paint = _linePaint..strokeCap = StrokeCap.round;
 
     canvas.save();
     // The triad overlays a viewer; a stroke that escapes the box would be drawn
@@ -385,6 +385,10 @@ class _NglAxesTriadPainter extends CustomPainter {
     canvas.restore();
   }
 
+  static final Paint _linePaint = Paint();
+  static final Paint _originHaloPaint = Paint()..color = const Color(0x66000000);
+  static final Paint _originDotPaint = Paint()..color = const Color(0xFFE6E9EF);
+
   /// The hub all three axes start from.
   ///
   /// It gets a dot because three lines meeting at a point otherwise read as a
@@ -396,12 +400,8 @@ class _NglAxesTriadPainter extends CustomPainter {
       _minOriginDotRadius,
       size.shortestSide * _originDotFraction,
     );
-    canvas.drawCircle(
-      origin,
-      radius + 1,
-      Paint()..color = const Color(0x66000000),
-    );
-    canvas.drawCircle(origin, radius, Paint()..color = const Color(0xFFE6E9EF));
+    canvas.drawCircle(origin, radius + 1, _originHaloPaint);
+    canvas.drawCircle(origin, radius, _originDotPaint);
   }
 
   /// Draws one label per positive axis, pushed past the tip along the axis.

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:quantum_forge/core/utils/unicode_math.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
@@ -158,7 +157,7 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '${distinctMolecules.length} unique component${distinctMolecules.length == 1 ? '' : 's'} (${_rawMoleculesCount} total)',
+                    '${distinctMolecules.length} unique component${distinctMolecules.length == 1 ? '' : 's'} ($_rawMoleculesCount total)',
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.55),
                         fontSize: 11),

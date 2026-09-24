@@ -1459,10 +1459,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
     final settings = context.watch<QuantumSettingsNotifier>().value;
 
-    double scaleFactor = settings.temperatureK != null
-        ? (settings.temperatureK / 300.0)
-        : 1.0;
-    if (settings.solventModel != null && settings.solventModel != 'Vacuum') {
+    double scaleFactor = (settings.temperatureK / 300.0);
+    if (settings.solventModel != 'Vacuum') {
       scaleFactor *= 0.85;
     }
     if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05;

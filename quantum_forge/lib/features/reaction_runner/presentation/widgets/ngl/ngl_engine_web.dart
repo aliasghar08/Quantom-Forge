@@ -26,7 +26,6 @@
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui_web' as ui_web;
 
 import 'package:web/web.dart' as web;
@@ -172,7 +171,7 @@ class NglEngine {
           final canvas = canvases.item(0) as web.HTMLCanvasElement;
           final gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
           if (gl != null) {
-            final ext = (gl as JSObject)
+            final ext = (gl)
                 .callMethod('getExtension'.toJS, 'WEBGL_lose_context'.toJS);
             if (ext != null) {
               (ext as JSObject).callMethod('loseContext'.toJS);
@@ -830,7 +829,7 @@ class NglEngine {
           final canvas = canvases.item(0) as web.HTMLCanvasElement;
           final gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
           if (gl != null) {
-            final ext = (gl as JSObject)
+            final ext = (gl)
                 .callMethod('getExtension'.toJS, 'WEBGL_lose_context'.toJS);
             if (ext != null) {
               (ext as JSObject).callMethod('loseContext'.toJS);
