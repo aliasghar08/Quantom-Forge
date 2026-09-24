@@ -338,72 +338,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Header
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _viewModel.activeTemplate?.name ?? 'Custom Reaction',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -0.5),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (_viewModel.activeTemplate != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              _viewModel.activeTemplate!.iupacName,
-                              style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                  fontSize: 14,
-                                  fontStyle: FontStyle.italic,
-                                  letterSpacing: 0.3),
-                                  
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Dispatch button
-                    FilledButton.icon(
-                      onPressed: _canDispatch ? _dispatch : null,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF4FC3F7),
-                        foregroundColor: Colors.black87,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        disabledBackgroundColor: Colors.white12,
-                        disabledForegroundColor: Colors.white30,
-                      ),
-                      icon: isLoading ||
-                              status.state == ReactionState.optimizing ||
-                              status.state == ReactionState.pending
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.black54),
-                            )
-                          : const Icon(Icons.play_arrow_rounded, size: 20),
-                      label: Text(
-                        status.state == ReactionState.optimizing ||
-                                status.state == ReactionState.pending
-                            ? 'Running...'
-                            : 'Execute TS Search',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                    ),
-                  ],
-                ),
+                if (isDesktop)
+                  Row(
+                    children: [
+                      Expanded(child: _buildHeaderTitle()),
+                      const SizedBox(width: 16),
+                      _buildExecuteButton(isLoading, status),
+                    ],
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildHeaderTitle(),
+                      const SizedBox(height: 16),
+                      _buildExecuteButton(isLoading, status),
+                    ],
+                  ),
                 const SizedBox(height: 20),
 
                 // Input setup card
@@ -461,7 +412,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
 
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isDesktop ? 24 : 16),
               child: SizedBox(
                 width: double.infinity, // FIX: full-width when narrow layout
                 child: mainContent,
@@ -470,6 +421,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         );
       },
+    );
+  }
+
+  Widget _buildHeaderTitle() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _viewModel.activeTemplate?.name ?? 'Custom Reaction',
+          style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.5),
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (_viewModel.activeTemplate != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            _viewModel.activeTemplate!.iupacName,
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 14,
+                fontStyle: FontStyle.italic,
+                letterSpacing: 0.3),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildExecuteButton(bool isLoading, ReactionStatusResponse status) {
+    return FilledButton.icon(
+      onPressed: _canDispatch ? _dispatch : null,
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF4FC3F7),
+        foregroundColor: Colors.black87,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        disabledBackgroundColor: Colors.white12,
+        disabledForegroundColor: Colors.white30,
+      ),
+      icon: isLoading ||
+              status.state == ReactionState.optimizing ||
+              status.state == ReactionState.pending
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black54),
+            )
+          : const Icon(Icons.play_arrow_rounded, size: 20),
+      label: Text(
+        status.state == ReactionState.optimizing ||
+                status.state == ReactionState.pending
+            ? 'Running...'
+            : 'Execute TS Search',
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+      ),
     );
   }
 

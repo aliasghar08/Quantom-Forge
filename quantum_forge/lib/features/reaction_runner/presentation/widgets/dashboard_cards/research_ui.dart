@@ -8,6 +8,7 @@
 // ============================================================================
 
 import 'dart:ui' as dart_ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/results_summary.dart';
@@ -141,12 +142,13 @@ class _ResearchCardState extends State<ResearchCard> with SingleTickerProviderSt
               borderRadius: BorderRadius.circular(16),
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: BackdropFilter(
-                      filter: dart_ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                      child: Container(color: Colors.transparent),
+                  if (!(kIsWeb && defaultTargetPlatform == TargetPlatform.iOS))
+                    Positioned.fill(
+                      child: BackdropFilter(
+                        filter: dart_ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        child: Container(color: Colors.transparent),
+                      ),
                     ),
-                  ),
                   Padding(
                     padding: widget.accent != null ? const EdgeInsets.only(left: 18) : EdgeInsets.zero,
                     child: widget.child,

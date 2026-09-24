@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_template_generator.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 
@@ -48,43 +49,53 @@ class LibraryHeader extends StatelessWidget {
           Container(
             width: 320,
             constraints: const BoxConstraints(maxWidth: 320),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: (kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+                  ? Colors.black.withValues(alpha: 0.3)
+                  : Colors.transparent,
+            ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: TextField(
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Search reactions, tags...',
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                    prefixIcon: Icon(Icons.search,
-                        color: Colors.white.withValues(alpha: 0.5)),
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.08),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide:
-                          BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide:
-                          BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide:
-                          const BorderSide(color: Color(0xFF4FC3F7), width: 1.5),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onChanged: onSearchChanged,
-                ),
-              ),
+              child: (!(kIsWeb && defaultTargetPlatform == TargetPlatform.iOS))
+                  ? BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: _buildTextField(),
+                    )
+                  : _buildTextField(),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTextField() {
+    return TextField(
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: 'Search reactions, tags...',
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+        prefixIcon: Icon(Icons.search,
+            color: Colors.white.withValues(alpha: 0.4)),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.05),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.3)),
+        ),
+      ),
+      onChanged: onSearchChanged,
     );
   }
 }
