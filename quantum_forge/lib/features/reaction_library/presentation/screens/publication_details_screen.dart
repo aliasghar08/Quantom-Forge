@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/core/services/web_services.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/glass_card.dart';
@@ -52,10 +53,11 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     }
 
     try {
+      final cleanDoi = widget.template.doi.trim();
       final settings = Provider.of<AppSettingsNotifier>(context, listen: false).settings;
       final uri = settings.hasGnnBackend 
-          ? '${settings.gnnBackendUrl}/crossref/${Uri.encodeComponent(widget.template.doi)}'
-          : 'https://api.crossref.org/works/${Uri.encodeComponent(widget.template.doi)}';
+          ? '${settings.gnnBackendUrl}/crossref/${Uri.encodeComponent(cleanDoi)}'
+          : 'https://api.crossref.org/works/${Uri.encodeComponent(cleanDoi)}';
           
       final responseBody = await WebServices.fetchString(uri);
       
@@ -358,7 +360,8 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
   }
 
   Widget _buildExternalLinksCard(String title) {
-    final hasDoi = widget.template.doi.isNotEmpty;
+    final cleanDoi = widget.template.doi.trim();
+    final hasDoi = cleanDoi.isNotEmpty;
     final scholarUrl = 'https://scholar.google.com/scholar?q=${Uri.encodeComponent(title)}';
 
     return GlassCard(
@@ -373,7 +376,7 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
               _buildLinkButton(
                 icon: Icons.language,
                 label: 'View on Publisher Site (DOI)',
-                url: 'https://doi.org/${widget.template.doi}',
+                url: 'https://doi.org/$cleanDoi',
                 color: const Color(0xFF4FC3F7),
               ),
               const SizedBox(height: 12),
@@ -389,7 +392,7 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
               _buildLinkButton(
                 icon: Icons.data_object,
                 label: 'View Raw CrossRef Metadata',
-                url: 'https://api.crossref.org/works/${Uri.encodeComponent(widget.template.doi)}',
+                url: 'https://api.crossref.org/works/${Uri.encodeComponent(cleanDoi)}',
                 color: Colors.orangeAccent,
               ),
             ],
@@ -402,9 +405,10 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
   Widget _buildLinkButton({required IconData icon, required String label, required String url, required Color color}) {
     return InkWell(
       onTap: () async {
-        final uri = Uri.parse(url);
+        final uri = Uri.parse(url.trim());
         try {
-          if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+          final mode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
+          if (!await launchUrl(uri, mode: mode)) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not launch $url')));
             }

@@ -44,6 +44,8 @@ import 'history_screen.dart';
 import 'coordinate_editor_screen.dart';
 import 'package:quantum_forge/features/settings/presentation/screens/settings_screen.dart';
 import 'package:quantum_forge/state/dashboard_viewmodel.dart';
+import 'dart:convert';
+import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
 
 import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
 
@@ -988,6 +990,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+
+          // ── 3D Viewer for Uploaded Molecule ──────────────────────
+          if (uploaded && entry.file?.bytes != null)
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              height: 140, // small fixed height
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: ReactionAnimationWidget(
+                  trajectoryFrames: [utf8.decode(entry.file!.bytes!)],
+                  showBondNumbers: false,
+                ),
+              ),
+            ),
 
           // ── Search input + upload ──────────────────────────────────
           if (!uploaded) ...[

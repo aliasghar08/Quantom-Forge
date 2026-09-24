@@ -25,6 +25,7 @@
 
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui_web' as ui_web;
 
@@ -155,11 +156,34 @@ class NglEngine {
   /// so a blocked script shows an explanation rather than an empty rectangle.
   static bool get isSupported => _nglGlobal != null && _glue != null;
 
-  /// Registers the platform-view factory. Safe to call from every viewer's
-  /// `initState`: only the first call does anything.
   static void ensureViewFactory() {
     if (_factoryRegistered) return;
     _factoryRegistered = true;
+
+    // Hot Restart cleanup: Dart isolate restarts leave old DOM nodes alive, holding WebGL contexts.
+    // If we don't clean them up here, 5-6 hot restarts will exhaust the 16-context limit and crash CanvasKit!
+    try {
+      final oldElements =
+          web.document.querySelectorAll('div[id^="quantum-forge-ngl-"]');
+      for (var i = 0; i < oldElements.length; i++) {
+        final el = oldElements.item(i) as web.Element;
+        final canvases = el.getElementsByTagName('canvas');
+        if (canvases.length > 0) {
+          final canvas = canvases.item(0) as web.HTMLCanvasElement;
+          final gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+          if (gl != null) {
+            final ext = (gl as JSObject)
+                .callMethod('getExtension'.toJS, 'WEBGL_lose_context'.toJS);
+            if (ext != null) {
+              (ext as JSObject).callMethod('loseContext'.toJS);
+            }
+          }
+        }
+        el.remove();
+      }
+    } catch (_) {
+      // Ignore cleanup errors
+    }
 
     ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
       final element = web.HTMLDivElement()
@@ -439,9 +463,10 @@ class NglEngine {
     String sdf,
     NglStyle style, {
     bool resetView = true,
-  }) => _enqueueLoad(
-    _PendingLoad(sdf, style, asTrajectory: true, resetView: resetView),
-  );
+  }) =>
+      _enqueueLoad(
+        _PendingLoad(sdf, style, asTrajectory: true, resetView: resetView),
+      );
 
   /// Loads a single-model SDF, replacing the previous structure.
   ///
@@ -450,8 +475,8 @@ class NglEngine {
   /// before the previous component is removed, so the canvas is never
   /// momentarily empty, and the camera is left alone so the view does not jump.
   Future<void> loadFrame(String sdf, NglStyle style) => _enqueueLoad(
-    _PendingLoad(sdf, style, asTrajectory: false, resetView: false),
-  );
+        _PendingLoad(sdf, style, asTrajectory: false, resetView: false),
+      );
 
   /// Runs structure loads one at a time, keeping only the newest pending one.
   ///
@@ -526,9 +551,8 @@ class NglEngine {
         asTrajectory: asTrajectory,
         autoView: autoView,
       );
-      final promise =
-          glue.callMethod('loadSdf'.toJS, stage, sdf.toJS, options)
-              as JSPromise;
+      final promise = glue.callMethod('loadSdf'.toJS, stage, sdf.toJS, options)
+          as JSPromise;
       final result = await promise.toDart;
       final summary = (result as JSObject).getProperty('component'.toJS);
       return summary as JSObject?;
@@ -568,54 +592,167 @@ class NglEngine {
   /// Draws numbered badges at bond midpoints, or clears them when [labels] is
   /// empty.
   ///
-  /// The badges are a separate `NGL.Shape` component, so they rotate with the
-  /// molecule and depth-sort against it, and so toggling them never disturbs the
-  /// structure, the representation or the camera. Passing an empty list removes
-  /// the component rather than drawing nothing, which keeps the stage free of a
-  /// component that would otherwise sit in every `compList` count.
+  /// This drives the NGL `Shape` API directly. Every NGL property access is
+  /// guarded by the enclosing try/catch, and both `addSphere` and `addLabel`
+  /// are used so that:
+  ///
+  ///   * the positions are always marked by a small sphere, which is
+  ///     guaranteed to render, and
+  ///   * the number is drawn as a text label on top of it,
+  ///
+  /// which means that if the text atlas fails to load on a given browser we
+  /// still see where the badges ought to be and can debug from there, rather
+  /// than staring at a molecule with no visible badges at all.
+  ///
+  /// NGL 2.5.0 `Shape.addLabel(position, color, size, text)`:
+  ///   * position — `[x, y, z]` in world (Angstrom) units
+  ///   * color    — `[r, g, b]` in 0..1
+  ///   * size     — a number in world units (roughly the on-screen height of
+  ///                the sprite, measured against the same scale as the atom
+  ///                radii)
+  ///   * text     — a string
+  ///
+  /// In `dart:js_interop` you build the array with `<JSAny>[...].toJS` and the
+  /// numbers with `.toJS` on a Dart `num`. There is no `JSNumber(...)` or
+  /// `JSArray.from(...)` — those names are extension types, not classes.
+  ///
+  /// Note that `JSObject.hasProperty` returns a `JSBoolean`, not a `bool`, so
+  /// a pre-check like `if (!ngl.hasProperty('Shape'.toJS))` will not compile.
+  /// The enclosing try/catch below does the same job: a missing or non-function
+  /// `Shape` throws on `getProperty<JSFunction>` and is caught, leaving the
+  /// badge toggle a silent no-op rather than a crash.
   void setBondLabels(List<BondLabel> labels) {
     if (_disposed) return;
     final stage = _stage;
-    final glue = _glue;
-    if (stage == null || glue == null) {
+    final ngl = _nglGlobal;
+    if (stage == null || ngl == null) {
       // The stage is not up yet; replay on creation.
       _queuedBondLabels = labels;
       return;
     }
 
-    if (labels.isEmpty) {
-      final previous = _bondLabelComponent;
-      _bondLabelComponent = null;
-      if (previous != null) {
-        glue.callMethod('removeComponent'.toJS, stage, previous);
+    // Tear down any previous badge component first. Done before the
+    // `labels.isEmpty` early-return so that disabling the toggle removes the
+    // existing badges instead of leaving them on screen.
+    final previous = _bondLabelComponent;
+    _bondLabelComponent = null;
+    if (previous != null) {
+      try {
+        stage.callMethod('removeComponent'.toJS, previous);
+      } catch (_) {
+        // A context-loss or a hot-restart can leave the component handle
+        // stale. Nothing useful can be done; the next valid push rebuilds it.
       }
-      return;
     }
 
-    final positions = Float32List(labels.length * 3);
-    final indices = Int32List(labels.length);
-    for (var i = 0; i < labels.length; i++) {
-      final label = labels[i];
-      positions[i * 3] = label.x;
-      positions[i * 3 + 1] = label.y;
-      positions[i * 3 + 2] = label.z;
-      indices[i] = label.index;
-    }
+    if (labels.isEmpty) return;
 
     try {
-      final result = glue.callMethod(
-        'setBondLabels'.toJS,
-        stage,
-        _bondLabelComponent,
-        positions.toJS,
-        indices.toJS,
+      final shapeConstructor = ngl.getProperty<JSFunction>('Shape'.toJS);
+      final shape = shapeConstructor.callAsConstructor<JSObject>(
+        'bond-labels'.toJS,
       );
-      _bondLabelComponent = result.isA<JSObject>() ? result as JSObject : null;
+
+      // Warm, high-contrast yellow. Readable against both the black stage
+      // background and any CPK-coloured atom sphere it overlaps.
+      final labelColor = <JSAny>[
+        1.0.toJS,
+        0.85.toJS,
+        0.25.toJS,
+      ].toJS;
+
+      // Marker radius in world units. 0.06 A is a small dot — smaller than a
+      // hydrogen atom's covalent radius (0.31 A), so the badge does not
+      // visually collide with the atoms at either end of the bond it labels.
+      const double markerRadius = 0.06;
+
+      // Label size in world units. 0.4 A is roughly the width of one bond
+      // label glyph at the default zoom — big enough to read, small enough
+      // not to cover the molecule. If a publication figure wants them larger,
+      // raise this to 0.6 or 0.8; if the badges clutter a dense molecule,
+      // lower it to 0.3.
+      const double labelSize = 0.4;
+
+      for (final label in labels) {
+        final position = <JSAny>[
+          label.x.toJS,
+          label.y.toJS,
+          label.z.toJS,
+        ].toJS;
+
+        // Sphere marker first. If everything else works, this is what shows
+        // in the frame before the label texture finishes loading.
+        shape.callMethod(
+          'addSphere'.toJS,
+          position,
+          labelColor,
+          markerRadius.toJS,
+        );
+
+        // Text label. The 4-arg signature is NGL 2.5.0's documented form.
+        shape.callMethod(
+          'addLabel'.toJS,
+          position,
+          labelColor,
+          labelSize.toJS,
+          label.index.toString().toJS,
+        );
+      }
+
+      final component = stage.callMethod(
+        'addComponentFromObject'.toJS,
+        shape,
+      );
+      if (component == null || !component.isA<JSObject>()) {
+        // ignore: avoid_print
+        print('Quantum Forge: addComponentFromObject returned null');
+        return;
+      }
+
+      // A Shape needs a representation before anything is drawn. `'buffer'`
+      // is the one NGL uses for the primitives that make up a Shape, including
+      // its label and sphere lists. Without this the component exists but
+      // renders nothing — which is the exact symptom of "badges are requested
+      // but never appear".
+      (component as JSObject)
+          .callMethod('addRepresentation'.toJS, 'buffer'.toJS);
+      _bondLabelComponent = component;
     } catch (error, stack) {
       _bondLabelComponent = null;
+      // ignore: avoid_print
+      print('Quantum Forge: NGL bond labels failed — $error\n$stack');
+    }
+  }
+
+  /// Zooms the camera by the given number of wheel-delta units.
+  ///
+  /// Positive [delta] zooms in, negative zooms out. This is the same code
+  /// path NGL's own mouse-wheel handler uses, so a wheel event that reaches
+  /// the canvas natively and a wheel event we forward from Flutter produce
+  /// identical camera motion.
+  ///
+  /// The [delta] is interpreted in the same units as a Flutter
+  /// `PointerScrollEvent.scrollDelta.dy`, which on a Windows mouse is about
+  /// 100 per notch. The `exp(delta * 0.001)` mapping gives roughly a 10 %
+  /// zoom step per notch, which feels right on both a trackpad (many small
+  /// deltas) and a discrete wheel (a few large ones).
+  void zoomBy(double delta) {
+    if (_disposed || delta == 0) return;
+    final stage = _stage;
+    if (stage == null) return;
+    try {
+      final controls = stage.getProperty<JSObject?>('viewerControls'.toJS);
+      if (controls == null) return;
+      // `viewerControls.zoom(factor)` multiplies the current zoom by `factor`,
+      // so factor > 1 zooms in and factor < 1 zooms out. Clamping the factor
+      // to a sane range prevents a single high-resolution scroll from jumping
+      // the camera by more than about 20 %.
+      final factor = math.exp(delta * 0.001).clamp(0.5, 2.0);
+      controls.callMethod('zoom'.toJS, factor.toJS);
+    } catch (error, stack) {
       assert(() {
         // ignore: avoid_print
-        print('Quantum Forge: NGL bond labels failed — $error\n$stack');
+        print('Quantum Forge: NGL zoom failed — $error\n$stack');
         return true;
       }());
     }
@@ -671,6 +808,7 @@ class NglEngine {
     _disposed = true;
     _engines.remove(_viewId);
     _component = null;
+    _bondLabelComponent = null;
 
     try {
       _resizeObserver?.disconnect();
@@ -684,6 +822,21 @@ class NglEngine {
     if (stage != null) {
       try {
         stage.callMethod('dispose'.toJS);
+
+        // Explicitly force context loss since NGL/three.js dispose does not.
+        // Without this, opening a few reactions exhausts the browser's 16-context limit.
+        final canvases = _element.getElementsByTagName('canvas');
+        if (canvases.length > 0) {
+          final canvas = canvases.item(0) as web.HTMLCanvasElement;
+          final gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+          if (gl != null) {
+            final ext = (gl as JSObject)
+                .callMethod('getExtension'.toJS, 'WEBGL_lose_context'.toJS);
+            if (ext != null) {
+              (ext as JSObject).callMethod('loseContext'.toJS);
+            }
+          }
+        }
       } catch (_) {
         // NGL can throw from dispose() when the context is already lost (a
         // canvas reclaimed by the browser, or a hot restart). Nothing to do.

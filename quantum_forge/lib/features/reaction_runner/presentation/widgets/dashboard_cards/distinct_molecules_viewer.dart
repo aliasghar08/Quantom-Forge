@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:quantum_forge/core/utils/unicode_math.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/molecular_viewer_widget.dart';
+import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
 
 // ============================================================================
-// DistinctMoleculesViewer — full-height vertical column of molecule viewers
-// Each distinct molecule gets a full-size viewer card so bonds are clearly
-// visible. Cards are laid out in a vertical Column (all visible, no scrolling
-// needed) since the parent is already inside a SingleChildScrollView.
+// DistinctMoleculesViewer — tabbed viewer for distinct molecules
+// Uses a single ReactionAnimationWidget to avoid WebGL context limits (16 active contexts).
 // ============================================================================
 
-class DistinctMoleculesViewer extends StatelessWidget {
+class DistinctMoleculesViewer extends StatefulWidget {
   final String title;
   final List<Atom> atoms;
 
@@ -21,8 +20,96 @@ class DistinctMoleculesViewer extends StatelessWidget {
   });
 
   @override
+  State<DistinctMoleculesViewer> createState() => _DistinctMoleculesViewerState();
+}
+
+class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
+  int _selectedIndex = 0;
+  List<List<Atom>>? _distinctMolecules;
+  int _rawMoleculesCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMolecules();
+  }
+
+  @override
+  void didUpdateWidget(DistinctMoleculesViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.atoms, widget.atoms)) {
+      _distinctMolecules = null;
+      _loadMolecules();
+    }
+  }
+
+  Future<void> _loadMolecules() async {
+    // Yield to the event loop so the framework can paint the loading spinner,
+    // then run the heavy algorithm. (compute() fails on Web with DataCloneError for custom classes).
+    await Future.delayed(const Duration(milliseconds: 50));
+    final rawMolecules = XyzParser.getDistinctMolecules(widget.atoms);
+    
+    final uniqueMols = <List<Atom>>[];
+    final seenFormulas = <String>{};
+    for (final mol in rawMolecules) {
+      final info = XyzParser.getMolecularInfo(mol);
+      final formula = info.formula.isEmpty ? 'Unknown' : info.formula;
+      if (!seenFormulas.contains(formula)) {
+        seenFormulas.add(formula);
+        uniqueMols.add(mol);
+      }
+    }
+    
+    if (mounted) {
+      setState(() {
+        _distinctMolecules = uniqueMols;
+        _rawMoleculesCount = rawMolecules.length;
+      });
+    }
+  }
+
+  String _toXyz(List<Atom> atoms) {
+    final sb = StringBuffer();
+    sb.writeln(atoms.length);
+    sb.writeln('Generated');
+    for (final a in atoms) {
+      sb.writeln('${a.symbol} ${a.x} ${a.y} ${a.z}');
+    }
+    return sb.toString();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final distinctMolecules = XyzParser.getDistinctMolecules(atoms);
+    if (_distinctMolecules == null) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.02),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        ),
+        alignment: Alignment.center,
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Color(0xFF4FC3F7)),
+            SizedBox(height: 16),
+            Text('Analyzing distinct fragments...', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    final distinctMolecules = _distinctMolecules!;
+    
+    // Safety check if atoms change and the selected index is now out of bounds
+    if (_selectedIndex >= distinctMolecules.length) {
+      _selectedIndex = 0;
+    }
+
+    final selectedMol = distinctMolecules.isNotEmpty 
+        ? distinctMolecules[_selectedIndex] 
+        : <Atom>[];
 
     return Container(
       decoration: BoxDecoration(
@@ -55,7 +142,7 @@ class DistinctMoleculesViewer extends StatelessWidget {
                         color: Color(0xFF4FC3F7), size: 14),
                     const SizedBox(width: 6),
                     Text(
-                      title,
+                      widget.title,
                       style: const TextStyle(
                           color: Color(0xFF4FC3F7),
                           fontSize: 13,
@@ -71,7 +158,7 @@ class DistinctMoleculesViewer extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '${distinctMolecules.length} distinct molecule${distinctMolecules.length == 1 ? '' : 's'}',
+                    '${distinctMolecules.length} unique component${distinctMolecules.length == 1 ? '' : 's'} (${_rawMoleculesCount} total)',
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.55),
                         fontSize: 11),
@@ -87,7 +174,7 @@ class DistinctMoleculesViewer extends StatelessWidget {
                         color: const Color(0xFF4FC3F7).withValues(alpha: 0.2)),
                   ),
                   child: const Text(
-                    'Drag to rotate',
+                    'Select a fragment',
                     style: TextStyle(color: Color(0xFF4FC3F7), fontSize: 10),
                   ),
                 ),
@@ -102,101 +189,116 @@ class DistinctMoleculesViewer extends StatelessWidget {
               indent: 16,
               endIndent: 16),
 
-          // ── Molecule cards (full-width vertical column) ──────────────────────
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: List.generate(distinctMolecules.length, (index) {
-                final molAtoms = distinctMolecules[index];
-                final info = XyzParser.getMolecularInfo(molAtoms);
-                final formula =
-                    info.formula.isEmpty ? 'Unknown' : subscriptFormula(info.formula);
+          if (distinctMolecules.isNotEmpty) ...[
+            // ── Selectable Tabs ────────────────────────────────────────────────
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: List.generate(distinctMolecules.length, (index) {
+                  final molAtoms = distinctMolecules[index];
+                  final info = XyzParser.getMolecularInfo(molAtoms);
+                  final formula = info.formula.isEmpty
+                      ? 'Unknown'
+                      : subscriptFormula(info.formula);
 
-                // Colour the molecule index badge
-                final cardColor = _indexColor(index);
+                  final isSelected = _selectedIndex == index;
+                  final cardColor = _indexColor(index);
 
-                return Padding(
-                  padding: EdgeInsets.only(
-                      bottom: index < distinctMolecules.length - 1 ? 16 : 0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                          color: cardColor.withValues(alpha: 0.25), width: 1.2),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Card header
-                        Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(14, 12, 14, 6),
-                          child: Row(
-                            children: [
-                              // Index badge
-                              Container(
-                                width: 26,
-                                height: 26,
-                                decoration: BoxDecoration(
-                                  color: cardColor.withValues(alpha: 0.2),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: cardColor.withValues(alpha: 0.5)),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: TextStyle(
-                                        color: cardColor,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              // Formula
-                              Text(
-                                formula,
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5),
-                              ),
-                              const SizedBox(width: 10),
-                              // Atom count
-                              Text(
-                                '${molAtoms.length} atoms',
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedIndex = index;
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? cardColor.withValues(alpha: 0.15)
+                            : Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? cardColor.withValues(alpha: 0.5)
+                              : Colors.white.withValues(alpha: 0.1),
+                          width: isSelected ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: cardColor.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
                                 style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.4),
-                                    fontSize: 11),
+                                  color: cardColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              const Spacer(),
-                              // Element pills
-                              Wrap(
-                                spacing: 4,
-                                children: _elementPills(molAtoms),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                        // Full-size 3D viewer — tall enough to see all bonds
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(14)),
-                          child: SizedBox(
-                            height: 420,
-                            child: MolecularViewerWidget(atoms: molAtoms),
+                          const SizedBox(width: 8),
+                          Text(
+                            formula,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white70,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          // Element pills
+                          Wrap(
+                            spacing: 4,
+                            children: _elementPills(molAtoms),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+            // ── Single 3D Viewer ──────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _indexColor(_selectedIndex).withValues(alpha: 0.3),
+                    width: 1.2,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 400),
+                    child: ReactionAnimationWidget(
+                      // Not using a ValueKey prevents destroying the WebGL context!
+                      // Flutter will reuse the widget and just pass new trajectoryFrames.
+                      trajectoryFrames: [_toXyz(selectedMol)],
                     ),
                   ),
-                );
-              }),
+                ),
+              ),
             ),
-          ),
+          ]
         ],
       ),
     );
@@ -236,9 +338,12 @@ class DistinctMoleculesViewer extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
-          '$sym${counts[sym]! > 1 ? counts[sym] : ''}',
+          '$sym${counts[sym]! > 1 ? subscriptFormula(counts[sym].toString()) : ''}',
           style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.65), fontSize: 9),
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       );
     }).toList();

@@ -45,10 +45,13 @@
 // ============================================================================
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
+import 'package:quantum_forge/state/settings_provider.dart';
 import 'ngl/avogadro_geometry.dart';
 import 'ngl/avogadro_sdf.dart';
 import 'ngl/ngl_bond_label.dart';
@@ -172,7 +175,10 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   ///
   /// Off by default: a figure for a paper or a thesis usually wants the structure
   /// clean, and numbers are a working aid for cross-referencing a bond table.
-  bool _showBondNumbers = false;
+  bool _showBondNumbers = true;
+
+  /// Whether to show the bond energies panel.
+  bool _showBondEnergies = true;
 
   /// Badge labels waiting for the viewer's platform view to exist.
   List<BondLabel>? _pendingBondLabels;
@@ -714,13 +720,22 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       );
     }
 
+    // The card's natural height (header + 3D canvas + bond panel + timeline +
+    // readout + transport controls) is often taller than the slot a caller
+    // gives it — a 1228 px-wide viewport can easily produce >1000 px of
+    // content. Wrapping in a scroll view turns the caller's
+    // `BoxConstraints(maxHeight: …)` into a scrollable viewport rather than a
+    // hard ceiling, so nothing overflows no matter how small the slot is.
     return Focus(
       focusNode: _playerFocus,
       onKeyEvent: _onKeyEvent,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [_buildCard()],
+      child: SingleChildScrollView(
+        primary: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [_buildCard()],
+        ),
       ),
     );
   }
@@ -737,14 +752,37 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(),
-          AspectRatio(aspectRatio: 1.2, child: _buildCanvas()),
-          _buildTimeline(),
-          _buildReadout(),
-          const Divider(height: 18, thickness: 1, color: Colors.white12),
-          _buildPlayerControls(),
-          const SizedBox(height: 12),
+          _buildCanvasSlot(),
+          if (_showBondEnergies) _buildBondEnergiesPanel(),
+          if (_frameCount > 1) ...[
+            _buildTimeline(),
+            _buildReadout(),
+            const Divider(height: 18, thickness: 1, color: Colors.white12),
+            _buildPlayerControls(),
+            const SizedBox(height: 12),
+          ],
         ],
       ),
+    );
+  }
+
+  /// Bounds the 3D canvas to a sane height on wide viewports.
+  ///
+  /// A fixed `AspectRatio(1.2)` gives the canvas a height of
+  /// `width / 1.2` — 1022 px at a 1228 px viewport, which alone exceeds the
+  /// whole card's slot. We keep the 1.2 ratio on narrow screens (so phones
+  /// still look right), but clamp the height to `[220, 420]` so desktop
+  /// layouts do not blow up. The outer scroll view handles any residual
+  /// overflow past the clamp.
+  Widget _buildCanvasSlot() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final byRatio = constraints.maxWidth.isFinite
+            ? constraints.maxWidth / 1.2
+            : 420.0;
+        final height = byRatio.clamp(220.0, 420.0);
+        return SizedBox(height: height, child: _buildCanvas());
+      },
     );
   }
 
@@ -783,6 +821,15 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
             tooltip: 'Show bond numbers — 3D badges at each bond midpoint, '
                 'numbered by the same rule that draws the bonds',
             key: const Key('qf-bond-numbers'),
+          ),
+          _iconButton(
+            _showBondEnergies ? Icons.bolt : Icons.bolt_outlined,
+            () {
+              _claimKeyboard();
+              setState(() => _showBondEnergies = !_showBondEnergies);
+            },
+            tooltip: 'Toggle bond energies panel',
+            key: const Key('qf-bond-energies'),
           ),
           _iconButton(Icons.center_focus_strong, () {
             _claimKeyboard();
@@ -1390,6 +1437,108 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     }
     return child;
   }
+
+  Widget _buildBondEnergiesPanel() {
+    final atoms = _atomsAt(_frame);
+    if (atoms.isEmpty) return const SizedBox.shrink();
+
+    final bonds = <_CalculatedBond>[];
+    int bondIdx = 1;
+    final perceivedBonds = AvogadroBondPerception.perceive(atoms);
+
+    for (int b = 0; b < perceivedBonds.length; b++) {
+      final bond = perceivedBonds[b];
+      final a1 = atoms[bond.a], a2 = atoms[bond.b];
+      final dx = a1.x - a2.x, dy = a1.y - a2.y, dz = a1.z - a2.z;
+      final dist = math.sqrt(dx * dx + dy * dy + dz * dz);
+      final idealDist = a1.covalentRadius + a2.covalentRadius;
+      bonds.add(_CalculatedBond(a1, a2, dist, idealDist, bondIdx++));
+    }
+
+    if (bonds.isEmpty) return const SizedBox.shrink();
+
+    final settings = context.watch<QuantumSettingsNotifier>().value;
+
+    double scaleFactor = settings.temperatureK != null
+        ? (settings.temperatureK / 300.0)
+        : 1.0;
+    if (settings.solventModel != null && settings.solventModel != 'Vacuum') {
+      scaleFactor *= 0.85;
+    }
+    if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
+    final chargeShift = (settings.charge ?? 0) * 1.5;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.3),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Bond Energies',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: bonds.map((b) {
+              final energy = 100 *
+                      math.exp(-2.0 * (b.dist - b.idealDist)) *
+                      scaleFactor +
+                  chargeShift;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.orangeAccent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${b.index}',
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${b.a1.symbol}–${b.a2.symbol}: '
+                    '${energy.toStringAsFixed(1)} kcal·mol⁻¹',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CalculatedBond {
+  final Atom a1, a2;
+  final double dist, idealDist;
+  final int index;
+  _CalculatedBond(this.a1, this.a2, this.dist, this.idealDist, this.index);
 }
 
 // ============================================================================

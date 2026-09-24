@@ -51,57 +51,26 @@ class TemplateDetailScreen extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
-                child: ReactionAnimationWidget(
-                  // A smooth preview path. This previously passed
-                  // [reactant, reactant, product] — the reactant duplicated as a
-                  // "dummy TS" — so the animation snapped from reactant to product
-                  // in a single step and read as far too fast. Interpolating gives
-                  // the motion something to show.
-                  //
-                  // Still only a preview: the real path comes from DMF/UMA, and the
-                  // home-screen animation is where that is displayed.
-                  trajectoryFrames: _previewTrajectory(template),
-                  energyProfile: _generateSyntheticProfile(template.referenceEa),
-                  // A deliberately slower cadence than Avogadro's 5 FPS default.
-                  frameRateOverride: _previewFps,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 500),
+                  child: ReactionAnimationWidget(
+                    // A smooth preview path. This previously passed
+                    // [reactant, reactant, product] — the reactant duplicated as a
+                    // "dummy TS" — so the animation snapped from reactant to product
+                    // in a single step and read as far too fast. Interpolating gives
+                    // the motion something to show.
+                    //
+                    // Still only a preview: the real path comes from DMF/UMA, and the
+                    // home-screen animation is where that is displayed.
+                    trajectoryFrames: _previewTrajectory(template),
+                    energyProfile: _generateSyntheticProfile(template.referenceEa),
+                    // A deliberately slower cadence than Avogadro's 5 FPS default.
+                    frameRateOverride: _previewFps,
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 10),
-
-            // The preview above is entirely synthetic. Say so, rather than letting
-            // it read as a computed result.
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFCA28).withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: const Color(0xFFFFCA28).withValues(alpha: 0.35)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: Color(0xFFFFCA28), size: 18),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Fallback preview — this path is a straight-line interpolation '
-                      'between the template\'s reactant and product, and the barrier '
-                      'curve is illustrative. Nothing here is UMA output; run the '
-                      'template to compute the real path, energies and frequencies.',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.72),
-                        fontSize: 11.5,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
 
             // ── Metadata Header ───────────────────────────────────────────
             Row(

@@ -350,6 +350,8 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     var url = (backendUrlProvider?.call() ?? '').trim();
     if (settings.mlipModel == 'MACE-MP-0') {
       url = 'http://127.0.0.1:8001';
+    } else if (settings.mlipModel == 'tx1-fastapi') {
+      url = 'http://127.0.0.1:8000';
     }
     if (url.isEmpty) return false;
     if (reactantXyz.isEmpty || productXyz.isEmpty) {

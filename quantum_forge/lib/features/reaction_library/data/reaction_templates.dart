@@ -1888,5 +1888,35 @@ H    -1.620   -2.140    0.000''',
     defaults: const QuantumDefaults(),
   ),
 
+  ReactionTemplate(
+    id: 'karl_fischer',
+    name: 'Karl Fischer Titration',
+    iupacName: 'Iodometric Moisture Determination',
+    description: 'A classic analytical chemistry reaction used globally (and heavily by analytical chemists in China and elsewhere) for quantitative determination of water content. Sulfur dioxide and iodine react with water.',
+    category: ReactionCategory.ionic,
+    reactantXyz: '8\nKarl Fischer Titration (reactant)\nS 0.000 0.000 0.000\nO 1.000 1.000 0.000\nO -1.000 1.000 0.000\nI 0.000 -2.000 0.000\nI 0.000 -4.660 0.000\nO 3.000 0.000 0.000\nH 3.500 0.500 0.000\nH 3.500 -0.500 0.000',
+    productXyz: '8\nKarl Fischer Titration (product)\nS 0.000 0.000 0.000\nO 1.000 1.000 0.000\nO -1.000 1.000 0.000\nO 0.000 -1.400 0.000\nI 3.000 -2.000 0.000\nH 3.000 -0.400 0.000\nI -3.000 -2.000 0.000\nH -3.000 -0.400 0.000',
+    referenceEa: 10.5,
+    doi: '10.1002/ange.19350482605',
+    journalRef: 'Angew. Chem.',
+    tags: ['analytical', 'titration'],
+    defaults: const QuantumDefaults(),
+  ),
+
+  ReactionTemplate(
+    id: 'shi_epoxidation',
+    name: 'Shi Epoxidation',
+    iupacName: 'Asymmetric Alkene Epoxidation',
+    description: 'Developed by Chinese chemist Yian Shi, this powerful organocatalytic reaction uses a fructose-derived ketone to achieve highly enantioselective epoxidation of alkenes.',
+    category: ReactionCategory.nucleophilic,
+    reactantXyz: '12\nAlkene + Peroxide (simplified Shi Reactant)\nC -0.660 0.000 0.000\nC 0.660 0.000 0.000\nC -1.400 1.200 0.000\nC 1.400 -1.200 0.000\nH -1.200 -0.900 0.000\nH 1.200 0.900 0.000\nH -1.000 2.100 0.000\nH -2.400 1.100 0.000\nH 2.400 -1.100 0.000\nH 1.000 -2.100 0.000\nO 0.000 2.500 0.000\nO 0.000 3.900 0.000',
+    productXyz: '12\nEpoxide + Water (simplified Shi Product)\nC -0.660 0.000 0.000\nC 0.660 0.000 0.000\nC -1.400 1.200 -0.300\nC 1.400 -1.200 0.300\nH -1.200 -0.900 -0.200\nH 1.200 0.900 0.200\nH -1.000 2.100 0.000\nH -2.400 1.100 0.000\nH 2.400 -1.100 0.000\nH 1.000 -2.100 0.000\nO 0.000 0.000 1.400\nO 0.000 3.000 0.000',
+    referenceEa: 14.2,
+    doi: '10.1021/ja963956s',
+    journalRef: 'J. Am. Chem. Soc. 1997',
+    tags: ['epoxidation', 'chinese-chemist', 'organocatalysis'],
+    defaults: const QuantumDefaults(),
+  ),
+
 ];
 

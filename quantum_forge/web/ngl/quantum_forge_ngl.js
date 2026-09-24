@@ -292,19 +292,20 @@
 
     try {
       var shape = new window.NGL.Shape('bond-badges');
-      // #FFAB40 — the orange the old 2D badge used, as sRGB fractions.
-      var colour = [1.0, 0.6705882352941176, 0.25098039215686274];
+      var colour = [1.0, 1.0, 1.0]; // White for maximum visibility
       for (var i = 0; i < indices.length; i++) {
         shape.addText(
           [positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]],
           colour,
-          1.5,
+          4.5,
           String(indices[i])
         );
       }
 
       var component = stage.addComponentFromObject(shape);
-      component.addRepresentation('buffer');
+      component.addRepresentation('buffer', {
+        depthTest: false,
+      });
       badgeSeq += 1;
       lastBadges = { seq: badgeSeq, count: indices.length };
       lastError = null;

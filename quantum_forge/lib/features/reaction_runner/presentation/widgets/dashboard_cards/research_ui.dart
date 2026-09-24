@@ -7,6 +7,7 @@
 // so the results look right on all seven presets.
 // ============================================================================
 
+import 'dart:ui' as dart_ui;
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/results_summary.dart';
@@ -54,7 +55,7 @@ class QualityBadge extends StatelessWidget {
 }
 
 /// A themed panel with an optional left accent bar, used for every metric card.
-class ResearchCard extends StatelessWidget {
+class ResearchCard extends StatefulWidget {
   final Widget child;
   final Color? accent;
   final EdgeInsetsGeometry padding;
@@ -69,51 +70,123 @@ class ResearchCard extends StatelessWidget {
   });
 
   @override
+  State<ResearchCard> createState() => _ResearchCardState();
+}
+
+class _ResearchCardState extends State<ResearchCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onHover(bool isHovered) {
+    if (isHovered) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final palette = ThemeNotifier.paletteOf(context);
-    // The accent bar is drawn with a Stack rather than a Row+stretch: stretch
-    // requires a bounded cross axis and would throw inside a scroll view.
-    final content = Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: palette.panel,
-        border: Border.all(color: palette.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: palette.isLight ? 0.05 : 0.18),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Padding(
-            padding: accent != null ? const EdgeInsets.only(left: 18) : EdgeInsets.zero,
-            child: child,
-          ),
-          if (accent != null)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 4,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(4),
+    final accentColor = widget.accent ?? palette.accent;
+
+    Widget content = AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Container(
+            padding: widget.padding,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: palette.panel.withValues(alpha: 0.6),
+              border: Border.all(
+                color: Color.lerp(
+                  palette.border,
+                  accentColor.withValues(alpha: 0.5),
+                  _glowAnimation.value,
+                )!,
+                width: 1 + (_glowAnimation.value * 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: palette.isLight ? 0.05 : 0.18),
+                  blurRadius: 14 + (10 * _glowAnimation.value),
+                  offset: const Offset(0, 5),
                 ),
+                if (_glowAnimation.value > 0)
+                  BoxShadow(
+                    color: accentColor.withValues(alpha: 0.15 * _glowAnimation.value),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: BackdropFilter(
+                      filter: dart_ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                      child: Container(color: Colors.transparent),
+                    ),
+                  ),
+                  Padding(
+                    padding: widget.accent != null ? const EdgeInsets.only(left: 18) : EdgeInsets.zero,
+                    child: widget.child,
+                  ),
+                  if (widget.accent != null)
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 4,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: widget.accent,
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: widget.accent!.withValues(alpha: 0.6 * _glowAnimation.value),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            )
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
-    if (onTap == null) return content;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: content,
+
+    return MouseRegion(
+      onEnter: (_) => _onHover(true),
+      onExit: (_) => _onHover(false),
+      cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: content,
+      ),
     );
   }
 }

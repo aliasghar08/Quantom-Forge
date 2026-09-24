@@ -85,79 +85,91 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               {'title': 'Partition Func (q)', 'value': partFunc.toStringAsExponential(2), 'icon': Icons.pie_chart},
             ];
             
-            return Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                // Adjust grid columns based on screen width for responsiveness
+                int crossAxisCount = 4;
+                if (constraints.maxWidth < 800) crossAxisCount = 2;
+                if (constraints.maxWidth < 500) crossAxisCount = 1;
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Advanced Analytics',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      const Spacer(),
-                      FilledButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.download),
-                        label: const Text('Export CSV'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white12,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Main Chart
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                      ),
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                      // Header
+                      Row(
                         children: [
-                          const Text('Multi-Path Energy Profile (Overlay)', style: TextStyle(color: Colors.white70, fontSize: 16)),
-                          const SizedBox(height: 16),
-                          Expanded(
-                            child: KineticChartWidget(
-                              energyProfile: scaledProfile,
-                              referenceEa: 27.5 * scaleFactor + totalShift,
-                              onPointSelected: (idx) {},
+                          const Expanded(
+                            child: Text(
+                              'Advanced Analytics',
+                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          FilledButton.icon(
+                            onPressed: () {},
+                            icon: const Icon(Icons.download),
+                            label: const Text('Export CSV'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.white12,
+                              foregroundColor: Colors.white,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Thermodynamics Grid
-                  Expanded(
-                    flex: 1,
-                    child: GridView.builder(
-                      padding: EdgeInsets.zero,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 2.2,
+                      const SizedBox(height: 24),
+                      
+                      // Main Chart (Given a fixed height inside the scroll view)
+                      SizedBox(
+                        height: 500, // Fixed height prevents overflow
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                          ),
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text('Multi-Path Energy Profile (Overlay)', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                              const SizedBox(height: 16),
+                              Expanded(
+                                child: KineticChartWidget(
+                                  energyProfile: scaledProfile,
+                                  referenceEa: 27.5 * scaleFactor + totalShift,
+                                  onPointSelected: (idx) {},
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      itemCount: metrics.length,
-                      itemBuilder: (context, index) {
-                        final m = metrics[index];
-                        return _buildThermoCard(m['title'], m['value'], m['icon']);
-                      },
-                    ),
+                      const SizedBox(height: 24),
+                      
+                      // Thermodynamics Grid (Shrinkwrapped to fit inside scroll view)
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          mainAxisExtent: 85, // Fixed height for cards to prevent text overflow
+                        ),
+                        itemCount: metrics.length,
+                        itemBuilder: (context, index) {
+                          final m = metrics[index];
+                          return _buildThermoCard(m['title'], m['value'], m['icon']);
+                        },
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             );
           },
         );
