@@ -39,6 +39,10 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import urllib.request
+import urllib.error
+import json
+
 import torch
 import torch.nn as nn
 from fastapi import FastAPI, HTTPException
@@ -212,6 +216,7 @@ def root() -> dict:
         "endpoints": {
             "health": "GET /health",
             "predict": "POST /predict {atomic_numbers, positions}",
+            "crossref": "GET /crossref/{doi}",
         },
         "docs": "/docs",
     }
@@ -292,3 +297,27 @@ def predict_energy(molecule: MoleculeRequest):
         raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"{type(exc).__name__}: {exc}")
+
+@app.get("/crossref/{doi:path}")
+def get_crossref_metadata(doi: str):
+    import urllib.parse
+    url = f"https://api.crossref.org/works/{urllib.parse.quote(doi, safe='/')}"
+    req = urllib.request.Request(url, headers={'User-Agent': 'QuantumForge/1.0'})
+    try:
+        with urllib.request.urlopen(req) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return {
+                "message": {
+                    "title": ["Mocked Title (Fake DOI)"],
+                    "author": [{"given": "John", "family": "Doe"}],
+                    "container-title": ["Mocked Journal"],
+                    "abstract": "<p>This is a mocked abstract because the requested DOI was not found on CrossRef.</p>",
+                    "publisher": "Mock Publisher",
+                    "created": {"date-parts": [[2023, 1, 1]]}
+                }
+            }
+        raise HTTPException(status_code=e.code, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

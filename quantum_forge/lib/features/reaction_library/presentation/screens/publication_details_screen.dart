@@ -4,6 +4,14 @@ import 'package:quantum_forge/features/reaction_library/data/reaction_templates.
 import 'package:quantum_forge/core/services/web_services.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/glass_card.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import 'package:quantum_forge/core/settings/app_settings_provider.dart';
+import 'package:quantum_forge/core/services/backend_compute_service.dart';
+import 'package:quantum_forge/core/utils/xyz_parser.dart';
+import 'package:quantum_forge/core/utils/avogadro_element_data.dart';
+import 'package:quantum_forge/state/settings_provider.dart';
+
 
 class PublicationDetailsScreen extends StatefulWidget {
   final ReactionTemplate template;
@@ -19,42 +27,99 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
   String? _crossrefError;
   Map<String, dynamic>? _crossrefData;
 
+  double? _reactantEnergy;
+  double? _productEnergy;
+  bool _isLoadingEnergies = true;
+
   @override
   void initState() {
     super.initState();
-    _fetchCrossrefData();
+    Future.microtask(() {
+      _fetchCrossrefData();
+      _fetchEnergies();
+    });
   }
 
   Future<void> _fetchCrossrefData() async {
     if (widget.template.doi.isEmpty) {
-      setState(() {
-        _isLoadingCrossref = false;
-        _crossrefError = 'No DOI provided for this template.';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingCrossref = false;
+          _crossrefError = 'No DOI provided for this template.';
+        });
+      }
       return;
     }
 
     try {
-      final uri = 'https://api.crossref.org/works/${Uri.encodeComponent(widget.template.doi)}';
+      final settings = Provider.of<AppSettingsNotifier>(context, listen: false).settings;
+      final uri = settings.hasGnnBackend 
+          ? '${settings.gnnBackendUrl}/crossref/${Uri.encodeComponent(widget.template.doi)}'
+          : 'https://api.crossref.org/works/${Uri.encodeComponent(widget.template.doi)}';
+          
       final responseBody = await WebServices.fetchString(uri);
       
       final json = jsonDecode(responseBody) as Map<String, dynamic>;
       if (json['message'] != null) {
-        setState(() {
-          _crossrefData = json['message'] as Map<String, dynamic>;
-          _isLoadingCrossref = false;
-        });
+        if (mounted) {
+          setState(() {
+            _crossrefData = json['message'] as Map<String, dynamic>;
+            _isLoadingCrossref = false;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _crossrefError = 'Invalid DOI response';
+            _isLoadingCrossref = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          _crossrefError = 'Invalid DOI response';
+          _crossrefError = 'Failed to load metadata: $e';
           _isLoadingCrossref = false;
         });
       }
+    }
+  }
+
+  Future<void> _fetchEnergies() async {
+    try {
+      final settings = Provider.of<AppSettingsNotifier>(context, listen: false).settings;
+      final quantumSettings = Provider.of<QuantumSettingsNotifier>(context, listen: false).value;
+      if (!settings.hasGnnBackend) {
+        if (mounted) setState(() => _isLoadingEnergies = false);
+        return;
+      }
+
+      final reactantAtoms = XyzParser.parse(widget.template.reactantXyz);
+      final productAtoms = XyzParser.parse(widget.template.productXyz);
+      
+      final reactantZ = reactantAtoms.map((a) => AvogadroElementData.atomicNumberForSymbol(a.symbol)).toList();
+      final reactantPos = reactantAtoms.map((a) => [a.x, a.y, a.z]).toList();
+      
+      final productZ = productAtoms.map((a) => AvogadroElementData.atomicNumberForSymbol(a.symbol)).toList();
+      final productPos = productAtoms.map((a) => [a.x, a.y, a.z]).toList();
+
+      const computeService = BackendComputeService();
+      String url = settings.gnnBackendUrl;
+      if (quantumSettings.mlipModel == 'MACE-MP-0') {
+        url = 'http://127.0.0.1:8001';
+      }
+      final rEnergy = await computeService.predictEnergy(url, reactantZ, reactantPos);
+      final pEnergy = await computeService.predictEnergy(url, productZ, productPos);
+
+      if (mounted) {
+        setState(() {
+          _reactantEnergy = rEnergy;
+          _productEnergy = pEnergy;
+          _isLoadingEnergies = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _crossrefError = 'Failed to load metadata: $e';
-        _isLoadingCrossref = false;
-      });
+      if (mounted) setState(() => _isLoadingEnergies = false);
     }
   }
 
@@ -92,9 +157,11 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
 
     // Parse Data — every field falls back to the bundled template metadata, so
     // the page stays useful even when CrossRef is unreachable or has no entry.
-    final rawTitle = _crossrefData?['title']?[0] ?? widget.template.name;
+    final titleList = _crossrefData?['title'] as List<dynamic>?;
+    final rawTitle = (titleList != null && titleList.isNotEmpty) ? titleList[0].toString() : widget.template.name;
     final title = rawTitle.replaceAll(RegExp(r'<[^>]*>'), '').trim();
-    final abstractHtml = _crossrefData?['abstract'] ??
+
+    final abstractHtml = _crossrefData?['abstract']?.toString() ??
         'Publication metadata could not be fetched from CrossRef'
             '${_crossrefError != null ? ' ($_crossrefError)' : ''}.\n'
             'The details shown are from the bundled reaction library.';
@@ -104,14 +171,24 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     final authorsList = _crossrefData?['author'] as List<dynamic>?;
     String authors = 'Unknown Authors';
     if (authorsList != null && authorsList.isNotEmpty) {
-      authors = authorsList.map((a) => '${a['given']} ${a['family']}').join(', ');
+      authors = authorsList.map((a) {
+        final given = a['given']?.toString() ?? '';
+        final family = a['family']?.toString() ?? '';
+        return '$given $family'.trim();
+      }).where((s) => s.isNotEmpty).join(', ');
+      if (authors.isEmpty) authors = 'Unknown Authors';
     }
 
-    final publisher = _crossrefData?['publisher'] ?? 'Unknown Publisher';
-    final containerTitle = _crossrefData?['container-title']?[0] ?? widget.template.journalRef;
+    final publisher = _crossrefData?['publisher']?.toString() ?? 'Unknown Publisher';
     
-    final createdDate = _crossrefData?['created']?['date-parts']?[0];
-    final year = createdDate != null ? createdDate[0].toString() : 'Unknown Year';
+    final containerTitleList = _crossrefData?['container-title'] as List<dynamic>?;
+    final containerTitle = (containerTitleList != null && containerTitleList.isNotEmpty) 
+        ? containerTitleList[0].toString() 
+        : widget.template.journalRef;
+    
+    final datePartsList = _crossrefData?['created']?['date-parts'] as List<dynamic>?;
+    final createdDate = (datePartsList != null && datePartsList.isNotEmpty) ? datePartsList[0] as List<dynamic>? : null;
+    final year = (createdDate != null && createdDate.isNotEmpty) ? createdDate[0].toString() : 'Unknown Year';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -131,6 +208,8 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
               _buildHeaderCard(title, authors, containerTitle, publisher, year),
               const SizedBox(height: 24),
               _buildAbstractCard(abstractText),
+              const SizedBox(height: 24),
+              _buildEnergiesCard(),
               const SizedBox(height: 24),
               _buildExternalLinksCard(title),
             ],
@@ -225,8 +304,61 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     );
   }
 
+  Widget _buildEnergiesCard() {
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Transition1x GNN Predictions', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            if (_isLoadingEnergies)
+              const Center(child: CircularProgressIndicator(color: Color(0xFF4FC3F7)))
+            else if (_reactantEnergy == null && _productEnergy == null)
+              const Text('Energy predictions unavailable. Ensure tx1-fastapi-backend is running.', style: TextStyle(color: Colors.white54, fontSize: 14))
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildEnergyBox('Reactant Energy', _reactantEnergy),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildEnergyBox('Product Energy', _productEnergy),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnergyBox(String label, double? energy) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text(
+            energy != null ? '${energy.toStringAsFixed(3)} eV' : 'N/A',
+            style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildExternalLinksCard(String title) {
-    final doiUrl = 'https://doi.org/${widget.template.doi}';
+    final hasDoi = widget.template.doi.isNotEmpty;
     final scholarUrl = 'https://scholar.google.com/scholar?q=${Uri.encodeComponent(title)}';
 
     return GlassCard(
@@ -237,26 +369,30 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
           children: [
             const Text('External References', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            _buildLinkButton(
-              icon: Icons.language,
-              label: 'View on Publisher Site (DOI)',
-              url: doiUrl,
-              color: const Color(0xFF4FC3F7),
-            ),
-            const SizedBox(height: 12),
+            if (hasDoi) ...[
+              _buildLinkButton(
+                icon: Icons.language,
+                label: 'View on Publisher Site (DOI)',
+                url: 'https://doi.org/${widget.template.doi}',
+                color: const Color(0xFF4FC3F7),
+              ),
+              const SizedBox(height: 12),
+            ],
             _buildLinkButton(
               icon: Icons.school,
               label: 'Search on Google Scholar',
               url: scholarUrl,
               color: Colors.greenAccent,
             ),
-            const SizedBox(height: 12),
-            _buildLinkButton(
-              icon: Icons.data_object,
-              label: 'View Raw CrossRef Metadata',
-              url: 'https://api.crossref.org/works/${widget.template.doi}',
-              color: Colors.orangeAccent,
-            ),
+            if (hasDoi) ...[
+              const SizedBox(height: 12),
+              _buildLinkButton(
+                icon: Icons.data_object,
+                label: 'View Raw CrossRef Metadata',
+                url: 'https://api.crossref.org/works/${Uri.encodeComponent(widget.template.doi)}',
+                color: Colors.orangeAccent,
+              ),
+            ],
           ],
         ),
       ),
@@ -265,7 +401,20 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
 
   Widget _buildLinkButton({required IconData icon, required String label, required String url, required Color color}) {
     return InkWell(
-      onTap: () => WebServices.openUrl(url),
+      onTap: () async {
+        final uri = Uri.parse(url);
+        try {
+          if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not launch $url')));
+            }
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error launching link: $e')));
+          }
+        }
+      },
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

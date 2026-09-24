@@ -21,6 +21,7 @@ class QuantumControlsPanel extends StatefulWidget {
 
 class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
   static const _mlipModels = [
+    'tx1-fastapi',
     'UMA-SM',
     'UMA-Medium',
     'MACE-MP-0',

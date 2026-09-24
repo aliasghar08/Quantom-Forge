@@ -113,12 +113,13 @@ class _DftWorkflowCardState extends State<DftWorkflowCard> {
       final xyz = await const BackendComputeService()
           .exportTransitionState(widget.backendUrl, widget.status.reactionId);
       // The backend already wrote the provenance comment, so download verbatim.
+      final modelSafe = widget.mlipModel.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
       AvogadroBridge.download(
-        '${widget.status.reactionId}_uma_ts.xyz',
+        '${widget.status.reactionId}_${modelSafe}_ts.xyz',
         xyz,
         mimeType: 'chemical/x-xyz',
       );
-      widget.onNotify('Exported ${widget.status.reactionId}_uma_ts.xyz');
+      widget.onNotify('Exported ${widget.status.reactionId}_${modelSafe}_ts.xyz');
     } catch (e) {
       widget.onError('Export failed: $e');
     } finally {
@@ -213,7 +214,7 @@ class _DftWorkflowCardState extends State<DftWorkflowCard> {
             children: [
               Icon(Icons.science_outlined, size: 18, color: palette.accent),
               const SizedBox(width: 8),
-              const Text('UMA → DFT workflow',
+              const Text('MLIP → DFT workflow',
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -228,7 +229,7 @@ class _DftWorkflowCardState extends State<DftWorkflowCard> {
           ),
           const SizedBox(height: 4),
           Text(
-            'UMA is a screening method. Publication requires DFT refinement of TS '
+            '${widget.mlipModel} is a screening method. Publication requires DFT refinement of TS '
             'geometries — export the geometry, run it on the cluster, then attach the '
             'result here.',
             style: TextStyle(

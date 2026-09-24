@@ -107,8 +107,11 @@ class _ArrheniusPlotPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (lnKValues.length < 2) return;
 
-    final double minY = lnKValues.reduce((a, b) => a < b ? a : b);
-    final double maxY = lnKValues.reduce((a, b) => a > b ? a : b);
+    final validValues = lnKValues.where((v) => v.isFinite).toList();
+    if (validValues.isEmpty) return;
+    
+    final double minY = validValues.reduce((a, b) => a < b ? a : b);
+    final double maxY = validValues.reduce((a, b) => a > b ? a : b);
     final double rangeY = (maxY - minY).abs() < 0.0001 ? 1.0 : maxY - minY;
     final int n = lnKValues.length;
 
@@ -161,11 +164,15 @@ class _ArrheniusPlotPainter extends CustomPainter {
     // ── Uncertainty band ───────────────────────────────────────────────────
     if (lnUncertainty != null && lnUncertainty! > 0) {
       final band = Path();
-      band.moveTo(px(0), py(lnKValues[0] + lnUncertainty!));
-      for (int i = 1; i < n; i++) {
-        band.lineTo(px(i), py(lnKValues[i] + lnUncertainty!));
+      bool first = true;
+      for (int i = 0; i < n; i++) {
+        if (!lnKValues[i].isFinite) continue;
+        final x = px(i), y = py(lnKValues[i] + lnUncertainty!);
+        first ? band.moveTo(x, y) : band.lineTo(x, y);
+        first = false;
       }
       for (int i = n - 1; i >= 0; i--) {
+        if (!lnKValues[i].isFinite) continue;
         band.lineTo(px(i), py(lnKValues[i] - lnUncertainty!));
       }
       band.close();
@@ -173,24 +180,42 @@ class _ArrheniusPlotPainter extends CustomPainter {
     }
 
     // Filled area + line
-    final fillPath = Path()..moveTo(px(0), size.height - _bottomPad);
+    final fillPath = Path();
+    bool firstFill = true;
     for (int i = 0; i < n; i++) {
-      fillPath.lineTo(px(i), py(lnKValues[i]));
+      if (!lnKValues[i].isFinite) continue;
+      final x = px(i), y = py(lnKValues[i]);
+      if (firstFill) {
+        fillPath.moveTo(x, size.height - _bottomPad);
+        fillPath.lineTo(x, y);
+        firstFill = false;
+      } else {
+        fillPath.lineTo(x, y);
+      }
     }
-    fillPath.lineTo(px(n - 1), size.height - _bottomPad);
-    fillPath.close();
-    canvas.drawPath(fillPath,
-        Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [lineColor.withValues(alpha: 0.28), lineColor.withValues(alpha: 0.04)],
-          ).createShader(Rect.fromLTWH(_leftPad, _topPad, plotW, plotH)));
+    if (!firstFill) {
+      for (int i = n - 1; i >= 0; i--) {
+        if (!lnKValues[i].isFinite) continue;
+        fillPath.lineTo(px(i), size.height - _bottomPad);
+        break; // Only need to go back down to the baseline at the rightmost valid x
+      }
+      fillPath.close();
+      canvas.drawPath(fillPath,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [lineColor.withValues(alpha: 0.28), lineColor.withValues(alpha: 0.04)],
+            ).createShader(Rect.fromLTWH(_leftPad, _topPad, plotW, plotH)));
+    }
 
     final path = Path();
+    bool firstLine = true;
     for (int i = 0; i < n; i++) {
+      if (!lnKValues[i].isFinite) continue;
       final x = px(i), y = py(lnKValues[i]);
-      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+      firstLine ? path.moveTo(x, y) : path.lineTo(x, y);
+      firstLine = false;
     }
     canvas.drawPath(path,
         Paint()
@@ -201,6 +226,7 @@ class _ArrheniusPlotPainter extends CustomPainter {
           ..strokeJoin = StrokeJoin.round);
 
     for (int i = 0; i < n; i++) {
+      if (!lnKValues[i].isFinite) continue;
       final x = px(i), y = py(lnKValues[i]);
       canvas.drawCircle(Offset(x, y), 4.5, Paint()..color = lineColor.withValues(alpha: 0.9));
       canvas.drawCircle(Offset(x, y), 4.5, Paint()..color = Colors.white.withValues(alpha: 0.5)..style = PaintingStyle.stroke..strokeWidth = 1);

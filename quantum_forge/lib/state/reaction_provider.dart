@@ -347,7 +347,10 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     String productXyz,
     QuantumSettings settings,
   ) async {
-    final url = (backendUrlProvider?.call() ?? '').trim();
+    var url = (backendUrlProvider?.call() ?? '').trim();
+    if (settings.mlipModel == 'MACE-MP-0') {
+      url = 'http://127.0.0.1:8001';
+    }
     if (url.isEmpty) return false;
     if (reactantXyz.isEmpty || productXyz.isEmpty) {
       _setError('The backend needs both a reactant and a product structure.');

@@ -1347,7 +1347,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _warnedFallbackFor = status.reactionId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _warn(fallbackDataWarning(fromBackend: status.fromBackend));
+          final mlip = context.read<QuantumSettingsNotifier>().value.mlipModel;
+          _warn(fallbackDataWarning(fromBackend: status.fromBackend, modelName: mlip));
         }
       });
     }

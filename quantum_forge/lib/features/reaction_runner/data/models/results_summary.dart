@@ -210,15 +210,15 @@ const double _kcalToJ = 4184.0;
 /// computed by DMF/UMA; everything thermodynamic or kinetic below is still
 /// produced in-app, and the user has to be told which is which rather than being
 /// left to assume the whole panel is computed.
-String fallbackDataWarning({required bool fromBackend}) {
+String fallbackDataWarning({required bool fromBackend, required String modelName}) {
   const estimated = 'ΔG‡, ΔS‡, ZPE, rate constant, Arrhenius fit, dipole, '
       'HOMO–LUMO gap, polarizability, RMS gradient and partition function';
 
   if (!fromBackend) {
-    return 'Fallback data — no UMA backend was used, so every value on this panel '
+    return 'Fallback data — no MLIP backend was used, so every value on this panel '
         '(geometry, energies, $estimated) is a local illustrative estimate.';
   }
-  return 'From UMA: geometry, relative and absolute energies, and the imaginary '
+  return 'From $modelName: geometry, relative and absolute energies, and the imaginary '
       'frequency. Still estimated in-app, NOT from the model: $estimated.';
 }
 
@@ -278,8 +278,9 @@ ResultsSummary computeResultsSummary({
       ? profileMax
       : baseEnthalpy + (1.987 * tK / 1000.0); // Ea ≈ ΔH‡ + RT
   final gibbsJ = gibbs * _kcalToJ;
-  final rateConst = (_kb * tK / _h) * math.exp(-gibbsJ / (_gasConstant * tK)); // Eyring
-  final log10k = math.log(rateConst) / math.ln10;
+  
+  final lnRateConst = math.log(_kb * tK / _h) - (gibbsJ / (_gasConstant * tK));
+  final log10k = lnRateConst / math.ln10;
   final sigmaLog10k = _U.dG * _kcalToJ / (_gasConstant * tK * math.ln10);
 
   final zpe = 14.5 * scaleFactor + chargeShift / 3.0;
@@ -287,14 +288,15 @@ ResultsSummary computeResultsSummary({
   final gap = 5.2 - (settings.spinMultiplicity * 0.1);
   final polar = 45.2 + (settings.solventModel != 'Vacuum' ? 12.0 : 0.0);
   final rmsGrad = 0.00034 * (scaleFactor > 0 ? scaleFactor : 1);
-  final partFunc = math.exp(-gibbsJ / (_gasConstant * tK)) * 1e12;
-  final log10q = math.log(partFunc) / math.ln10;
+  
+  final lnPartFunc = -gibbsJ / (_gasConstant * tK) + math.log(1e12);
+  final log10q = lnPartFunc / math.ln10;
 
   // Arrhenius series (ln k vs T) for the plot.
   final eaJ = ea * _kcalToJ;
   final rateVsTemp = List<double>.generate(10, (i) {
     final T = 200.0 + i * 80.0;
-    return math.log((_kb * T / _h) * math.exp(-eaJ / (_gasConstant * T)));
+    return math.log(_kb * T / _h) - (eaJ / (_gasConstant * T));
   });
 
   const blue = Color(0xFF4FC3F7);
@@ -461,7 +463,7 @@ ResultsSummary computeResultsSummary({
     overallQuality:
         isRealData ? MetricQuality.computed : MetricQuality.surrogate,
     methodLabel: isRealData
-        ? 'UMA MLIP · Direct MaxFlux (${settings.mlipModel})'
+        ? 'MLIP · Direct MaxFlux (${settings.mlipModel})'
         : 'Surrogate MLIP estimate (${settings.optimizerAlgorithm})',
     referenceEa: scaledRefEa,
     estimatedEa: ea,
