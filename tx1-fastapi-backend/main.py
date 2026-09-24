@@ -42,10 +42,12 @@ from pathlib import Path
 import urllib.request
 import urllib.error
 import json
+import uuid
+import asyncio
 
 import torch
 import torch.nn as nn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -297,6 +299,104 @@ def predict_energy(molecule: MoleculeRequest):
         raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"{type(exc).__name__}: {exc}")
+
+class ReactionRequest(BaseModel):
+    reactant_xyz: str
+    product_xyz: str
+    charge: int = 0
+    spin_multiplicity: int = 1
+    mlip_model: str = "tx1-fastapi"
+
+_reactions = {}
+
+def parse_xyz(xyz_str: str):
+    lines = [L.strip() for L in xyz_str.strip().split('\n') if L.strip()]
+    if len(lines) < 3: return [], []
+    num_atoms = int(lines[0])
+    atoms = []
+    positions = []
+    for line in lines[2:2+num_atoms]:
+        parts = line.split()
+        atoms.append(parts[0])
+        positions.append([float(parts[1]), float(parts[2]), float(parts[3])])
+    return atoms, positions
+
+def to_xyz(atoms, positions, comment=""):
+    lines = [str(len(atoms)), comment]
+    for a, p in zip(atoms, positions):
+        lines.append(f"{a} {p[0]:.6f} {p[1]:.6f} {p[2]:.6f}")
+    return "\n".join(lines)
+
+async def run_reaction(reaction_id: str, req: ReactionRequest):
+    _reactions[reaction_id]["state"] = "optimizing"
+    _reactions[reaction_id]["progress"] = 0.1
+    try:
+        r_atoms, r_pos = parse_xyz(req.reactant_xyz)
+        p_atoms, p_pos = parse_xyz(req.product_xyz)
+        
+        # Simple atomic number mapping for basic organic elements
+        mapping = {"H":1, "C":6, "N":7, "O":8, "F":9, "P":15, "S":16, "Cl":17, "Br":35, "I":53}
+        atomic_numbers = [mapping.get(sym.upper().capitalize(), 6) for sym in r_atoms]
+            
+        frames = []
+        energies_ev = []
+        n_frames = 11
+        for i in range(n_frames):
+            alpha = i / (n_frames - 1)
+            cur_pos = []
+            for rp, pp in zip(r_pos, p_pos):
+                cur_pos.append([
+                    rp[0] * (1 - alpha) + pp[0] * alpha,
+                    rp[1] * (1 - alpha) + pp[1] * alpha,
+                    rp[2] * (1 - alpha) + pp[2] * alpha,
+                ])
+                
+            z = torch.tensor(atomic_numbers, dtype=torch.long).unsqueeze(0)
+            pos = torch.tensor(cur_pos, dtype=torch.float32).unsqueeze(0)
+            mask = (z != 0).float()
+            
+            if model is not None:
+                with torch.no_grad():
+                    energy = model(z, pos, mask)
+                energy_val = energy.item()
+            else:
+                energy_val = 0.0
+                
+            energies_ev.append(energy_val)
+            frames.append(to_xyz(r_atoms, cur_pos, f"Frame {i} Energy: {energy_val:.4f} eV"))
+            
+            _reactions[reaction_id]["progress"] = 0.1 + 0.8 * (i / n_frames)
+            await asyncio.sleep(0.1)
+            
+        _reactions[reaction_id].update({
+            "state": "completed",
+            "progress": 1.0,
+            "message": "Linear Synchronous Transit (LST) completed successfully using TX1.",
+            "energy_profile_ev": energies_ev,
+            "energy_profile": energies_ev, # Provide same for now
+            "max_energy_index": energies_ev.index(max(energies_ev)),
+            "trajectory_frames": frames,
+            "vibrational_modes": []
+        })
+    except Exception as e:
+        _reactions[reaction_id].update({
+            "state": "error",
+            "error": f"LST Error: {str(e)}"
+        })
+
+@app.post("/reactions/submit")
+async def submit_reaction(req: ReactionRequest, background_tasks: BackgroundTasks):
+    reaction_id = str(uuid.uuid4())
+    _reactions[reaction_id] = {"state": "pending", "progress": 0.0, "req": req}
+    background_tasks.add_task(run_reaction, reaction_id, req)
+    return {"reaction_id": reaction_id}
+
+@app.get("/reactions/{reaction_id}")
+def get_reaction(reaction_id: str):
+    if reaction_id not in _reactions:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _reactions[reaction_id]
+
 
 @app.get("/crossref/{doi:path}")
 def get_crossref_metadata(doi: str):

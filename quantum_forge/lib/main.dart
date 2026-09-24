@@ -45,6 +45,7 @@ void main() {
     storageService,
     reactionRepository,
     backendUrlProvider: () => appSettingsNotifier.settings.backendUrl,
+    gnnBackendUrlProvider: () => appSettingsNotifier.settings.gnnBackendUrl,
   );
 
   runApp(

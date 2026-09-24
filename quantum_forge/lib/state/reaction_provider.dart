@@ -28,6 +28,9 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
   /// string to use the local illustrative simulation.
   final String Function()? backendUrlProvider;
 
+  /// Returns the configured Transition1x GNN compute backend URL.
+  final String Function()? gnnBackendUrlProvider;
+
   final BackendComputeService _backend = const BackendComputeService();
   bool _isLoading = false;
   String? _error;
@@ -37,6 +40,7 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     this._storage,
     this._repo, {
     this.backendUrlProvider,
+    this.gnnBackendUrlProvider,
   }) : super(null);
 
   bool get isLoading => _isLoading;
@@ -350,6 +354,8 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     var url = (backendUrlProvider?.call() ?? '').trim();
     if (settings.mlipModel == 'MACE-MP-0') {
       url = 'http://127.0.0.1:8001';
+    } else if (settings.mlipModel == 'tx1-fastapi') {
+      url = (gnnBackendUrlProvider?.call() ?? '').trim();
     }
     if (url.isEmpty) return false;
     if (reactantXyz.isEmpty || productXyz.isEmpty) {
