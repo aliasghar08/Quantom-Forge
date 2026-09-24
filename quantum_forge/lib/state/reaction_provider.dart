@@ -55,6 +55,15 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
   void _setError(String error) {
     _isLoading = false;
     _error = error;
+    if (value != null) {
+      value = ReactionStatusResponse(
+        reactionId: value!.reactionId,
+        state: ReactionState.error,
+        progress: value!.progress,
+        message: value!.message,
+        error: error,
+      );
+    }
     notifyListeners();
   }
 
@@ -354,8 +363,6 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     var url = (backendUrlProvider?.call() ?? '').trim();
     if (settings.mlipModel == 'MACE-MP-0') {
       url = 'http://127.0.0.1:8001';
-    } else if (settings.mlipModel == 'tx1-fastapi') {
-      url = (gnnBackendUrlProvider?.call() ?? '').trim();
     }
     if (url.isEmpty) return false;
     if (reactantXyz.isEmpty || productXyz.isEmpty) {
@@ -369,7 +376,7 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
         reactionId: '',
         state: ReactionState.pending,
         progress: 0.0,
-        message: 'Submitting to DMF/UMA compute node…',
+        message: 'Submitting to ${settings.mlipModel == 'tx1-fastapi' ? 'GNN (tx1)' : 'DMF/UMA'} compute node…',
       );
       notifyListeners();
 
@@ -380,7 +387,7 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
         reactionId: reactionId,
         state: ReactionState.optimizing,
         progress: 0.05,
-        message: 'Direct MaxFlux running (${settings.mlipModel})…',
+        message: '${settings.mlipModel == 'tx1-fastapi' ? 'GNN (tx1)' : 'Direct MaxFlux'} running (${settings.mlipModel})…',
       );
       notifyListeners();
 
