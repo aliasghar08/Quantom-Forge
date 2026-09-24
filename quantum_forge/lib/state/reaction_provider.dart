@@ -361,7 +361,9 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     QuantumSettings settings,
   ) async {
     var url = (backendUrlProvider?.call() ?? '').trim();
-    if (settings.mlipModel == 'MACE-MP-0') {
+    if (settings.mlipModel == 'tx1-fastapi') {
+      url = (gnnBackendUrlProvider?.call() ?? '').trim();
+    } else if (settings.mlipModel == 'MACE-MP-0') {
       url = 'http://127.0.0.1:8001';
     }
     if (url.isEmpty) return false;
