@@ -367,9 +367,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 else if (isLoading || status.state == ReactionState.pending || status.state == ReactionState.optimizing)
                   ReactionProgressCard(status: status)
                 else
-                  isDesktop 
-                    ? Expanded(child: _buildResultsArea(status))
-                    : _buildResultsArea(status),
+                  _buildResultsArea(status),
                   
                 if (!isDesktop && _viewModel.controlsPanelOpen) ...[
                   const SizedBox(height: 32),
@@ -391,7 +389,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Expanded(
                       flex: 7,
-                      child: mainContent,
+                      child: SingleChildScrollView(child: mainContent),
                     ),
                     const SizedBox(width: 24),
                     // FIX: use SizedBox to enforce the panel's flex share

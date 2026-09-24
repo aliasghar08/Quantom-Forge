@@ -729,25 +729,11 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     return Focus(
       focusNode: _playerFocus,
       onKeyEvent: _onKeyEvent,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isUnbounded = constraints.maxHeight.isInfinite;
-          final card = _buildCard(isUnbounded, constraints);
-          
-          if (isUnbounded) {
-            return SingleChildScrollView(
-              primary: false,
-              child: card,
-            );
-          } else {
-            return card;
-          }
-        },
-      ),
+      child: _buildCard(),
     );
   }
 
-  Widget _buildCard(bool isUnbounded, BoxConstraints constraints) {
+  Widget _buildCard() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.18),
@@ -759,9 +745,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(),
-          isUnbounded
-              ? _buildCanvasSlotUnbounded(constraints)
-              : Expanded(child: _buildCanvasSlotBounded()),
+          _buildCanvasSlot(),
           if (_showBondEnergies) _buildBondEnergiesPanel(),
           if (_frameCount > 1) ...[
             _buildTimeline(),
@@ -783,12 +767,10 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   /// still look right), but clamp the height to `[220, 420]` so desktop
   /// layouts do not blow up. The outer scroll view handles any residual
   /// overflow past the clamp.
-  Widget _buildCanvasSlotUnbounded(BoxConstraints constraints) {
-    final maxH = MediaQuery.of(context).size.height * 0.75;
-    final byRatio = constraints.maxWidth.isFinite
-        ? constraints.maxWidth / 1.2
-        : maxH;
-    final height = byRatio.clamp(220.0, maxH);
+  Widget _buildCanvasSlot() {
+    // Dynamically give the canvas 75% of the viewport height, bypassing any strict
+    // width ratio clamps so it has "as much space as it wants" without overflowing.
+    final height = MediaQuery.of(context).size.height * 0.75;
     return SizedBox(
       height: height,
       child: GestureDetector(
@@ -798,16 +780,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
         },
         child: _buildCanvas(),
       ),
-    );
-  }
-
-  Widget _buildCanvasSlotBounded() {
-    return GestureDetector(
-      onTap: () {
-        _claimKeyboard();
-        _togglePlay();
-      },
-      child: _buildCanvas(),
     );
   }
 
