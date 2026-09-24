@@ -361,7 +361,8 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
 
   Widget _buildExternalLinksCard(String title) {
     final cleanDoi = widget.template.doi.trim();
-    final hasDoi = cleanDoi.isNotEmpty;
+    final isDoiNotFound = _crossrefError != null && _crossrefError!.contains('404');
+    final hasDoi = cleanDoi.isNotEmpty && !isDoiNotFound;
     final scholarUrl = 'https://scholar.google.com/scholar?q=${Uri.encodeComponent(title)}';
 
     return GlassCard(
