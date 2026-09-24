@@ -1446,7 +1446,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
     final bonds = <_CalculatedBond>[];
     int bondIdx = 1;
-    final perceivedBonds = AvogadroBondPerception.perceive(atoms);
+    final perceivedBonds = _bondsForCurrentFrame();
 
     for (int b = 0; b < perceivedBonds.length; b++) {
       final bond = perceivedBonds[b];
