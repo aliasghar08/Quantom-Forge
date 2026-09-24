@@ -6,24 +6,20 @@ import 'package:url_launcher/url_launcher.dart' as ul;
 import 'package:web/web.dart' as web;
 
 class UrlService {
-  /// Opens a URL using the best method for the current platform.
-  /// 
-  /// On Web, this uses raw DOM APIs (`window.open`) to avoid Wasm plugin
-  /// channel issues. On native platforms, it falls back to `url_launcher`.
-  static Future<bool> launch(String url) async {
+  /// Opens a URL synchronously if on the web (to prevent popup blockers),
+  /// or asynchronously on native using url_launcher.
+  static void launch(String url) {
     try {
       if (kIsWeb) {
-        // Direct DOM interop for Web
+        // Direct DOM interop for Web, synchronous to avoid popup blockers
         web.window.open(url, '_blank');
-        return true;
       } else {
         // Native fallback
         final uri = Uri.parse(url);
-        return await ul.launchUrl(uri, mode: ul.LaunchMode.externalApplication);
+        ul.launchUrl(uri, mode: ul.LaunchMode.externalApplication);
       }
     } catch (e) {
       debugPrint('Error launching URL ($url): $e');
-      return false;
     }
   }
 }

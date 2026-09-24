@@ -466,14 +466,10 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
   }) {
     return InkWell(
       onTap: onTapOverride ??
-          () async {
+          () {
             if (url == null) return;
             try {
-              if (!await UrlService.launch(url.trim())) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not launch $url')));
-                }
-              }
+              UrlService.launch(url.trim());
             } catch (e) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error launching link: $e')));
