@@ -372,15 +372,14 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
           children: [
             const Text('External References', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            if (hasDoi) ...[
-              _buildLinkButton(
-                icon: Icons.language,
-                label: 'View on Publisher Site (DOI)',
-                url: 'https://doi.org/$cleanDoi',
-                color: const Color(0xFF4FC3F7),
-              ),
-              const SizedBox(height: 12),
-            ],
+            _buildLinkButton(
+              icon: Icons.language,
+              label: hasDoi ? 'View on Publisher Site (DOI)' : 'DOI Not Available (Tap for options)',
+              url: hasDoi ? 'https://doi.org/$cleanDoi' : null,
+              color: hasDoi ? const Color(0xFF4FC3F7) : Colors.white38,
+              onTapOverride: hasDoi ? null : () => _showMissingDoiDialog(title, scholarUrl),
+            ),
+            const SizedBox(height: 12),
             _buildLinkButton(
               icon: Icons.school,
               label: 'Search on Google Scholar',
@@ -402,23 +401,86 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     );
   }
 
-  Widget _buildLinkButton({required IconData icon, required String label, required String url, required Color color}) {
-    return InkWell(
-      onTap: () async {
-        final uri = Uri.parse(url.trim());
-        try {
-          final mode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
-          if (!await launchUrl(uri, mode: mode)) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not launch $url')));
-            }
-          }
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error launching link: $e')));
-          }
-        }
+  void _showMissingDoiDialog(String title, String scholarUrl) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('DOI Not Available', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This specific structural variant is systematically generated and does not map to a single DOI citation.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Try searching for related literature on these platforms:',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              _buildLinkButton(
+                icon: Icons.school,
+                label: 'Google Scholar',
+                url: scholarUrl,
+                color: Colors.greenAccent,
+              ),
+              const SizedBox(height: 8),
+              _buildLinkButton(
+                icon: Icons.science,
+                label: 'ChemSpider',
+                url: 'http://www.chemspider.com/Search.aspx?q=${Uri.encodeComponent(title)}',
+                color: Colors.purpleAccent,
+              ),
+              const SizedBox(height: 8),
+              _buildLinkButton(
+                icon: Icons.search,
+                label: 'Web of Science (General Search)',
+                url: 'https://www.webofscience.com/',
+                color: Colors.amberAccent,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close', style: TextStyle(color: Colors.white54)),
+            ),
+          ],
+        );
       },
+    );
+  }
+
+  Widget _buildLinkButton({
+    required IconData icon,
+    required String label,
+    required String? url,
+    required Color color,
+    VoidCallback? onTapOverride,
+  }) {
+    return InkWell(
+      onTap: onTapOverride ??
+          () async {
+            if (url == null) return;
+            final uri = Uri.parse(url.trim());
+            try {
+              final mode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
+              if (!await launchUrl(uri, mode: mode)) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not launch $url')));
+                }
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error launching link: $e')));
+              }
+            }
+          },
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -434,7 +496,8 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
             Expanded(
               child: Text(label, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w600)),
             ),
-            Icon(Icons.open_in_new, color: color.withValues(alpha: 0.5), size: 16),
+            if (url != null)
+              Icon(Icons.open_in_new, color: color.withValues(alpha: 0.5), size: 16),
           ],
         ),
       ),
