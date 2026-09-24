@@ -729,18 +729,25 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     return Focus(
       focusNode: _playerFocus,
       onKeyEvent: _onKeyEvent,
-      child: SingleChildScrollView(
-        primary: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [_buildCard()],
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isUnbounded = constraints.maxHeight.isInfinite;
+          final card = _buildCard(isUnbounded, constraints);
+          
+          if (isUnbounded) {
+            return SingleChildScrollView(
+              primary: false,
+              child: card,
+            );
+          } else {
+            return card;
+          }
+        },
       ),
     );
   }
 
-  Widget _buildCard() {
+  Widget _buildCard(bool isUnbounded, BoxConstraints constraints) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.18),
@@ -752,7 +759,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(),
-          _buildCanvasSlot(),
+          isUnbounded
+              ? _buildCanvasSlotUnbounded(constraints)
+              : Expanded(child: _buildCanvasSlotBounded()),
           if (_showBondEnergies) _buildBondEnergiesPanel(),
           if (_frameCount > 1) ...[
             _buildTimeline(),
@@ -774,25 +783,31 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   /// still look right), but clamp the height to `[220, 420]` so desktop
   /// layouts do not blow up. The outer scroll view handles any residual
   /// overflow past the clamp.
-  Widget _buildCanvasSlot() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxH = MediaQuery.of(context).size.height * 0.75;
-        final byRatio = constraints.maxWidth.isFinite
-            ? constraints.maxWidth / 1.2
-            : maxH;
-        final height = byRatio.clamp(220.0, maxH);
-        return SizedBox(
-          height: height,
-          child: GestureDetector(
-            onTap: () {
-              _claimKeyboard();
-              _togglePlay();
-            },
-            child: _buildCanvas(),
-          ),
-        );
+  Widget _buildCanvasSlotUnbounded(BoxConstraints constraints) {
+    final maxH = MediaQuery.of(context).size.height * 0.75;
+    final byRatio = constraints.maxWidth.isFinite
+        ? constraints.maxWidth / 1.2
+        : maxH;
+    final height = byRatio.clamp(220.0, maxH);
+    return SizedBox(
+      height: height,
+      child: GestureDetector(
+        onTap: () {
+          _claimKeyboard();
+          _togglePlay();
+        },
+        child: _buildCanvas(),
+      ),
+    );
+  }
+
+  Widget _buildCanvasSlotBounded() {
+    return GestureDetector(
+      onTap: () {
+        _claimKeyboard();
+        _togglePlay();
       },
+      child: _buildCanvas(),
     );
   }
 
