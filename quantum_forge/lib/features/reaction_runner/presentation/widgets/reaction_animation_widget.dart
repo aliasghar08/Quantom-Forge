@@ -777,11 +777,21 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   Widget _buildCanvasSlot() {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final maxH = MediaQuery.of(context).size.height * 0.75;
         final byRatio = constraints.maxWidth.isFinite
             ? constraints.maxWidth / 1.2
-            : 420.0;
-        final height = byRatio.clamp(220.0, 420.0);
-        return SizedBox(height: height, child: _buildCanvas());
+            : maxH;
+        final height = byRatio.clamp(220.0, maxH);
+        return SizedBox(
+          height: height,
+          child: GestureDetector(
+            onTap: () {
+              _claimKeyboard();
+              _togglePlay();
+            },
+            child: _buildCanvas(),
+          ),
+        );
       },
     );
   }
@@ -813,23 +823,15 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
           _displayTypePicker(),
           _palettePicker(),
           _iconButton(
-            _showBondNumbers ? Icons.pin : Icons.pin_outlined,
+            (_showBondNumbers && _showBondEnergies) ? Icons.analytics : Icons.analytics_outlined,
             () {
               _claimKeyboard();
-              _setShowBondNumbers(!_showBondNumbers);
+              final newState = !(_showBondNumbers && _showBondEnergies);
+              setState(() => _showBondEnergies = newState);
+              _setShowBondNumbers(newState);
             },
-            tooltip: 'Show bond numbers — 3D badges at each bond midpoint, '
-                'numbered by the same rule that draws the bonds',
-            key: const Key('qf-bond-numbers'),
-          ),
-          _iconButton(
-            _showBondEnergies ? Icons.bolt : Icons.bolt_outlined,
-            () {
-              _claimKeyboard();
-              setState(() => _showBondEnergies = !_showBondEnergies);
-            },
-            tooltip: 'Toggle bond energies panel',
-            key: const Key('qf-bond-energies'),
+            tooltip: 'Toggle Analysis Overlay (Bond Numbers & Energies)',
+            key: const Key('qf-analysis-overlay'),
           ),
           _iconButton(Icons.center_focus_strong, () {
             _claimKeyboard();

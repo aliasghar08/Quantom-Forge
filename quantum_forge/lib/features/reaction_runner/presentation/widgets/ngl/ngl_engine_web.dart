@@ -665,12 +665,10 @@ class NglEngine {
       // visually collide with the atoms at either end of the bond it labels.
       const double markerRadius = 0.06;
 
-      // Label size in world units. 0.4 A is roughly the width of one bond
-      // label glyph at the default zoom — big enough to read, small enough
-      // not to cover the molecule. If a publication figure wants them larger,
-      // raise this to 0.6 or 0.8; if the badges clutter a dense molecule,
-      // lower it to 0.3.
-      const double labelSize = 0.4;
+      // Label size in world units. 0.25 A is small enough to not clutter the
+      // screen on dense molecules, but physical scaling means it will remain
+      // perfectly readable when the user zooms in to inspect the bond.
+      const double labelSize = 0.25;
 
       for (final label in labels) {
         final position = <JSAny>[
