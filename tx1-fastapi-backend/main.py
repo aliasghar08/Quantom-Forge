@@ -407,17 +407,6 @@ def get_crossref_metadata(doi: str):
         with urllib.request.urlopen(req) as response:
             return json.loads(response.read().decode())
     except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return {
-                "message": {
-                    "title": ["Mocked Title (Fake DOI)"],
-                    "author": [{"given": "John", "family": "Doe"}],
-                    "container-title": ["Mocked Journal"],
-                    "abstract": "<p>This is a mocked abstract because the requested DOI was not found on CrossRef.</p>",
-                    "publisher": "Mock Publisher",
-                    "created": {"date-parts": [[2023, 1, 1]]}
-                }
-            }
         raise HTTPException(status_code=e.code, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
