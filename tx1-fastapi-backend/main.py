@@ -414,3 +414,52 @@ def get_crossref_metadata(doi: str):
         raise HTTPException(status_code=e.code, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# 5. HYBRID ML/MM MOLECULAR DYNAMICS
+# ==========================================
+class HybridMDRequest(BaseModel):
+    pdb_path: str
+    steps: int = 5000
+
+@app.post("/simulate/hybrid-md")
+async def start_hybrid_md(req: HybridMDRequest):
+    try:
+        from worker_hybrid import run_hybrid_md
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Celery worker module not available.")
+    
+    job_id = str(uuid.uuid4())
+    # Dispatch to Celery asynchronously
+    task = run_hybrid_md.apply_async(args=[req.pdb_path, job_id], task_id=job_id)
+    
+    return {
+        "status": "ACCEPTED",
+        "job_id": job_id,
+        "celery_task_id": task.id
+    }
+
+@app.get("/simulate/status/{job_id}")
+async def get_hybrid_md_status(job_id: str, task_id: str = None):
+    try:
+        from celery.result import AsyncResult
+        from worker_hybrid import celery_app
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Celery not installed.")
+        
+    if not task_id:
+        # If task_id isn't provided in query, we can't easily look it up unless job_id == task_id.
+        # Let's assume the user passes task_id or we used job_id as task_id (we didn't).
+        # We will use task_id if provided, otherwise this is a simplified stub.
+        task_id = job_id # Note: In production, store the mapping in DB or Redis.
+        
+    res = AsyncResult(task_id, app=celery_app)
+    
+    # If the task is ready, we can return the result
+    if res.ready():
+        return res.result
+    else:
+        return {
+            "status": res.state, # e.g. PENDING, PROCESSING
+            "job_id": job_id
+        }

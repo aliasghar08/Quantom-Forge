@@ -15,3 +15,7 @@ pydantic>=2.7
 # Not listed here, deliberately: pytest and httpx. `test_main.py` runs standalone
 # with `python test_main.py` (httpx arrives with starlette's TestClient), so the
 # runtime image does not carry a test runner.
+
+celery>=5.4
+redis>=5.0
+ase>=3.22
