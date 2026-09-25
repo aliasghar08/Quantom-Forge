@@ -47,19 +47,27 @@ def export_model():
     
     model.eval()
 
-    # NOTE: To use openmm-torch, the model needs to know the atomic numbers of the atoms
-    # being passed to it. In the hybrid simulation, we apply TorchForce ONLY to the peptide ligand.
-    # Therefore, we need to know the exact atomic sequence of the peptide ligand.
-    # For this tracing script, we will use a placeholder Z array.
-    # In practice, you must replace `placeholder_z` with the actual atomic numbers (z) of your peptide.
+    import sys
+    import ase.io
     
-    # Placeholder: A 4-mer beta-peptide typically has around 40-50 atoms.
-    # We will just trace with a dummy sequence. 
-    # YOU MUST UPDATE THIS Z-ARRAY TO MATCH YOUR EXTRACTED LIGAND EXACTLY.
-    num_atoms_in_ligand = 50
-    placeholder_z = [6] * num_atoms_in_ligand  # e.g., Carbon atoms
+    # NOTE: The exact atomic numbers of the custom 4-mer and 5-mer beta-peptides
+    # must be extracted from a reference PDB to ensure tensor shapes match perfectly.
+    # Pass the isolated peptide PDB path as a command-line argument.
+    peptide_pdb_path = sys.argv[1] if len(sys.argv) > 1 else "peptide.pdb"
     
-    wrapped_model = OpenMMTorchWrapper(model, placeholder_z)
+    if not os.path.exists(peptide_pdb_path):
+        print(f"Error: Could not find {peptide_pdb_path}.")
+        print("Usage: python export_model.py <path_to_isolated_peptide.pdb>")
+        return
+        
+    print(f"Extracting atomic numbers from {peptide_pdb_path}...")
+    atoms = ase.io.read(peptide_pdb_path)
+    extracted_z = atoms.get_atomic_numbers().tolist()
+    num_atoms_in_ligand = len(extracted_z)
+    
+    print(f"Extracted {num_atoms_in_ligand} atoms. Z-array: {extracted_z}")
+    
+    wrapped_model = OpenMMTorchWrapper(model, extracted_z)
     
     # 2. Trace the model
     # Dummy input positions (N, 3)

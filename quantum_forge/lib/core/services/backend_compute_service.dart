@@ -250,6 +250,7 @@ class BackendComputeService {
     final json = await WebServices.postJson(
       '$base/simulate/hybrid-md',
       {'pdb_path': pdbPath, 'steps': 5000},
+      headers: {'Bypass-Tunnel-Reminder': 'true'},
     );
     final id = json['job_id'] as String?;
     if (id == null || id.isEmpty) {
@@ -270,7 +271,10 @@ class BackendComputeService {
       await Future<void>.delayed(const Duration(seconds: 10));
       
       try {
-        final raw = await WebServices.fetchString('$base/simulate/status/$jobId');
+        final raw = await WebServices.fetchString(
+          '$base/simulate/status/$jobId',
+          headers: {'Bypass-Tunnel-Reminder': 'true'},
+        );
         final json = jsonDecode(raw) as Map<String, dynamic>;
         
         final state = json['status'] as String? ?? 'PENDING';

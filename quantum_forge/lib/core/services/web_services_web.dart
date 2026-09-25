@@ -21,14 +21,23 @@ class WebServices {
   ///
   /// HTTP failures throw instead of silently handing an error document back to
   /// the caller, which is what the old `fetch` wrapper did.
-  static Future<String> fetchString(String url) async {
+  static Future<String> fetchString(String url, {Map<String, String>? headers}) async {
     final fetchFn = _window.getProperty('fetch'.toJS);
     if (fetchFn == null || !fetchFn.isA<JSFunction>()) {
       throw UnsupportedError('fetch() is unavailable in this browser.');
     }
 
+    final options = JSObject();
+    if (headers != null) {
+      final jsHeaders = JSObject();
+      for (final entry in headers.entries) {
+        jsHeaders.setProperty(entry.key.toJS, entry.value.toJS);
+      }
+      options.setProperty('headers'.toJS, jsHeaders);
+    }
+
     final response = await _awaitJs(
-      (fetchFn as JSFunction).callAsFunction(_window, url.toJS),
+      (fetchFn as JSFunction).callAsFunction(_window, url.toJS, options),
     );
     if (response == null || !response.isA<JSObject>()) {
       throw StateError('fetch() returned nothing for $url');
@@ -58,17 +67,24 @@ class WebServices {
   /// Performs a POST with a JSON body and returns the decoded JSON object.
   /// Used to hand a reaction off to the ColabReaction compute backend.
   static Future<Map<String, dynamic>> postJson(
-      String url, Map<String, dynamic> body) async {
+      String url, Map<String, dynamic> body, {Map<String, String>? headers}) async {
     final fetchFn = _window.getProperty('fetch'.toJS);
     if (fetchFn == null || !fetchFn.isA<JSFunction>()) {
       throw UnsupportedError('fetch() is unavailable in this browser.');
     }
 
-    final headers = JSObject()
+    final jsHeaders = JSObject()
       ..setProperty('Content-Type'.toJS, 'application/json'.toJS);
+    
+    if (headers != null) {
+      for (final entry in headers.entries) {
+        jsHeaders.setProperty(entry.key.toJS, entry.value.toJS);
+      }
+    }
+
     final options = JSObject()
       ..setProperty('method'.toJS, 'POST'.toJS)
-      ..setProperty('headers'.toJS, headers)
+      ..setProperty('headers'.toJS, jsHeaders)
       ..setProperty('body'.toJS, jsonEncode(body).toJS);
 
     final response = await _awaitJs(
