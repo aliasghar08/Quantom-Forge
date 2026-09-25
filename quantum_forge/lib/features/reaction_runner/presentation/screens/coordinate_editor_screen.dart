@@ -17,11 +17,13 @@
 // ============================================================================
 
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'package:quantum_forge/core/services/backend_compute_service.dart';
 import 'package:quantum_forge/core/services/file_picker_service.dart';
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
@@ -292,6 +294,84 @@ H  0.00000 -0.75545 -0.47116''';
     }
   }
 
+  // ── Hybrid MD Logic ──────────────────────────────────────────────────────
+  
+  void _simulateHybridMd() async {
+    if (!mounted) return;
+    
+    final backendUrl = context.read<AppSettingsNotifier>().settings.computeBackendUrl;
+    if (backendUrl.isEmpty) {
+      _snack('Please configure a Compute Backend URL in Settings first.', isError: true);
+      return;
+    }
+    
+    final pdbController = TextEditingController(text: '/content/peptide.pdb');
+    
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _palette.panel,
+        title: Text('Start Hybrid ML/MM MD', style: TextStyle(color: _palette.textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Enter the absolute path to your PDB on the Colab environment:',
+                style: TextStyle(color: _palette.textSecondary, fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pdbController,
+              style: TextStyle(color: _palette.textPrimary),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: _palette.viewport,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: TextStyle(color: _palette.textSecondary)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: _palette.accent),
+            child: const Text('Start'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm != true || !mounted) return;
+    
+    final service = const BackendComputeService();
+    try {
+      _snack('Submitting Hybrid MD job to Colab...');
+      final jobId = await service.submitHybridMd(backendUrl, pdbController.text.trim());
+      
+      _snack('Job $jobId started. Polling status...');
+      
+      service.pollHybridMdStream(backendUrl, jobId).listen((status) {
+        if (!mounted) return;
+        _snack('Hybrid MD [$jobId]: ${status.state}');
+        
+        if (status.state == 'SUCCESS' && status.trajectoryDir != null) {
+          _snack('Success! Trajectories saved to: ${status.trajectoryDir}', isError: false);
+        } else if (status.state == 'FAILURE') {
+          _snack('MD simulation failed. Check Colab logs.', isError: true);
+        }
+      });
+      
+    } catch (e) {
+      _snack('MD Error: $e', isError: true);
+    }
+  }
+
   // ── build ────────────────────────────────────────────────────────────────
 
   @override
@@ -389,6 +469,7 @@ H  0.00000 -0.75545 -0.47116''';
             ).length,
             onExport: _export,
             onSendToAvogadro: _sendToAvogadro,
+            onSimulateHybridMd: _simulateHybridMd,
             onCopy: _copyAs,
           ),
           SizedBox(height: settings.gap(12)),
@@ -647,6 +728,7 @@ class _AvogadroActionBar extends StatelessWidget {
   final int bondCount;
   final void Function(String format) onExport;
   final VoidCallback onSendToAvogadro;
+  final VoidCallback onSimulateHybridMd;
   final void Function(String format) onCopy;
 
   const _AvogadroActionBar({
@@ -656,6 +738,7 @@ class _AvogadroActionBar extends StatelessWidget {
     required this.bondCount,
     required this.onExport,
     required this.onSendToAvogadro,
+    required this.onSimulateHybridMd,
     required this.onCopy,
   });
 
@@ -700,6 +783,15 @@ class _AvogadroActionBar extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: palette.accent,
               foregroundColor: palette.onAccent,
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: onSimulateHybridMd,
+            icon: const Icon(Icons.science, size: 16),
+            label: const Text('Simulate Hybrid MD'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.purple.shade400,
+              foregroundColor: Colors.white,
             ),
           ),
           PopupMenuButton<String>(
