@@ -363,7 +363,20 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     final cleanDoi = widget.template.doi.trim();
     final isDoiNotFound = _crossrefError != null && _crossrefError!.contains('404');
     final hasDoi = cleanDoi.isNotEmpty && !isDoiNotFound;
-    final scholarUrl = 'https://scholar.google.com/scholar?q=${Uri.encodeComponent(title)}';
+    
+    // If we have the exact publication title from CrossRef, use it.
+    // Otherwise, search by DOI or journal reference instead of the reaction name.
+    final bool hasRealTitle = _crossrefData?['title'] != null && (_crossrefData!['title'] as List).isNotEmpty;
+    String searchQuery = title;
+    if (!hasRealTitle) {
+      if (cleanDoi.isNotEmpty) {
+        searchQuery = cleanDoi;
+      } else if (widget.template.journalRef.isNotEmpty && widget.template.journalRef != 'Unknown Publisher') {
+        searchQuery = widget.template.journalRef;
+      }
+    }
+    
+    final scholarUrl = 'https://scholar.google.com/scholar?q=${Uri.encodeComponent(searchQuery)}';
 
     return GlassCard(
       child: Padding(
