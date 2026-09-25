@@ -361,22 +361,12 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
 
   Widget _buildExternalLinksCard(String title) {
     final cleanDoi = widget.template.doi.trim();
-    final isDoiNotFound = _crossrefError != null && _crossrefError!.contains('404');
-    final hasDoi = cleanDoi.isNotEmpty && !isDoiNotFound;
+    // A DOI might exist on doi.org even if CrossRef returns 404. 
+    // We should always let the user tap it if a DOI string is provided.
+    final hasDoi = cleanDoi.isNotEmpty;
     
-    // If we have the exact publication title from CrossRef, use it.
-    // Otherwise, search by DOI or journal reference instead of the reaction name.
-    final bool hasRealTitle = _crossrefData?['title'] != null && (_crossrefData!['title'] as List).isNotEmpty;
-    String searchQuery = title;
-    if (!hasRealTitle) {
-      if (cleanDoi.isNotEmpty) {
-        searchQuery = cleanDoi;
-      } else if (widget.template.journalRef.isNotEmpty && widget.template.journalRef != 'Unknown Publisher') {
-        searchQuery = widget.template.journalRef;
-      }
-    }
-    
-    final scholarUrl = 'https://scholar.google.com/scholar?q=${Uri.encodeComponent(searchQuery)}';
+    // Google Scholar is best for titles and authors, not raw DOI strings.
+    final scholarUrl = 'https://scholar.google.com/scholar?q=${Uri.encodeComponent(title)}';
 
     return GlassCard(
       child: Padding(
