@@ -36,10 +36,10 @@ class OpenMMTorchWrapper(nn.Module):
         return energy_kjmol
 
 def export_model():
-    # 1. Load the original model
+    # 1. Load the original model from Drive
     model = MolecularGraphNetwork()
-    ckpt = checkpoint_path()
-    if ckpt.exists():
+    ckpt = "/content/drive/MyDrive/QuantumForge/Inputs/tx1_model.pt"
+    if os.path.exists(ckpt):
         model.load_state_dict(torch.load(ckpt, map_location="cpu"))
         print(f"Loaded weights from {ckpt}")
     else:
@@ -75,8 +75,9 @@ def export_model():
     
     traced_model = torch.jit.trace(wrapped_model, (dummy_positions,))
     
-    # 3. Save the TorchScript module
-    output_path = "tx1_traced.pt"
+    # 3. Save the TorchScript module to Drive
+    output_path = "/content/drive/MyDrive/QuantumForge/Inputs/tx1_traced.pt"
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     traced_model.save(output_path)
     print(f"Successfully exported TorchScript model to {output_path}")
 

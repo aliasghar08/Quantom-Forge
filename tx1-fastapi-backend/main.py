@@ -418,20 +418,44 @@ def get_crossref_metadata(doi: str):
 # ==========================================
 # 5. HYBRID ML/MM MOLECULAR DYNAMICS
 # ==========================================
-class HybridMDRequest(BaseModel):
-    pdb_path: str
-    steps: int = 5000
+from fastapi import Request
 
 @app.post("/simulate/hybrid-md")
-async def start_hybrid_md(req: HybridMDRequest):
+async def start_hybrid_md(request: Request):
     try:
         from worker_hybrid import run_hybrid_md
     except ImportError:
         raise HTTPException(status_code=500, detail="Celery worker module not available.")
     
+    content_type = request.headers.get("content-type", "")
     job_id = str(uuid.uuid4())
+    pdb_path = ""
+    
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        file = form.get("file")
+        if not file:
+            raise HTTPException(status_code=400, detail="No file uploaded.")
+        
+        drive_inputs = "/content/drive/MyDrive/QuantumForge/Inputs/"
+        os.makedirs(drive_inputs, exist_ok=True)
+        pdb_path = os.path.join(drive_inputs, f"{job_id}_{file.filename}")
+        
+        content = await file.read()
+        with open(pdb_path, "wb") as f:
+            f.write(content)
+    else:
+        try:
+            req_json = await request.json()
+            pdb_path = req_json.get("pdb_path")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON or Form.")
+            
+    if not pdb_path:
+        raise HTTPException(status_code=400, detail="pdb_path or file is required.")
+    
     # Dispatch to Celery asynchronously
-    task = run_hybrid_md.apply_async(args=[req.pdb_path, job_id], task_id=job_id)
+    task = run_hybrid_md.apply_async(args=[pdb_path, job_id], task_id=job_id)
     
     return {
         "status": "ACCEPTED",
@@ -448,18 +472,26 @@ async def get_hybrid_md_status(job_id: str, task_id: str = None):
         raise HTTPException(status_code=500, detail="Celery not installed.")
         
     if not task_id:
-        # If task_id isn't provided in query, we can't easily look it up unless job_id == task_id.
-        # Let's assume the user passes task_id or we used job_id as task_id (we didn't).
-        # We will use task_id if provided, otherwise this is a simplified stub.
-        task_id = job_id # Note: In production, store the mapping in DB or Redis.
+        task_id = job_id 
         
     res = AsyncResult(task_id, app=celery_app)
     
-    # If the task is ready, we can return the result
     if res.ready():
-        return res.result
-    else:
-        return {
-            "status": res.state, # e.g. PENDING, PROCESSING
-            "job_id": job_id
-        }
+        result = res.result
+        
+        # Check for the .dcd file inside the new Drive Outputs path
+        drive_outputs = f"/content/drive/MyDrive/QuantumForge/Outputs/{job_id}"
+        dcd_path = os.path.join(drive_outputs, 'trajectory.dcd')
+        dcd_exists = os.path.exists(dcd_path)
+        
+        if isinstance(result, dict):
+            result['dcd_exists'] = dcd_exists
+            result['trajectory_dir'] = drive_outputs
+            
+        return result
+        
+    return {
+        "status": res.state,
+        "job_id": job_id,
+        "task_id": task_id
+    }

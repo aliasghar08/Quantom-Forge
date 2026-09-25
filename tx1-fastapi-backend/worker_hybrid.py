@@ -37,8 +37,8 @@ def run_hybrid_md(pdb_path: str, job_id: str):
                                      constraints=app.HBonds)
     
     # 3. MLIP Integration
-    # Instantiate the TorchForce using our traced model
-    torch_force = openmmtorch.TorchForce("tx1_traced.pt")
+    # Instantiate the TorchForce using our traced model from Drive
+    torch_force = openmmtorch.TorchForce("/content/drive/MyDrive/QuantumForge/Inputs/tx1_traced.pt")
     
     # 4. Force Masking
     # We must extract atomic indices for the 4-mer/5-mer peptide ligand.
@@ -89,27 +89,45 @@ def run_hybrid_md(pdb_path: str, job_id: str):
     simulation = app.Simulation(pdb.topology, system, integrator, platform, properties)
     simulation.context.setPositions(pdb.positions)
     
-    # Minimize to relieve steric clashes
-    print("Minimizing energy...")
-    simulation.minimizeEnergy(maxIterations=1000)
-    
-    # Output trajectories
-    output_dir = f"trajectories/{job_id}"
+    # Output trajectories to Google Drive
+    output_dir = f"/content/drive/MyDrive/QuantumForge/Outputs/{job_id}"
     os.makedirs(output_dir, exist_ok=True)
     
-    dcd_reporter = app.DCDReporter(os.path.join(output_dir, 'trajectory.dcd'), 10000)
+    checkpoint_path = os.path.join(output_dir, 'checkpoint.chk')
+    is_resuming = os.path.exists(checkpoint_path)
+    
+    if is_resuming:
+        print("Found checkpoint. Resuming simulation...")
+        simulation.loadCheckpoint(checkpoint_path)
+    else:
+        # Minimize to relieve steric clashes
+        print("Minimizing energy...")
+        simulation.minimizeEnergy(maxIterations=1000)
+    
+    dcd_reporter = app.DCDReporter(os.path.join(output_dir, 'trajectory.dcd'), 10000, append=is_resuming)
     state_reporter = app.StateDataReporter(os.path.join(output_dir, 'md_log.txt'), 10000,
-                                           step=True, potentialEnergy=True, temperature=True)
+                                           step=True, potentialEnergy=True, temperature=True, append=is_resuming)
+    chk_reporter = app.CheckpointReporter(checkpoint_path, 50000)
     
     simulation.reporters.append(dcd_reporter)
     simulation.reporters.append(state_reporter)
+    simulation.reporters.append(chk_reporter)
     
     # Target steps: 200 ns = 100,000,000 steps (at 2 fs)
-    # Defaulting to a short run (e.g. 5000) for testing if not overridden
-    total_steps = 5000 
+    # We will use 100,000,000 for the full production run
+    total_steps = 100000000
     
-    print(f"Running simulation for {total_steps} steps...")
-    simulation.step(total_steps)
-    print("Simulation complete.")
+    # If resuming, step() still needs the remaining steps, or just total_steps if openmm handles it.
+    # Actually openmm simulation.step() advances by X steps from current step.
+    # To run exactly up to 100,000,000 steps total:
+    current_step = simulation.currentStep
+    steps_left = total_steps - current_step
+    
+    if steps_left > 0:
+        print(f"Running simulation for {steps_left} steps (Current step: {current_step})...")
+        simulation.step(steps_left)
+        print("Simulation complete.")
+    else:
+        print("Simulation already reached target steps.")
     
     return {"status": "SUCCESS", "job_id": job_id, "trajectory_dir": output_dir}
