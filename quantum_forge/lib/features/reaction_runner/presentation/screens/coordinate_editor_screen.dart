@@ -299,7 +299,7 @@ H  0.00000 -0.75545 -0.47116''';
   void _simulateHybridMd() async {
     if (!mounted) return;
     
-    final backendUrl = context.read<AppSettingsNotifier>().settings.computeBackendUrl;
+    final backendUrl = context.read<AppSettingsNotifier>().settings.backendUrl;
     if (backendUrl.isEmpty) {
       _snack('Please configure a Compute Backend URL in Settings first.', isError: true);
       return;
