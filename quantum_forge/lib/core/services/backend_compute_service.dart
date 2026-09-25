@@ -239,4 +239,64 @@ class BackendComputeService {
     );
     return DftAttachment.fromJson(json);
   }
+
+  // ==========================================
+  // Hybrid ML/MM MD Pipeline
+  // ==========================================
+  
+  /// Submits the PDB for hybrid MD simulation and returns the job_id.
+  Future<String> submitHybridMd(String backendUrl, String pdbPath) async {
+    final base = _base(backendUrl);
+    final json = await WebServices.postJson(
+      '$base/simulate/hybrid-md',
+      {'pdb_path': pdbPath, 'steps': 5000},
+    );
+    final id = json['job_id'] as String?;
+    if (id == null || id.isEmpty) {
+      throw StateError('Backend returned no job_id: $json');
+    }
+    return id;
+  }
+
+  /// Polls the status using a Stream to yield updates every 10 seconds.
+  /// Yields a HybridMdStatus containing state and optionally trajectory data.
+  Stream<HybridMdStatus> pollHybridMdStream(String backendUrl, String jobId) async* {
+    final base = _base(backendUrl);
+    
+    // We yield the pending state initially
+    yield HybridMdStatus(jobId: jobId, state: 'PENDING');
+    
+    while (true) {
+      await Future<void>.delayed(const Duration(seconds: 10));
+      
+      try {
+        final raw = await WebServices.fetchString('$base/simulate/status/$jobId');
+        final json = jsonDecode(raw) as Map<String, dynamic>;
+        
+        final state = json['status'] as String? ?? 'PENDING';
+        final trajectoryDir = json['trajectory_dir'] as String?;
+        
+        yield HybridMdStatus(jobId: jobId, state: state, trajectoryDir: trajectoryDir);
+        
+        if (state == 'SUCCESS' || state == 'FAILURE' || state == 'REVOKED') {
+          break;
+        }
+      } catch (e) {
+        debugPrint('Error polling Hybrid MD status: $e');
+        // Continue polling in case of transient network issues
+      }
+    }
+  }
+}
+
+class HybridMdStatus {
+  final String jobId;
+  final String state;
+  final String? trajectoryDir;
+
+  const HybridMdStatus({
+    required this.jobId,
+    required this.state,
+    this.trajectoryDir,
+  });
 }
