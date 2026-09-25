@@ -368,13 +368,17 @@ async def run_reaction(reaction_id: str, req: ReactionRequest):
             _reactions[reaction_id]["progress"] = 0.1 + 0.8 * (i / n_frames)
             await asyncio.sleep(0.1)
             
+        # Convert absolute energies in eV to relative energies in kcal/mol
+        # 1 eV = 23.0605 kcal/mol
+        energy_profile_kcal = [(e - energies_ev[0]) * 23.0605 for e in energies_ev]
+        
         _reactions[reaction_id].update({
             "state": "completed",
             "progress": 1.0,
             "message": "Linear Synchronous Transit (LST) completed successfully using TX1.",
             "energy_profile_ev": energies_ev,
-            "energy_profile": energies_ev, # Provide same for now
-            "max_energy_index": energies_ev.index(max(energies_ev)),
+            "energy_profile": energy_profile_kcal,
+            "max_energy_index": energy_profile_kcal.index(max(energy_profile_kcal)),
             "trajectory_frames": frames,
             "vibrational_modes": []
         })
