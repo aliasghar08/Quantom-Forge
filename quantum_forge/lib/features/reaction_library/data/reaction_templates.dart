@@ -930,7 +930,7 @@ H   3.780  1.400  0.000''';
 // ============================================================================
 // MASTER TEMPLATE LIST
 // ============================================================================
-const _wittig_reactionReactant = '''26
+const _wittigReactionReactant = '''26
 Wittig Reaction (reactant)
 C     0.591    0.043    0.064
 C     1.940   -0.026   -0.582
@@ -960,7 +960,7 @@ H     7.089   -0.524   -1.075
 H     8.563   -0.723   -2.109
 ''';
 
-const _wittig_reactionProduct = '''26
+const _wittigReactionProduct = '''26
 Wittig Reaction (product)
 C     3.205   -0.037    0.378
 C     1.766   -0.141   -0.052
@@ -990,7 +990,7 @@ H     9.779   -1.315    1.481
 H     9.523   -2.381    0.039
 ''';
 
-const _aldol_condensationReactant = '''14
+const _aldolCondensationReactant = '''14
 Aldol Condensation (reactant)
 C     0.487   -0.046    0.035
 C     1.971    0.095   -0.058
@@ -1008,7 +1008,7 @@ H     5.893   -0.284    1.080
 H     8.105    1.032   -0.385
 ''';
 
-const _aldol_condensationProduct = '''14
+const _aldolCondensationProduct = '''14
 Aldol Condensation (product)
 C     0.757    0.164    0.427
 C     2.128   -0.424    0.336
@@ -1026,7 +1026,7 @@ H     8.562   -0.185    0.000
 H    10.128   -0.219    0.000
 ''';
 
-const _baeyer_villigerReactant = '''19
+const _baeyerVilligerReactant = '''19
 Baeyer-Villiger Oxidation (reactant)
 C     0.591    0.043    0.064
 C     1.940   -0.026   -0.582
@@ -1049,7 +1049,7 @@ H     7.459    1.118    0.071
 H    11.701    0.552   -0.076
 ''';
 
-const _baeyer_villigerProduct = '''19
+const _baeyerVilligerProduct = '''19
 Baeyer-Villiger Oxidation (product)
 C     0.625    0.009   -0.117
 C     2.063   -0.380   -0.056
@@ -1072,7 +1072,7 @@ H     8.535   -1.107   -0.616
 H    11.905   -0.492    0.541
 ''';
 
-const _ninhydrin_testReactant = '''29
+const _ninhydrinTestReactant = '''29
 Ninhydrin Reaction (reactant)
 O     2.094    2.434    0.057
 C     2.458    1.231   -0.020
@@ -1105,7 +1105,7 @@ H    10.712   -0.758    1.344
 H    14.226    0.167   -0.766
 ''';
 
-const _ninhydrin_testProduct = '''38
+const _ninhydrinTestProduct = '''38
 Ninhydrin Reaction (product)
 O     4.673   -2.703   -0.335
 C     4.465   -1.460   -0.310
@@ -1147,7 +1147,7 @@ H    21.587   -0.185    0.000
 H    23.153   -0.219    0.000
 ''';
 
-const _iodometric_titrationReactant = '''22
+const _iodometricTitrationReactant = '''22
 Iodometric Titration of Vitamin C (reactant)
 O     2.118    1.017   -1.437
 C     2.134    0.200   -0.310
@@ -1173,7 +1173,7 @@ I    12.740    0.000    0.000
 I     9.976    0.000    0.000
 ''';
 
-const _iodometric_titrationProduct = '''22
+const _iodometricTitrationProduct = '''22
 Iodometric Titration of Vitamin C (product)
 O     3.841    1.619    1.286
 C     4.110    0.562    0.657
@@ -2193,8 +2193,8 @@ H    -1.620   -2.140    0.000''',
     iupacName: 'acetone + trimethylmethylenephosphorane → isobutene + trimethylphosphine oxide',
     description: 'A classic organic synthesis reaction forming an alkene from a ketone and an ylide.',
     category: ReactionCategory.nucleophilic,
-    reactantXyz: _wittig_reactionReactant,
-    productXyz: _wittig_reactionProduct,
+    reactantXyz: _wittigReactionReactant,
+    productXyz: _wittigReactionProduct,
     referenceEa: 15.5,
     doi: '10.1021/ja00000w',
     journalRef: 'J. Org. Chem. 1953',
@@ -2206,8 +2206,8 @@ H    -1.620   -2.140    0.000''',
     iupacName: 'acetaldehyde + acetaldehyde → crotonaldehyde + water',
     description: 'Carbon-carbon bond forming reaction fundamental to organic synthesis.',
     category: ReactionCategory.nucleophilic,
-    reactantXyz: _aldol_condensationReactant,
-    productXyz: _aldol_condensationProduct,
+    reactantXyz: _aldolCondensationReactant,
+    productXyz: _aldolCondensationProduct,
     referenceEa: 18.2,
     doi: '10.1021/ja00000a',
     journalRef: 'J. Am. Chem. Soc. 1960',
@@ -2219,8 +2219,8 @@ H    -1.620   -2.140    0.000''',
     iupacName: 'acetone + peracetic acid → methyl acetate + acetic acid',
     description: 'Oxidative cleavage of a carbon-carbon bond to form an ester.',
     category: ReactionCategory.thermal,
-    reactantXyz: _baeyer_villigerReactant,
-    productXyz: _baeyer_villigerProduct,
+    reactantXyz: _baeyerVilligerReactant,
+    productXyz: _baeyerVilligerProduct,
     referenceEa: 14.8,
     doi: '10.1021/ja00000b',
     journalRef: 'J. Am. Chem. Soc. 1958',
@@ -2232,8 +2232,8 @@ H    -1.620   -2.140    0.000''',
     iupacName: 'ninhydrin + glycine → Ruhemann\'s Purple + CO2 + H2O',
     description: 'Standard analytical chemistry test for detecting amino acids.',
     category: ReactionCategory.nucleophilic,
-    reactantXyz: _ninhydrin_testReactant,
-    productXyz: _ninhydrin_testProduct,
+    reactantXyz: _ninhydrinTestReactant,
+    productXyz: _ninhydrinTestProduct,
     referenceEa: 12.0,
     doi: '10.1021/ac00000n',
     journalRef: 'Anal. Chem. 1954',
@@ -2245,8 +2245,8 @@ H    -1.620   -2.140    0.000''',
     iupacName: 'ascorbic acid + iodine → dehydroascorbic acid + iodide',
     description: 'Quantitative analytical redox titration used to determine vitamin C concentration.',
     category: ReactionCategory.ionic,
-    reactantXyz: _iodometric_titrationReactant,
-    productXyz: _iodometric_titrationProduct,
+    reactantXyz: _iodometricTitrationReactant,
+    productXyz: _iodometricTitrationProduct,
     referenceEa: 8.5,
     doi: '10.1021/ac00000i',
     journalRef: 'Anal. Chem. 1960',

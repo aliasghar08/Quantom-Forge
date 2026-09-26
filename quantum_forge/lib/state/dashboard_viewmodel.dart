@@ -40,10 +40,9 @@ class MoleculeEntry {
 }
 
 class DashboardViewModel extends ChangeNotifier {
-  final SessionStateService _sessionService;
+  final SessionStateService sessionService;
 
-  DashboardViewModel({required SessionStateService sessionService})
-      : _sessionService = sessionService;
+  DashboardViewModel({required this.sessionService});
 
   NavDestination _navDest = NavDestination.newReaction;
   NavDestination get navDest => _navDest;
@@ -328,7 +327,7 @@ class DashboardViewModel extends ChangeNotifier {
       'products': _serializeEntries(_products),
       'catalysts': _serializeEntries(_catalysts),
     };
-    await _sessionService.saveDashboardState(state);
+    await sessionService.saveDashboardState(state);
   }
 
   List<Map<String, dynamic>> _serializeEntries(List<MoleculeEntry> entries) {
@@ -347,7 +346,7 @@ class DashboardViewModel extends ChangeNotifier {
   }
 
   Future<void> loadState() async {
-    final state = await _sessionService.loadDashboardState();
+    final state = await sessionService.loadDashboardState();
     if (state == null) return;
 
     if (state['activeTemplate'] != null) {

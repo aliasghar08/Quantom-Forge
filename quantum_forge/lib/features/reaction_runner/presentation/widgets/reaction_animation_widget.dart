@@ -1492,7 +1492,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       scaleFactor *= 0.85;
     }
     if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
-    final chargeShift = (settings.charge ?? 0) * 1.5;
+    final chargeShift = settings.charge * 1.5;
 
     return Container(
       width: double.infinity,
