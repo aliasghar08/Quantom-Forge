@@ -50,6 +50,7 @@ dependencies:
   # else resolves to `ngl_engine_stub.dart` via a conditional import.
   web: ^1.1.1
   url_launcher: ^6.3.2
+  youtube_explode_dart: ^3.1.0
 
 dev_dependencies:
   flutter_test:

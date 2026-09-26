@@ -29,7 +29,7 @@ class PublicationRelatedVideosCard extends StatelessWidget {
                     ),
                   );
                 } else if (snapshot.hasError) {
-                  return const Text('Failed to load related videos. Please ensure a valid YOUTUBE_API_KEY is provided.', style: TextStyle(color: Colors.white54, fontSize: 13));
+                  return Text('Failed to load related videos: ${snapshot.error}', style: const TextStyle(color: Colors.white54, fontSize: 13));
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Text('No related videos found.', style: TextStyle(color: Colors.white54, fontSize: 13));
                 }
