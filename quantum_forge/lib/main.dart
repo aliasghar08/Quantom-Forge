@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -114,7 +115,22 @@ Future<void> _seedLibrary() async {
   // silently for them — the library falls back to the bundled templates, so the
   // app stays fully usable without an account and no permission error is raised.
   if (FirebaseAuth.instance.currentUser == null) return;
-  final written = await FirestoreLibraryRepository().seedLibrary(kReactionTemplates);
+  
+  List<ReactionTemplate> templatesToSeed = List.from(kReactionTemplates);
+  
+  try {
+    final massiveJsonStr = await rootBundle.loadString('assets/massive_reactions.json');
+    final massiveJson = jsonDecode(massiveJsonStr) as List<dynamic>;
+    for (var item in massiveJson) {
+      final map = item as Map<String, dynamic>;
+      final id = map['id'] as String;
+      templatesToSeed.add(ReactionTemplate.fromJson(map, id));
+    }
+  } catch (e) {
+    debugPrint('Could not load massive reactions asset: $e');
+  }
+
+  final written = await FirestoreLibraryRepository().seedLibrary(templatesToSeed);
   if (written > 0) {
     debugPrint('Reaction library seed complete ($written templates).');
   }
