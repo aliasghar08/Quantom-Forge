@@ -15,13 +15,14 @@ class FirestoreLibraryRepository {
 
   CollectionReference get _libraryCollection => _firestore.collection('library');
 
-  Future<List<ReactionTemplate>> getLibraryTemplates({int limit = 50}) async {
+  Future<List<ReactionTemplate>> getLibraryTemplates({ReactionCategory? category, int limit = 50}) async {
     try {
       // By default, fetch only a small curated subset to save memory and bandwidth.
-      final snapshot = await _libraryCollection
-          .where('isDerived', isEqualTo: false)
-          .limit(limit)
-          .get();
+      var q = _libraryCollection.where('isDerived', isEqualTo: false);
+      if (category != null) {
+        q = q.where('category', isEqualTo: category.name);
+      }
+      final snapshot = await q.limit(limit).get();
       return snapshot.docs.map((doc) {
         return ReactionTemplate.fromJson(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
@@ -31,16 +32,19 @@ class FirestoreLibraryRepository {
     }
   }
 
-  Future<List<ReactionTemplate>> searchLibraryTemplates(String query, {int limit = 50}) async {
-    if (query.isEmpty) return getLibraryTemplates(limit: limit);
+  Future<List<ReactionTemplate>> searchLibraryTemplates(String query, {ReactionCategory? category, int limit = 50}) async {
+    if (query.isEmpty) return getLibraryTemplates(category: category, limit: limit);
     try {
-      // Simple prefix search on 'name'. Firestore requires \uf8ff for prefix queries.
-      // Note: A true full-text search requires an external service like Algolia or Typesense.
-      final snapshot = await _libraryCollection
+      // Prefix search on 'name'. Firestore requires \uf8ff for prefix queries.
+      var q = _libraryCollection
           .where('name', isGreaterThanOrEqualTo: query)
-          .where('name', isLessThanOrEqualTo: '$query\uf8ff')
-          .limit(limit)
-          .get();
+          .where('name', isLessThanOrEqualTo: '$query\uf8ff');
+          
+      if (category != null) {
+        q = q.where('category', isEqualTo: category.name);
+      }
+      
+      final snapshot = await q.limit(limit).get();
       return snapshot.docs.map((doc) {
         return ReactionTemplate.fromJson(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();

@@ -59,7 +59,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     try {
       // Heavily optimised: only fetch the first 50 non-derived templates on load.
-      final cloud = await FirestoreLibraryRepository().getLibraryTemplates(limit: 50);
+      final cloud = await FirestoreLibraryRepository().getLibraryTemplates(
+        category: _filterCategory,
+        limit: 50,
+      );
       if (cloud.isNotEmpty) {
         final known = bundled.map((t) => t.id).toSet();
         merged = <ReactionTemplate>[
@@ -105,7 +108,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _performCloudSearch(String query) async {
     try {
       // Fetch up to 50 matching records from the cloud.
-      final cloudResults = await FirestoreLibraryRepository().searchLibraryTemplates(query, limit: 50);
+      final cloudResults = await FirestoreLibraryRepository().searchLibraryTemplates(
+        query,
+        category: _filterCategory,
+        limit: 50,
+      );
       if (!mounted) return;
       if (cloudResults.isNotEmpty) {
         final known = _allTemplates.map((t) => t.id).toSet();
@@ -144,6 +151,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _filterCategory = category;
       _recomputeFiltered();
     });
+    // If we changed category, we should pull cloud items for the new category
+    _loadTemplates();
   }
 
   @override
