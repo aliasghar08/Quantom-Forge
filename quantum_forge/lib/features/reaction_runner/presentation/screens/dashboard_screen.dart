@@ -12,6 +12,7 @@ import 'package:quantum_forge/state/reaction_provider.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
 import 'package:quantum_forge/state/settings_provider.dart';
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
+import 'package:quantum_forge/core/services/session_state_service.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/core/utils/avogadro_bridge.dart';
 import 'package:quantum_forge/core/utils/avogadro_codec.dart';
@@ -71,7 +72,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _viewModel = DashboardViewModel();
+    final sessionService = context.read<SessionStateService>();
+    _viewModel = DashboardViewModel(sessionService: sessionService);
     _viewModel.loadState();
     _viewModel.addListener(_onViewModelChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleIncomingStructure());

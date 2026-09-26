@@ -21,6 +21,7 @@ import 'package:quantum_forge/core/services/firestore_reaction_repository.dart';
 import 'package:quantum_forge/core/services/auth_service.dart';
 import 'package:quantum_forge/features/reaction_library/data/firestore_library_repository.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
+import 'package:quantum_forge/core/services/session_state_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,7 @@ void main() {
   final storageService = LocalStorageService();
   final reactionRepository = FirestoreReactionRepository();
   final filePickerService = FilePickerService();
+  final sessionStateService = SessionStateService();
 
   final settingsNotifier = QuantumSettingsNotifier();
   final chemicalResolverService = ChemicalResolverService();
@@ -52,6 +54,7 @@ void main() {
     MultiProvider(
       providers: [
         Provider<AuthService>.value(value: authService),
+        Provider<SessionStateService>.value(value: sessionStateService),
         ChangeNotifierProvider<QuantumSettingsNotifier>.value(value: settingsNotifier),
         ChangeNotifierProvider<ReactionNotifier>.value(value: reactionNotifier),
         Provider<FilePickerService>.value(value: filePickerService),

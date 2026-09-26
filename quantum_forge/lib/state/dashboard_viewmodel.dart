@@ -40,7 +40,10 @@ class MoleculeEntry {
 }
 
 class DashboardViewModel extends ChangeNotifier {
-  final SessionStateService _sessionService = SessionStateService();
+  final SessionStateService _sessionService;
+
+  DashboardViewModel({required SessionStateService sessionService})
+      : _sessionService = sessionService;
 
   NavDestination _navDest = NavDestination.newReaction;
   NavDestination get navDest => _navDest;
