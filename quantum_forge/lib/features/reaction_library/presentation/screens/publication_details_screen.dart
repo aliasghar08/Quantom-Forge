@@ -177,28 +177,20 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
   }
 
   Widget _buildBody(QuantumTheme palette) {
-    if (_isLoadingCrossref) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: palette.accent),
-            const SizedBox(height: 16),
-            Text('Fetching publication metadata from CrossRef…', style: TextStyle(color: palette.textSecondary)),
-          ],
-        ),
-      );
-    }
+    // Non-blocking UI: The page renders immediately using bundled template data,
+    // while the CrossRef data loads in the background.
 
     // Parse Data — every field falls back to the bundled template metadata.
     final titleList = _crossrefData?['title'] as List<dynamic>?;
     final rawTitle = (titleList != null && titleList.isNotEmpty) ? titleList[0].toString() : widget.template.name;
     final title = rawTitle.replaceAll(RegExp(r'<[^>]*>'), '').trim();
 
-    final abstractHtml = _crossrefData?['abstract']?.toString() ??
-        'Publication metadata could not be fetched from CrossRef'
-            '${_crossrefError != null ? ' ($_crossrefError)' : ''}.\n'
-            'The details shown are from the bundled reaction library.';
+    final abstractHtml = _isLoadingCrossref
+        ? 'Fetching publication metadata from CrossRef (and live energies from GNN backend)…'
+        : (_crossrefData?['abstract']?.toString() ??
+          'Publication metadata could not be fetched from CrossRef'
+          '${_crossrefError != null ? ' ($_crossrefError)' : ''}.\n'
+          'The details shown are from the bundled reaction library.');
     final abstractText = abstractHtml.replaceAll(RegExp(r'<[^>]*>'), '').trim();
 
     final authorsList = _crossrefData?['author'] as List<dynamic>?;
@@ -230,9 +222,20 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
       padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 80),
       child: StaggeredAnimationList(
         children: [
-          if (_crossrefError != null)
+          if (_isLoadingCrossref)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: Row(
+                children: [
+                  SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: palette.accent, strokeWidth: 2)),
+                  const SizedBox(width: 12),
+                  Text('Fetching live metadata and energy profiles...', style: TextStyle(color: palette.textSecondary, fontStyle: FontStyle.italic)),
+                ],
+              ),
+            ),
+          if (_crossrefError != null && !_isLoadingCrossref)
             PublicationWarningBanner(error: _crossrefError!),
-          if (_crossrefError != null) const SizedBox(height: 16),
+          if (_crossrefError != null && !_isLoadingCrossref) const SizedBox(height: 16),
           PublicationHeaderCard(
             title: title,
             authors: authors,
