@@ -59,7 +59,7 @@ from pydantic import BaseModel
 # so editing any of them makes load_state_dict fail rather than silently
 # degrade — which is the good failure, but it is still a failure.
 class MolecularGraphNetwork(nn.Module):
-    def __init__(self, hidden_dim=128, num_interactions=3, max_Z=100):
+    def __init__(self, hidden_dim=128, num_interactions=3, max_Z=119):
         super().__init__()
         self.embedding = nn.Embedding(max_Z, hidden_dim)
 
@@ -154,6 +154,14 @@ def load_model() -> None:
             state = checkpoint["model_state_dict"]
         else:
             state = checkpoint
+
+        # Expand the embedding layer to support up to 118 elements (max_Z=119)
+        if "embedding.weight" in state:
+            old_emb = state["embedding.weight"]
+            if old_emb.shape[0] < network.embedding.weight.shape[0]:
+                new_emb = torch.zeros_like(network.embedding.weight)
+                new_emb[:old_emb.shape[0]] = old_emb
+                state["embedding.weight"] = new_emb
 
         network.load_state_dict(state)
         network.eval()

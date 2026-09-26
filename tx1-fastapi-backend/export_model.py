@@ -40,7 +40,18 @@ def export_model():
     model = MolecularGraphNetwork()
     ckpt = "/content/drive/MyDrive/QuantumForge/Inputs/tx1_model.pt"
     if os.path.exists(ckpt):
-        model.load_state_dict(torch.load(ckpt, map_location="cpu"))
+        state = torch.load(ckpt, map_location="cpu")
+        if isinstance(state, dict) and "model_state_dict" in state:
+            state = state["model_state_dict"]
+            
+        if "embedding.weight" in state:
+            old_emb = state["embedding.weight"]
+            if old_emb.shape[0] < model.embedding.weight.shape[0]:
+                new_emb = torch.zeros_like(model.embedding.weight)
+                new_emb[:old_emb.shape[0]] = old_emb
+                state["embedding.weight"] = new_emb
+
+        model.load_state_dict(state)
         print(f"Loaded weights from {ckpt}")
     else:
         print(f"Warning: Checkpoint {ckpt} not found. Using untrained weights.")
