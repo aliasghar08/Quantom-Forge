@@ -430,6 +430,7 @@ async def start_hybrid_md(request: Request):
     content_type = request.headers.get("content-type", "")
     job_id = str(uuid.uuid4())
     pdb_path = ""
+    mlip_model = "tx1-fastapi"
     
     if "multipart/form-data" in content_type:
         form = await request.form()
@@ -444,10 +445,13 @@ async def start_hybrid_md(request: Request):
         content = await file.read()
         with open(pdb_path, "wb") as f:
             f.write(content)
+            
+        mlip_model = form.get("mlip_model", "tx1-fastapi")
     else:
         try:
             req_json = await request.json()
             pdb_path = req_json.get("pdb_path")
+            mlip_model = req_json.get("mlip_model", "tx1-fastapi")
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON or Form.")
             
@@ -455,7 +459,7 @@ async def start_hybrid_md(request: Request):
         raise HTTPException(status_code=400, detail="pdb_path or file is required.")
     
     # Dispatch to Celery asynchronously
-    task = run_hybrid_md.apply_async(args=[pdb_path, job_id], task_id=job_id)
+    task = run_hybrid_md.apply_async(args=[pdb_path, job_id, mlip_model], task_id=job_id)
     
     return {
         "status": "ACCEPTED",

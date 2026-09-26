@@ -19,3 +19,5 @@ pydantic>=2.7
 celery>=5.4
 redis>=5.0
 ase>=3.22
+rdkit>=2023.0
+xtb-python>=22.1
