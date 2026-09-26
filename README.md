@@ -88,6 +88,7 @@ deliberately does not.
 ### 6. Cloud reaction library
 * Firestore-backed library of textbook reactions (Grignard, Fischer esterification,
   Friedel–Crafts, Suzuki) with real-time search and filtering.
+* **Headless YouTube Scraping**: Replaced the official Google YouTube Data API with a custom implementation using `youtube_explode_dart`. The app securely scrapes related videos directly from the browser context, entirely bypassing Google Cloud Billing and API key requirements.
 
 ### 7. Scientific theming
 Seven presets, each grounded in a real convention rather than a colour preference.
