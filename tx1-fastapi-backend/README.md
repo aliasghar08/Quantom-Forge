@@ -83,10 +83,7 @@ is large, because the CPU-only PyTorch wheel is a few hundred MB.
 client for it — `predictEnergy()` in `backend_compute_service.dart`, plus a
 persisted `gnnBackendUrl` setting and a `hasGnnBackend` flag — but `predictEnergy`
 has **no call sites** and `hasGnnBackend` is unused in the UI. Nothing in the app
-invokes the model today; the reaction animation's energies come from the UMA/DMF
-backend. Wiring it in is a separate decision, and it should be labelled clearly if
-it is: this GNN and UMA are different models with independent absolute-energy
-references, so only their *relative* profiles are comparable.
+invokes the model today; the reaction animation's energies come from the newly integrated MACE backend instead.
 
 ## What was fixed
 

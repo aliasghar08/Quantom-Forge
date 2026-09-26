@@ -70,7 +70,7 @@ deliberately does not.
   disappears.
 * **An x/y/z orientation triad** in the corner, drawn in Flutter because NGL has
   no orientation widget.
-* A research readout alongside it: frame, relative energy, absolute UMA energy,
+* A research readout alongside it: frame, relative energy, absolute MACE energy,
   path progress, cycle duration, transition-state frame and live bond count.
 * Energy-profile, Arrhenius and IR-spectrum plots drawn with the active theme's
   colour palette.
