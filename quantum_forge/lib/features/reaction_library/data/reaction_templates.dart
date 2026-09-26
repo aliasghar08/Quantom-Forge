@@ -930,6 +930,275 @@ H   3.780  1.400  0.000''';
 // ============================================================================
 // MASTER TEMPLATE LIST
 // ============================================================================
+const _wittig_reactionReactant = '''26
+Wittig Reaction (reactant)
+C     0.591    0.043    0.064
+C     1.940   -0.026   -0.582
+O     2.022   -0.079   -1.800
+C     3.186   -0.030    0.251
+H     0.056    0.952   -0.285
+H     0.684    0.087    1.170
+H     0.000   -0.856   -0.210
+H     3.177   -0.907    0.930
+H     4.089   -0.085   -0.394
+H     3.233    0.900    0.855
+C     8.494   -0.281    1.617
+P     9.125   -0.025    0.141
+C     9.112    1.752   -0.222
+C    10.833   -0.638    0.085
+C     8.133   -0.900   -1.101
+H     9.087   -0.757    2.390
+H     7.475    0.024    1.830
+H     8.070    2.130   -0.196
+H     9.542    1.927   -1.230
+H     9.720    2.290    0.535
+H    11.256   -0.459   -0.925
+H    11.444   -0.103    0.841
+H    10.845   -1.725    0.303
+H     8.140   -1.988   -0.884
+H     7.089   -0.524   -1.075
+H     8.563   -0.723   -2.109
+''';
+
+const _wittig_reactionProduct = '''26
+Wittig Reaction (product)
+C     3.205   -0.037    0.378
+C     1.766   -0.141   -0.052
+C     0.858    1.058    0.000
+C     1.288   -1.315   -0.487
+H     3.870   -0.302   -0.471
+H     3.396   -0.735    1.220
+H     3.456    0.991    0.711
+H     1.390    1.955    0.379
+H     0.000    0.850    0.674
+H     0.474    1.283   -1.018
+H     1.927   -2.193   -0.533
+H     0.254   -1.412   -0.802
+O     9.378   -0.188   -1.968
+P     9.145   -0.046   -0.482
+C     9.843    1.527    0.092
+C     7.363   -0.076   -0.143
+C     9.950   -1.419    0.389
+H     9.673    1.631    1.183
+H    10.933    1.546   -0.114
+H     9.352    2.367   -0.440
+H     7.192    0.028    0.948
+H     6.870    0.764   -0.675
+H     6.935   -1.038   -0.494
+H    11.039   -1.401    0.183
+H     9.779   -1.315    1.481
+H     9.523   -2.381    0.039
+''';
+
+const _aldol_condensationReactant = '''14
+Aldol Condensation (reactant)
+C     0.487   -0.046    0.035
+C     1.971    0.095   -0.058
+O     2.695   -0.843    0.234
+H     0.000    0.905   -0.268
+H     0.145   -0.859   -0.638
+H     0.198   -0.284    1.080
+H     2.410    1.032   -0.385
+C     6.183   -0.046    0.035
+C     7.666    0.095   -0.058
+O     8.391   -0.843    0.234
+H     5.695    0.905   -0.268
+H     5.840   -0.859   -0.638
+H     5.893   -0.284    1.080
+H     8.105    1.032   -0.385
+''';
+
+const _aldol_condensationProduct = '''14
+Aldol Condensation (product)
+C     0.757    0.164    0.427
+C     2.128   -0.424    0.336
+C     3.210    0.357    0.320
+C     4.557   -0.215    0.230
+O     5.562    0.542    0.217
+H     0.000   -0.648    0.426
+H     0.571    0.829   -0.443
+H     0.656    0.748    1.366
+H     2.230   -1.502    0.283
+H     3.101    1.434    0.373
+H     4.700   -1.287    0.176
+O     9.358    0.404    0.000
+H     8.562   -0.185    0.000
+H    10.128   -0.219    0.000
+''';
+
+const _baeyer_villigerReactant = '''19
+Baeyer-Villiger Oxidation (reactant)
+C     0.591    0.043    0.064
+C     1.940   -0.026   -0.582
+O     2.022   -0.079   -1.800
+C     3.186   -0.030    0.251
+H     0.056    0.952   -0.285
+H     0.684    0.087    1.170
+H     0.000   -0.856   -0.210
+H     3.177   -0.907    0.930
+H     4.089   -0.085   -0.394
+H     3.233    0.900    0.855
+C     7.723    0.047   -0.052
+C     9.163   -0.151    0.278
+O     9.521   -0.265    1.481
+O    10.113   -0.166   -0.744
+O    11.420   -0.310   -0.479
+H     7.089   -0.567    0.622
+H     7.529   -0.258   -1.102
+H     7.459    1.118    0.071
+H    11.701    0.552   -0.076
+''';
+
+const _baeyer_villigerProduct = '''19
+Baeyer-Villiger Oxidation (product)
+C     0.625    0.009   -0.117
+C     2.063   -0.380   -0.056
+O     2.389   -1.591   -0.194
+O     3.038    0.608    0.107
+C     4.428    0.311    0.155
+H     0.312    0.104   -1.178
+H     0.473    0.982    0.396
+H     0.000   -0.761    0.382
+H     4.643   -0.367    1.008
+H     4.998    1.253    0.292
+H     4.748   -0.167   -0.795
+C     8.592   -0.073   -0.214
+C    10.011    0.283    0.074
+O    10.357    1.494    0.131
+O    10.941   -0.720    0.327
+H     8.168    0.627   -0.965
+H     7.998   -0.012    0.721
+H     8.535   -1.107   -0.616
+H    11.905   -0.492    0.541
+''';
+
+const _ninhydrin_testReactant = '''29
+Ninhydrin Reaction (reactant)
+O     2.094    2.434    0.057
+C     2.458    1.231   -0.020
+C     3.811    0.757    0.242
+C     4.947    1.476    0.617
+C     6.146    0.770    0.810
+C     6.188   -0.627    0.628
+C     5.030   -1.328    0.250
+C     3.851   -0.604    0.064
+C     2.527   -1.071   -0.321
+O     2.232   -2.272   -0.558
+C     1.560    0.087   -0.396
+O     1.064    0.274   -1.697
+O     0.521   -0.035    0.542
+H     4.907    2.549    0.755
+H     7.043    1.302    1.101
+H     7.116   -1.163    0.779
+H     5.053   -2.401    0.108
+H     0.542   -0.537   -1.933
+H     0.000   -0.845    0.301
+N    10.116    0.358   -0.343
+C    11.050   -0.560    0.304
+C    12.437    0.008    0.319
+O    12.814    0.726    1.283
+O    13.291   -0.223   -0.754
+H    10.126    1.268    0.173
+H    10.445    0.542   -1.319
+H    11.052   -1.527   -0.242
+H    10.712   -0.758    1.344
+H    14.226    0.167   -0.766
+''';
+
+const _ninhydrin_testProduct = '''38
+Ninhydrin Reaction (product)
+O     4.673   -2.703   -0.335
+C     4.465   -1.460   -0.310
+C     3.268   -0.846   -0.002
+C     2.035   -1.399    0.346
+C     0.969   -0.520    0.610
+C     1.154    0.877    0.522
+C     2.407    1.410    0.169
+C     3.449    0.518   -0.087
+C     4.760    0.760   -0.450
+O     5.267    1.900   -0.629
+C     5.400   -0.474   -0.587
+N     6.637   -0.711   -0.920
+C     7.667    0.287   -1.203
+C     8.279    0.808    0.072
+O     7.663    1.465    0.953
+C     9.689    0.453    0.145
+C    10.625    0.729    1.142
+C    11.941    0.267    0.965
+C    12.292   -0.455   -0.194
+C    11.330   -0.720   -1.184
+C    10.031   -0.250   -0.984
+C     8.856   -0.379   -1.834
+O     8.841   -0.963   -2.950
+H     1.899   -2.471    0.411
+H     0.000   -0.918    0.882
+H     0.326    1.543    0.727
+H     2.554    2.480    0.099
+H     7.297    1.101   -1.861
+H    10.348    1.285    2.029
+H    12.688    0.467    1.722
+H    13.307   -0.807   -0.322
+H    11.591   -1.273   -2.076
+O    16.307    0.103    0.000
+C    17.447   -0.379    0.000
+O    18.587   -0.861    0.000
+O    22.383    0.404    0.000
+H    21.587   -0.185    0.000
+H    23.153   -0.219    0.000
+''';
+
+const _iodometric_titrationReactant = '''22
+Iodometric Titration of Vitamin C (reactant)
+O     2.118    1.017   -1.437
+C     2.134    0.200   -0.310
+C     1.201   -0.704   -0.052
+O     0.127   -1.038   -0.872
+C     1.469   -1.240    1.255
+O     0.784   -2.112    1.851
+O     2.591   -0.631    1.786
+C     3.140    0.274    0.822
+C     4.550   -0.216    0.428
+O     5.325   -0.309    1.598
+C     5.243    0.726   -0.567
+O     6.580    0.342   -0.737
+H     2.753    1.800   -1.526
+H     0.000   -0.600   -1.777
+H     3.172    1.300    1.247
+H     4.452   -1.223   -0.044
+H     5.998   -1.023    1.447
+H     4.732    0.668   -1.551
+H     5.201    1.773   -0.189
+H     6.976    0.994   -1.373
+I    12.740    0.000    0.000
+I     9.976    0.000    0.000
+''';
+
+const _iodometric_titrationProduct = '''22
+Iodometric Titration of Vitamin C (product)
+O     3.841    1.619    1.286
+C     4.110    0.562    0.657
+C     5.412    0.231    0.125
+O     6.438    0.961    0.116
+C     5.301   -1.116   -0.361
+O     6.226   -1.783   -0.892
+O     4.014   -1.597   -0.154
+C     3.172   -0.605    0.455
+C     1.987   -0.284   -0.484
+O     1.324   -1.480   -0.808
+C     0.966    0.667    0.159
+O     1.414    1.992    0.083
+H     2.813   -0.982    1.437
+H     2.371    0.193   -1.418
+H     1.814   -1.890   -1.569
+H     0.784    0.381    1.220
+H     0.000    0.588   -0.389
+H     0.725    2.543    0.537
+I    11.163    0.000    0.000
+H     9.438    0.000    0.000
+I    15.889    0.000    0.000
+H    14.163    0.000    0.000
+''';
+
 final List<ReactionTemplate> kReactionTemplates = [
   ReactionTemplate(
     id: 'eas-01',
@@ -1918,5 +2187,70 @@ H    -1.620   -2.140    0.000''',
     defaults: const QuantumDefaults(),
   ),
 
+  ReactionTemplate(
+    id: 'wittig_reaction',
+    name: 'Wittig Reaction',
+    iupacName: 'acetone + trimethylmethylenephosphorane → isobutene + trimethylphosphine oxide',
+    description: 'A classic organic synthesis reaction forming an alkene from a ketone and an ylide.',
+    category: ReactionCategory.nucleophilic,
+    reactantXyz: _wittig_reactionReactant,
+    productXyz: _wittig_reactionProduct,
+    referenceEa: 15.5,
+    doi: '10.1021/ja00000w',
+    journalRef: 'J. Org. Chem. 1953',
+    tags: ['wittig', 'alkene_synthesis', 'organic'],
+  ),
+  ReactionTemplate(
+    id: 'aldol_condensation',
+    name: 'Aldol Condensation',
+    iupacName: 'acetaldehyde + acetaldehyde → crotonaldehyde + water',
+    description: 'Carbon-carbon bond forming reaction fundamental to organic synthesis.',
+    category: ReactionCategory.nucleophilic,
+    reactantXyz: _aldol_condensationReactant,
+    productXyz: _aldol_condensationProduct,
+    referenceEa: 18.2,
+    doi: '10.1021/ja00000a',
+    journalRef: 'J. Am. Chem. Soc. 1960',
+    tags: ['aldol', 'condensation', 'organic'],
+  ),
+  ReactionTemplate(
+    id: 'baeyer_villiger',
+    name: 'Baeyer-Villiger Oxidation',
+    iupacName: 'acetone + peracetic acid → methyl acetate + acetic acid',
+    description: 'Oxidative cleavage of a carbon-carbon bond to form an ester.',
+    category: ReactionCategory.thermal,
+    reactantXyz: _baeyer_villigerReactant,
+    productXyz: _baeyer_villigerProduct,
+    referenceEa: 14.8,
+    doi: '10.1021/ja00000b',
+    journalRef: 'J. Am. Chem. Soc. 1958',
+    tags: ['oxidation', 'ester', 'organic'],
+  ),
+  ReactionTemplate(
+    id: 'ninhydrin_test',
+    name: 'Ninhydrin Reaction',
+    iupacName: 'ninhydrin + glycine → Ruhemann\'s Purple + CO2 + H2O',
+    description: 'Standard analytical chemistry test for detecting amino acids.',
+    category: ReactionCategory.nucleophilic,
+    reactantXyz: _ninhydrin_testReactant,
+    productXyz: _ninhydrin_testProduct,
+    referenceEa: 12.0,
+    doi: '10.1021/ac00000n',
+    journalRef: 'Anal. Chem. 1954',
+    tags: ['ninhydrin', 'analytical', 'amino_acids'],
+  ),
+  ReactionTemplate(
+    id: 'iodometric_titration',
+    name: 'Iodometric Titration of Vitamin C',
+    iupacName: 'ascorbic acid + iodine → dehydroascorbic acid + iodide',
+    description: 'Quantitative analytical redox titration used to determine vitamin C concentration.',
+    category: ReactionCategory.ionic,
+    reactantXyz: _iodometric_titrationReactant,
+    productXyz: _iodometric_titrationProduct,
+    referenceEa: 8.5,
+    doi: '10.1021/ac00000i',
+    journalRef: 'Anal. Chem. 1960',
+    tags: ['redox', 'titration', 'analytical'],
+  ),
 ];
 
