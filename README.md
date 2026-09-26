@@ -171,18 +171,20 @@ Hosted via Firebase Hosting: [quantom-forge.web.app](https://quantom-forge.web.a
 ## 📁 Layout
 
 ```
-quantum_forge/
-├── lib/
-│   ├── core/
-│   │   ├── settings/     # AppSettings (workspace prefs) + persistence
-│   │   ├── theme/        # scientific theme presets
-│   │   ├── services/     # auth, storage, Firestore, file picking
-│   │   └── utils/        # Avogadro interchange, codec, deep links, parsers, ZIP
-│   ├── features/
-│   │   ├── auth/ reaction_library/ reaction_runner/ settings/
-│   └── main.dart
-├── avogadro_plugin/      # Avogadro 2 plugin + installer
-└── test/                 # interchange, codec, settings, theme, parser, ZIP
+Quantom-Forge/
+├── quantum_forge/        # Flutter Web App (Frontend)
+│   ├── lib/              # Core application logic, features, and UI
+│   │   ├── core/         # Core services, themes, and Avogadro bridges
+│   │   └── features/     # Feature modules (reaction_runner, reaction_library, etc.)
+│   ├── assets/           # Chemical assets, bundled 3D reactions (massive_reactions.json)
+│   ├── avogadro_plugin/  # Python plugin to bridge with Avogadro 2
+│   ├── scratch/          # Python data generation pipelines (RDKit combinatorial engines)
+│   └── test/             # Unit and widget tests
+├── tx1-fastapi-backend/  # FastAPI Backend (Python) for Colab / cloud compute
+│   ├── main.py           # Quantum router and execution logic
+│   └── worker_hybrid.py  # ASE/OpenMM molecular dynamics logic
+├── MACE/                 # MACE Machine Learning Interatomic Potentials backend
+└── .github/              # CI/CD Workflows for automated analysis and deployment
 ```
 
 ## 👤 Author
