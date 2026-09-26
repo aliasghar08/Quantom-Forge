@@ -78,9 +78,24 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
         total_steps = 100000000
         dyn.run(total_steps)
         
-        # Touch dcd to satisfy endpoint check if we didn't write it
-        with open(traj_path, 'a'):
-            pass
+        # Convert XYZ to DCD using MDAnalysis so the NGL Viewer can read it
+        try:
+            import MDAnalysis as mda
+            print("Converting XYZ trajectory to DCD...")
+            # We use the initial PDB as the topology and the written XYZ as the coordinate trajectory
+            u = mda.Universe(pdb_path, os.path.join(output_dir, 'trajectory.xyz'))
+            with mda.Writer(traj_path, u.atoms.n_atoms) as W:
+                for ts in u.trajectory:
+                    W.write(u)
+            print("Successfully converted trajectory to DCD.")
+        except ImportError:
+            print("Warning: MDAnalysis not installed. Cannot convert XYZ to DCD. Touching dummy DCD.")
+            with open(traj_path, 'a'):
+                pass
+        except Exception as e:
+            print(f"Error during DCD conversion: {e}")
+            with open(traj_path, 'a'):
+                pass
             
         return {"status": "SUCCESS", "job_id": job_id, "trajectory_dir": output_dir}
         
