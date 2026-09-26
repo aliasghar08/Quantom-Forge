@@ -16,6 +16,7 @@ import 'package:quantum_forge/features/reaction_library/data/reaction_template_g
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_header.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_filter_bar.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_grid.dart';
+import 'package:quantum_forge/core/widgets/animations/staggered_animation_list.dart';
 
 import 'package:quantum_forge/features/reaction_library/data/firestore_library_repository.dart';
 
@@ -167,7 +168,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           colors: palette.backgroundGradient,
         ),
       ),
-      child: Column(
+      child: StaggeredAnimationList(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           LibraryHeader(

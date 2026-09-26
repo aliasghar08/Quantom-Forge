@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/reaction_card_widget.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 /// Lazily-built grid of reaction cards.
 ///
@@ -58,27 +59,35 @@ class LibraryGrid extends StatelessWidget {
                   ? 2
                   : 1;
 
-          return GridView.builder(
-            padding: EdgeInsets.zero,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisSpacing: _spacing,
-              crossAxisSpacing: _spacing,
-              // Fixed row height keeps every card identical, and a lazy delegate
-              // needs the extent without measuring a child.
-              mainAxisExtent: _cardHeight,
+          return AnimationLimiter(
+            child: GridView.builder(
+              padding: EdgeInsets.zero,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisSpacing: _spacing,
+                crossAxisSpacing: _spacing,
+                mainAxisExtent: _cardHeight,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return AnimationConfiguration.staggeredGrid(
+                  position: index,
+                  duration: const Duration(milliseconds: 375),
+                  columnCount: columns,
+                  child: ScaleAnimation(
+                    scale: 0.85,
+                    child: FadeInAnimation(
+                      child: ReactionCardWidget(
+                        key: ValueKey(item.id),
+                        template: item,
+                        onLoad: () => onTemplateSelected(item),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              // Keyed by template id so a refiltered list reuses card state
-              // instead of rebuilding every visible card from scratch.
-              return ReactionCardWidget(
-                key: ValueKey(item.id),
-                template: item,
-                onLoad: () => onTemplateSelected(item),
-              );
-            },
           );
         },
       ),
