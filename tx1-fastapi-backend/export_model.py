@@ -38,7 +38,7 @@ class OpenMMTorchWrapper(nn.Module):
 def export_model():
     # 1. Load the original model from Drive
     model = MolecularGraphNetwork()
-    ckpt = "/content/drive/MyDrive/QuantumForge/Inputs/tx1_model.pt"
+    ckpt = os.environ.get("QUANTUM_FORGE_MODEL_CHECKPOINT", "./t1x_model_checkpoint.pt")
     if os.path.exists(ckpt):
         state = torch.load(ckpt, map_location="cpu")
         if isinstance(state, dict) and "model_state_dict" in state:
@@ -87,7 +87,7 @@ def export_model():
     traced_model = torch.jit.trace(wrapped_model, (dummy_positions,))
     
     # 3. Save the TorchScript module to Drive
-    output_path = "/content/drive/MyDrive/QuantumForge/Inputs/tx1_traced.pt"
+    output_path = os.environ.get("QUANTUM_FORGE_MODEL_PATH", "./inputs/tx1_traced.pt")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     traced_model.save(output_path)
     print(f"Successfully exported TorchScript model to {output_path}")
