@@ -446,7 +446,7 @@ async def start_hybrid_md(request: Request):
         if not file:
             raise HTTPException(status_code=400, detail="No file uploaded.")
         
-        drive_inputs = "/content/drive/MyDrive/QuantumForge/Inputs/"
+        drive_inputs = os.environ.get("QUANTUM_FORGE_INPUTS", "./inputs")
         os.makedirs(drive_inputs, exist_ok=True)
         pdb_path = os.path.join(drive_inputs, f"{job_id}_{file.filename}")
         
@@ -491,8 +491,9 @@ async def get_hybrid_md_status(job_id: str, task_id: str = None):
     if res.ready():
         result = res.result
         
-        # Check for the .dcd file inside the new Drive Outputs path
-        drive_outputs = f"/content/drive/MyDrive/QuantumForge/Outputs/{job_id}"
+        # Check for the .dcd file inside the Outputs path
+        base_output_dir = os.environ.get("QUANTUM_FORGE_OUTPUTS", "./outputs")
+        drive_outputs = os.path.join(base_output_dir, str(job_id))
         dcd_path = os.path.join(drive_outputs, 'trajectory.dcd')
         dcd_exists = os.path.exists(dcd_path)
         

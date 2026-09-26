@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/screens/dashboard_screen.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
@@ -110,6 +111,12 @@ Future<void> initialiseCloudFeatures() async {
   unawaited(_seedLibrary());
 }
 
+// Top-level function for Isolate
+List<Map<String, dynamic>> _parseMassiveJson(String jsonStr) {
+  final massiveJson = jsonDecode(jsonStr) as List<dynamic>;
+  return massiveJson.map((e) => e as Map<String, dynamic>).toList();
+}
+
 Future<void> _seedLibrary() async {
   // Seeding writes to Firestore, which unauthenticated guests cannot do. Skip
   // silently for them — the library falls back to the bundled templates, so the
@@ -120,9 +127,10 @@ Future<void> _seedLibrary() async {
   
   try {
     final massiveJsonStr = await rootBundle.loadString('assets/massive_reactions.json');
-    final massiveJson = jsonDecode(massiveJsonStr) as List<dynamic>;
-    for (var item in massiveJson) {
-      final map = item as Map<String, dynamic>;
+    // Offload the heavy JSON decoding to a background Isolate (Web Worker)
+    final massiveJsonList = await compute(_parseMassiveJson, massiveJsonStr);
+    
+    for (var map in massiveJsonList) {
       final id = map['id'] as String;
       templatesToSeed.add(ReactionTemplate.fromJson(map, id));
     }

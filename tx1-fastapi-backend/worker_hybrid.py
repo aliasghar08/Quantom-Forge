@@ -20,16 +20,24 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
     Executes a hybrid ML/MM Molecular Dynamics simulation.
     Uses openmm-torch for the MLIP on the peptide, and AMBER for the receptor/solvent.
     """
-    # Output trajectories to Google Drive
-    output_dir = f"/content/drive/MyDrive/QuantumForge/Outputs/{job_id}"
+    # Output trajectories. Use ENV or default to a local outputs dir
+    base_output_dir = os.environ.get("QUANTUM_FORGE_OUTPUTS", "./outputs")
+    output_dir = os.path.join(base_output_dir, str(job_id))
     os.makedirs(output_dir, exist_ok=True)
     
     # 1. Structure Preparation & SMILES Parsing
     if not os.path.exists(pdb_path) and not pdb_path.endswith('.pdb'):
         # Assume it's a SMILES string
         print(f"Parsing SMILES: {pdb_path}")
-        mol = Chem.AddHs(Chem.MolFromSmiles(pdb_path))
-        AllChem.EmbedMolecule(mol, randomSeed=42)
+        mol = Chem.MolFromSmiles(pdb_path)
+        if mol is None:
+            raise ValueError(f"Invalid SMILES string: {pdb_path}")
+            
+        mol = Chem.AddHs(mol)
+        embed_status = AllChem.EmbedMolecule(mol, randomSeed=42)
+        if embed_status == -1:
+            raise ValueError("Failed to generate 3D coordinates for the SMILES string (embedding failed).")
+            
         AllChem.MMFFOptimizeMolecule(mol)
         
         parsed_path = os.path.join(output_dir, "input.pdb")
@@ -95,7 +103,9 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
     
     # 3. MLIP Integration
     # Instantiate the TorchForce using our traced model from Drive
-    torch_force = openmmtorch.TorchForce("/content/drive/MyDrive/QuantumForge/Inputs/tx1_traced.pt")
+    # Load the traced model
+    model_path = os.environ.get("QUANTUM_FORGE_MODEL_PATH", "./inputs/tx1_traced.pt")
+    torch_force = openmmtorch.TorchForce(model_path)
     
     # 4. Force Masking
     # We must extract atomic indices for the 4-mer/5-mer peptide ligand.
