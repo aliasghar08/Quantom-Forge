@@ -117,10 +117,19 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
                                      constraints=app.HBonds)
     
     # 3. MLIP Integration
-    # Instantiate the TorchForce using our traced model from Drive
-    # Load the traced model
-    model_path = os.environ.get("QUANTUM_FORGE_MODEL_PATH", "./inputs/tx1_traced.pt")
-    torch_force = openmmtorch.TorchForce(model_path)
+    import export_model
+    # Generate a unique path for the dynamically traced model for this job
+    base_inputs_dir = os.environ.get("QUANTUM_FORGE_INPUTS", "./inputs")
+    os.makedirs(base_inputs_dir, exist_ok=True)
+    model_path = os.path.join(base_inputs_dir, f"tx1_traced_{job_id}.pt")
+    
+    print(f"Dynamically tracing PyTorch model for the specific molecule... ({pdb_path})")
+    traced_path = export_model.export_model(peptide_pdb_path=pdb_path, output_path=model_path)
+    
+    if not traced_path:
+        raise RuntimeError("Failed to dynamically trace PyTorch model for OpenMM.")
+        
+    torch_force = openmmtorch.TorchForce(traced_path)
     
     # 4. Force Masking
     # We must extract atomic indices for the 4-mer/5-mer peptide ligand.

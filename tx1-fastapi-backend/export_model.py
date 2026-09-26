@@ -35,7 +35,7 @@ class OpenMMTorchWrapper(nn.Module):
         
         return energy_kjmol
 
-def export_model():
+def export_model(peptide_pdb_path=None, output_path=None):
     # 1. Load the original model from Drive
     model = MolecularGraphNetwork()
     ckpt = os.environ.get("QUANTUM_FORGE_MODEL_CHECKPOINT", "./t1x_model_checkpoint.pt")
@@ -61,15 +61,12 @@ def export_model():
     import sys
     import ase.io
     
-    # NOTE: The exact atomic numbers of the custom 4-mer and 5-mer beta-peptides
-    # must be extracted from a reference PDB to ensure tensor shapes match perfectly.
-    # Pass the isolated peptide PDB path as a command-line argument.
-    peptide_pdb_path = sys.argv[1] if len(sys.argv) > 1 else "peptide.pdb"
+    if peptide_pdb_path is None:
+        peptide_pdb_path = sys.argv[1] if len(sys.argv) > 1 else "peptide.pdb"
     
     if not os.path.exists(peptide_pdb_path):
         print(f"Error: Could not find {peptide_pdb_path}.")
-        print("Usage: python export_model.py <path_to_isolated_peptide.pdb>")
-        return
+        return None
         
     print(f"Extracting atomic numbers from {peptide_pdb_path}...")
     atoms = ase.io.read(peptide_pdb_path)
@@ -87,10 +84,13 @@ def export_model():
     traced_model = torch.jit.trace(wrapped_model, (dummy_positions,))
     
     # 3. Save the TorchScript module to Drive
-    output_path = os.environ.get("QUANTUM_FORGE_MODEL_PATH", "./inputs/tx1_traced.pt")
+    if output_path is None:
+        output_path = os.environ.get("QUANTUM_FORGE_MODEL_PATH", "./inputs/tx1_traced.pt")
+        
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     traced_model.save(output_path)
     print(f"Successfully exported TorchScript model to {output_path}")
+    return output_path
 
 if __name__ == "__main__":
     export_model()
