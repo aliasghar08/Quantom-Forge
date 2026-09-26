@@ -185,12 +185,10 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     final rawTitle = (titleList != null && titleList.isNotEmpty) ? titleList[0].toString() : widget.template.name;
     final title = rawTitle.replaceAll(RegExp(r'<[^>]*>'), '').trim();
 
-    final abstractHtml = _isLoadingCrossref
-        ? 'Fetching publication metadata from CrossRef (and live energies from GNN backend)…'
-        : (_crossrefData?['abstract']?.toString() ??
-          'Publication metadata could not be fetched from CrossRef'
-          '${_crossrefError != null ? ' ($_crossrefError)' : ''}.\n'
-          'The details shown are from the bundled reaction library.');
+    final abstractHtml = _crossrefData?['abstract']?.toString() ??
+        'Publication metadata could not be fetched from CrossRef'
+        '${_crossrefError != null ? ' ($_crossrefError)' : ''}.\n'
+        'The details shown are from the bundled reaction library.';
     final abstractText = abstractHtml.replaceAll(RegExp(r'<[^>]*>'), '').trim();
 
     final authorsList = _crossrefData?['author'] as List<dynamic>?;
@@ -222,17 +220,7 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
       padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 80),
       child: StaggeredAnimationList(
         children: [
-          if (_isLoadingCrossref)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: Row(
-                children: [
-                  SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: palette.accent, strokeWidth: 2)),
-                  const SizedBox(width: 12),
-                  Text('Fetching live metadata and energy profiles...', style: TextStyle(color: palette.textSecondary, fontStyle: FontStyle.italic)),
-                ],
-              ),
-            ),
+
           if (_crossrefError != null && !_isLoadingCrossref)
             PublicationWarningBanner(error: _crossrefError!),
           if (_crossrefError != null && !_isLoadingCrossref) const SizedBox(height: 16),
@@ -243,9 +231,13 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
             publisher: publisher,
             year: year,
             doi: widget.template.doi,
+            isLoading: _isLoadingCrossref,
           ),
           const SizedBox(height: 20),
-          PublicationAbstractCard(abstractText: abstractText),
+          PublicationAbstractCard(
+            abstractText: abstractText,
+            isLoading: _isLoadingCrossref,
+          ),
           const SizedBox(height: 20),
           PublicationEnergiesCard(
             isLoading: _isLoadingEnergies,

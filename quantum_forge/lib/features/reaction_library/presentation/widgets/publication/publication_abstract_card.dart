@@ -3,8 +3,9 @@ import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dash
 
 class PublicationAbstractCard extends StatelessWidget {
   final String abstractText;
+  final bool isLoading;
   
-  const PublicationAbstractCard({super.key, required this.abstractText});
+  const PublicationAbstractCard({super.key, required this.abstractText, this.isLoading = false});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +21,12 @@ class PublicationAbstractCard extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Text(abstractText, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.6)),
+              child: isLoading 
+                  ? const Center(child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(color: Color(0xFF4FC3F7), strokeWidth: 2),
+                    ))
+                  : Text(abstractText, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.6)),
             ),
           ],
         ),

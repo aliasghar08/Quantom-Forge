@@ -8,6 +8,7 @@ class PublicationHeaderCard extends StatelessWidget {
   final String publisher;
   final String year;
   final String doi;
+  final bool isLoading;
 
   const PublicationHeaderCard({
     super.key,
@@ -17,6 +18,7 @@ class PublicationHeaderCard extends StatelessWidget {
     required this.publisher,
     required this.year,
     required this.doi,
+    this.isLoading = false,
   });
 
   @override
@@ -41,7 +43,10 @@ class PublicationHeaderCard extends StatelessWidget {
                     ),
                     child: Text('DOI: $doi', style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
-                Text(year, style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                if (isLoading)
+                  const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(color: Colors.white54, strokeWidth: 2)),
+                if (!isLoading)
+                  Text(year, style: const TextStyle(color: Colors.white54, fontSize: 13)),
               ],
             ),
             const SizedBox(height: 14),
