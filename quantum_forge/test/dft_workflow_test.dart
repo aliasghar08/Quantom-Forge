@@ -1,5 +1,5 @@
 // ============================================================================
-// Hybrid UMA → DFT workflow tests
+// Hybrid MLIP → DFT workflow tests
 // ----------------------------------------------------------------------------
 // Covers the parts that are pure logic and therefore worth pinning: the DFT
 // attachment parsing, the comparison threshold, the methods-paragraph template
@@ -64,21 +64,21 @@ void main() {
 
   group('comparison threshold', () {
     test('5 kcal/mol is the reliability cut-off', () {
-      expect(kUmaReliableDeltaKcal, 5.0);
+      expect(kMlipReliableDeltaKcal, 5.0);
     });
   });
 
   group('methods paragraph', () {
     test('attributes screening to the MLIP, not to a DFT level', () {
       final p = buildMethodsParagraph(
-        model: 'UMA-SM',
+        model: 'MLIP-SM',
         method: 'ωB97X-D/def2-TZVP',
         solvent: 'Dichloromethane',
       );
 
       // The correction this test exists for: the DFT level belongs to the
       // refinement, and the screening is attributed to the MLIP alone.
-      expect(p, startsWith('Screening was performed with the UMA-SM '
+      expect(p, startsWith('Screening was performed with the MLIP-SM '
           'machine-learned interatomic potential.'));
       expect(p, contains('Transition state geometries were refined at the '
           'ωB97X-D/def2-TZVP level of theory.'));
@@ -86,12 +86,12 @@ void main() {
           '(Dichloromethane).'));
 
       // The old, wrong wording must be gone.
-      expect(p.contains('UMA-MLIP screening used'), isFalse);
+      expect(p.contains('MLIP-MLIP screening used'), isFalse);
     });
 
     test('includes the single-point sentence when one is supplied', () {
       final p = buildMethodsParagraph(
-        model: 'UMA-SM',
+        model: 'MLIP-SM',
         method: 'ωB97X-D/def2-TZVP',
         solvent: 'Vacuum',
         singlePointMethod: 'DLPNO-CCSD(T)/def2-QZVP',
@@ -105,7 +105,7 @@ void main() {
       // The rule: an absent value produces an absent sentence, never one that
       // silently reuses the geometry level.
       final omitted = buildMethodsParagraph(
-        model: 'UMA-SM',
+        model: 'MLIP-SM',
         method: 'ωB97X-D/def2-TZVP',
         solvent: 'Vacuum',
       );
@@ -114,7 +114,7 @@ void main() {
 
       // Whitespace is not a value either.
       final blank = buildMethodsParagraph(
-        model: 'UMA-SM',
+        model: 'MLIP-SM',
         method: 'ωB97X-D/def2-TZVP',
         solvent: 'Vacuum',
         singlePointMethod: '   ',
@@ -126,11 +126,11 @@ void main() {
       const placeholders = ['{model}', '{method}', '{solvent}',
                             '{solvation_clause}', '{single_point_method}'];
       final variants = [
-        buildMethodsParagraph(model: 'UMA-SM', method: 'M', solvent: 'Water'),
+        buildMethodsParagraph(model: 'MLIP-SM', method: 'M', solvent: 'Water'),
         buildMethodsParagraph(
-            model: 'UMA-SM', method: 'M', solvent: 'Water',
+            model: 'MLIP-SM', method: 'M', solvent: 'Water',
             singlePointMethod: 'SP'),
-        buildMethodsParagraph(model: 'UMA-SM', method: '', solvent: 'Vacuum'),
+        buildMethodsParagraph(model: 'MLIP-SM', method: '', solvent: 'Vacuum'),
       ];
       for (final p in variants) {
         for (final ph in placeholders) {
@@ -141,16 +141,16 @@ void main() {
 
     test('omits the solvation clause when there is no solvent', () {
       final vacuum = buildMethodsParagraph(
-          model: 'UMA-SM', method: 'B3LYP/6-31G*', solvent: 'Vacuum');
+          model: 'MLIP-SM', method: 'B3LYP/6-31G*', solvent: 'Vacuum');
       expect(vacuum.contains('Implicit solvation'), isFalse);
 
       final blank = buildMethodsParagraph(
-          model: 'UMA-SM', method: 'B3LYP/6-31G*', solvent: '   ');
+          model: 'MLIP-SM', method: 'B3LYP/6-31G*', solvent: '   ');
       expect(blank.contains('Implicit solvation'), isFalse);
     });
 
     test('falls back to an obvious marker when the level is blank', () {
-      final p = buildMethodsParagraph(model: 'UMA-SM', method: '', solvent: 'Vacuum');
+      final p = buildMethodsParagraph(model: 'MLIP-SM', method: '', solvent: 'Vacuum');
       expect(p, contains('<DFT level of theory>'));
     });
   });

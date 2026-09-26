@@ -138,7 +138,7 @@ void main() {
 
     test('drops bonds that name an atom outside the model', () {
       // A trajectory whose images disagree on atom count is a real case: the
-      // UMA backend has failed with "Frame has 1 atoms, expected 2". A bond
+      // MLIP backend has failed with "Frame has 1 atoms, expected 2". A bond
       // pointing at the missing atom must not corrupt the file.
       final atoms = <Atom>[at('C', 0)];
       final model = AvogadroSdfWriter.writeModel(atoms, const <PerceivedBond>[

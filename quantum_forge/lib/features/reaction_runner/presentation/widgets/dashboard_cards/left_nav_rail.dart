@@ -14,6 +14,7 @@ import 'package:quantum_forge/core/settings/app_settings_provider.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/features/auth/presentation/screens/auth_screen.dart';
 import 'package:quantum_forge/features/settings/presentation/screens/settings_screen.dart';
+import 'package:quantum_forge/core/services/feedback_service.dart';
 
 enum NavDestination { library, newReaction, editor, history, methodValidation }
 
@@ -58,7 +59,7 @@ class ProfessionalDrawer extends StatelessWidget {
 
     return Drawer(
       backgroundColor: palette.drawer,
-      width: 288,
+      width: _drawerWidth(context),
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -77,7 +78,7 @@ class ProfessionalDrawer extends StatelessWidget {
                 children: [
                   // ── Header ───────────────────────────────────────────────────────
                   Container(
-                    padding: EdgeInsets.fromLTRB(20, gap(40), 20, gap(20)),
+                    padding: EdgeInsets.fromLTRB(20, gap(48), 20, gap(20)),
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: palette.border)),
               ),
@@ -164,9 +165,32 @@ class ProfessionalDrawer extends StatelessWidget {
             // screen is tree-shaken out of the release build.
             _navItem(context, Icons.verified_outlined, 'Method validation',
                 NavDestination.methodValidation, showTooltips,
-                'UMA barriers against known literature values — the table a reviewer asks for.'),
+                'MLIP barriers against known literature values — the table a reviewer asks for.'),
 
             const Spacer(),
+
+            // ── Feedback button ──────────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: gap(16), vertical: gap(4)),
+              child: InkWell(
+                onTap: () => FeedbackService.showFeedbackDialog(context),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: gap(16), vertical: gap(12)),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.feedback_outlined, color: palette.textMuted, size: 20),
+                      const SizedBox(width: 14),
+                      Text('Send Feedback', style: TextStyle(color: palette.textSecondary, fontWeight: FontWeight.w500, fontSize: 14, letterSpacing: 0.3)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
             // ── Quick theme switcher ─────────────────────────────────────────
             Container(
@@ -380,6 +404,12 @@ class ProfessionalDrawer extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Clamps the drawer to 85% of screen width on very narrow phones.
+  double _drawerWidth(BuildContext context) {
+    final screenW = MediaQuery.of(context).size.width;
+    return screenW < 340 ? screenW * 0.85 : 288;
   }
 
   Widget _navItem(

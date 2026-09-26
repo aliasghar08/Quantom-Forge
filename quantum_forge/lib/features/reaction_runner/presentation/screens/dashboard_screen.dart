@@ -47,6 +47,7 @@ import 'package:quantum_forge/features/settings/presentation/screens/settings_sc
 import 'package:quantum_forge/state/dashboard_viewmodel.dart';
 import 'dart:convert';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
+import 'package:quantum_forge/core/services/feedback_service.dart';
 
 import 'package:quantum_forge/core/services/chemical_resolver_service.dart';
 
@@ -192,7 +193,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           appBar: AppBar(
             backgroundColor: palette.scaffold,
             title: Text(
-              'Quantum Forge',
+              _navTitle(_viewModel.navDest),
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.5,
@@ -202,6 +203,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             iconTheme: IconThemeData(color: palette.textPrimary),
             elevation: 0,
             actions: [
+              IconButton(
+                tooltip: settings.showTooltips ? 'Send Feedback' : null,
+                icon: Icon(Icons.feedback_outlined, color: palette.textSecondary),
+                onPressed: () => FeedbackService.showFeedbackDialog(context),
+              ),
               IconButton(
                 tooltip: settings.showTooltips ? 'Settings' : null,
                 icon: Icon(Icons.settings_outlined, color: palette.textSecondary),
@@ -214,9 +220,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Container(
                 color: palette.border,
                 height: 1.0,
-                width: double.infinity, // FIX: stretch border across full width
+                width: double.infinity,
               ),
             ),
+          ),
+          // Bottom navigation for mobile (< 600px)
+          bottomNavigationBar: LayoutBuilder(
+            builder: (context, constraints) {
+              if (MediaQuery.of(context).size.width >= 600) return const SizedBox.shrink();
+              return Container(
+                decoration: BoxDecoration(
+                  color: palette.drawer,
+                  border: Border(top: BorderSide(color: palette.border)),
+                ),
+                child: SafeArea(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _bottomNavItem(context, Icons.auto_stories_outlined, 'Library', NavDestination.library, palette),
+                      _bottomNavItem(context, Icons.add_circle_outline, 'Reaction', NavDestination.newReaction, palette),
+                      _bottomNavItem(context, Icons.edit_document, 'Editor', NavDestination.editor, palette),
+                      _bottomNavItem(context, Icons.history, 'History', NavDestination.history, palette),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           // FIX: SizedBox.expand forces the body to fill the entire Scaffold
           // area (both width and height), so nothing shows through from the
@@ -426,6 +455,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // Returns a human-readable title for the current nav destination.
+  String _navTitle(NavDestination dest) {
+    switch (dest) {
+      case NavDestination.library: return 'Reaction Library';
+      case NavDestination.newReaction: return 'New Reaction';
+      case NavDestination.editor: return '3D Builder';
+      case NavDestination.history: return 'History';
+      case NavDestination.methodValidation: return 'Method Validation';
+    }
+  }
+
+  Widget _bottomNavItem(BuildContext context, IconData icon, String label, NavDestination dest, QuantumTheme palette) {
+    final active = _viewModel.navDest == dest;
+    return GestureDetector(
+      onTap: () => _viewModel.setNavDestination(dest),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: active ? palette.accent : palette.textMuted, size: 22),
+            const SizedBox(height: 3),
+            Text(label, style: TextStyle(color: active ? palette.accent : palette.textMuted, fontSize: 10, fontWeight: active ? FontWeight.w700 : FontWeight.w400)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeaderTitle() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -611,62 +670,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
               fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: topTemplates
-              .map((t) => Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: InkWell(
-                        onTap: () {
-                          _viewModel.loadTemplate(t);
-                          context.read<QuantumSettingsNotifier>().update((q) => q.copyWith(
-                            charge: t.defaults.charge,
-                            spinMultiplicity: t.defaults.spinMultiplicity,
-                            mlipModel: t.defaults.mlipModel,
-                            optimizerAlgorithm: t.defaults.optimizerAlgorithm,
-                          ));
-                        },
+              .map((t) => InkWell(
+                    onTap: () {
+                      _viewModel.loadTemplate(t);
+                      context.read<QuantumSettingsNotifier>().update((q) => q.copyWith(
+                        charge: t.defaults.charge,
+                        spinMultiplicity: t.defaults.spinMultiplicity,
+                        mlipModel: t.defaults.mlipModel,
+                        optimizerAlgorithm: t.defaults.optimizerAlgorithm,
+                      ));
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 200, minWidth: 120),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.03),
                         borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.03),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.1)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.science,
-                                      size: 14, color: Colors.blue.shade300),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      t.name,
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                t.iupacName,
-                                style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.4),
-                                    fontSize: 11),
-                                overflow: TextOverflow.ellipsis,
+                              Icon(Icons.science,
+                                  size: 14, color: Colors.blue.shade300),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  t.name,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 4),
+                          Text(
+                            t.iupacName,
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                fontSize: 11),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
                   ))
@@ -1017,9 +1075,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: ReactionAnimationWidget(
-                  trajectoryFrames: [utf8.decode(entry.file!.bytes!)],
-                  showBondNumbers: false,
+                child: AspectRatio(
+                  aspectRatio: 1.2,
+                  child: ReactionAnimationWidget(
+                    trajectoryFrames: [utf8.decode(entry.file!.bytes!)],
+                    showBondNumbers: false,
+                  ),
                 ),
               ),
             ),
@@ -1175,7 +1236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ));
   }
 
-  /// Warning-toned SnackBar, used to flag fallback (non-UMA) data.
+  /// Warning-toned SnackBar, used to flag fallback (non-MLIP) data.
   ///
   /// Distinct from [_notify] on purpose: this one has to be noticed, so it carries
   /// an icon, the theme's warning colour and a longer dwell.
@@ -1377,7 +1438,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   .indexWhere((e) => e == energyProfile.reduce((a, b) => a > b ? a : b));
     }
 
-    // Tell the user, once per reaction, exactly which numbers are not UMA output.
+    // Tell the user, once per reaction, exactly which numbers are not MLIP output.
     if (status.reactionId.isNotEmpty && _warnedFallbackFor != status.reactionId) {
       _warnedFallbackFor = status.reactionId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1414,9 +1475,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Column(
           children: [
-            // Export Button Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            // Export Button Row — uses Wrap to prevent overflow on narrow screens
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
               children: [
                 ElevatedButton.icon(
                   onPressed: () => _exportResults(status),
@@ -1428,7 +1491,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
-                const SizedBox(width: 12),
                 ElevatedButton.icon(
                   onPressed: () => _exportArchive(status),
                   icon: const Icon(Icons.folder_zip_outlined, size: 16),
@@ -1439,7 +1501,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
-                const SizedBox(width: 12),
                 ElevatedButton.icon(
                   onPressed: () => _exportTrajectoryForAvogadro(status, palette),
                   icon: const Icon(Icons.science, size: 16),
@@ -1461,16 +1522,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Energy profile (with ±1σ band)
-            AspectRatio(
-              aspectRatio: 1.8,
-              child: EnergyProfileCard(
-                energyProfile: summary.energyProfile,
-                referenceEa: summary.referenceEa,
-                uncertainty: summary.profileUncertainty,
-                onPointSelected: (index) =>
-                    setState(() => _selectedFrameIndex = index),
-              ),
+            // Energy profile — height is capped to avoid the chart taking the whole
+            // screen on tablets while remaining readable on phones.
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final chartHeight = constraints.maxWidth < 500 ? 220.0 : 340.0;
+                return SizedBox(
+                  height: chartHeight,
+                  child: EnergyProfileCard(
+                    energyProfile: summary.energyProfile,
+                    referenceEa: summary.referenceEa,
+                    uncertainty: summary.profileUncertainty,
+                    onPointSelected: (index) =>
+                        setState(() => _selectedFrameIndex = index),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 16),
 

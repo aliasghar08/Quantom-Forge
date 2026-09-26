@@ -508,3 +508,21 @@ async def get_hybrid_md_status(job_id: str, task_id: str = None):
         "job_id": job_id,
         "task_id": task_id
     }
+
+from fastapi.responses import FileResponse
+@app.get("/simulate/download/{job_id}/{filename}")
+async def download_trajectory_file(job_id: str, filename: str):
+    """Securely serve MD trajectory files (like trajectory.dcd or input.pdb)"""
+    import os
+    base_output_dir = os.environ.get("QUANTUM_FORGE_OUTPUTS", "./outputs")
+    job_dir = os.path.join(base_output_dir, str(job_id))
+    file_path = os.path.abspath(os.path.join(job_dir, filename))
+    
+    # Security: Prevent directory traversal
+    if not file_path.startswith(os.path.abspath(job_dir)):
+        raise HTTPException(status_code=403, detail="Access denied")
+        
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Trajectory file not found")
+        
+    return FileResponse(file_path)

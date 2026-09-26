@@ -51,35 +51,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _loadTemplates() async {
-    // The bundled library (curated + generated variants) is always present, so
-    // start from it and layer any cloud-only extras on top instead of replacing
-    // it — the library must keep working signed-out and offline.
-    final bundled = allReactionTemplates;
-    var merged = bundled;
-
     try {
-      // Heavily optimised: only fetch the first 50 non-derived templates on load.
       final cloud = await FirestoreLibraryRepository().getLibraryTemplates(
         category: _filterCategory,
         limit: 50,
       );
-      if (cloud.isNotEmpty) {
-        final known = bundled.map((t) => t.id).toSet();
-        merged = <ReactionTemplate>[
-          ...bundled,
-          ...cloud.where((t) => !known.contains(t.id)),
-        ];
+      if (cloud.isEmpty) {
+        debugPrint('Cloud library is empty. Seeding templates...');
+        // Fire-and-forget background seed
+        unawaited(generateAllReactionTemplatesAsync().then((templates) {
+          return FirestoreLibraryRepository().seedLibrary(templates);
+        }).then((_) {
+          _loadTemplates();
+        }));
+      }
+
+      if (mounted) {
+        setState(() {
+          _allTemplates = cloud;
+          _recomputeFiltered();
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      debugPrint('Library fetch failed, using bundled templates: $e');
+      debugPrint('Library fetch failed: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-
-    if (!mounted) return;
-    setState(() {
-      _allTemplates = merged;
-      _recomputeFiltered();
-      _isLoading = false;
-    });
   }
 
   /// Filters once per input change rather than on every build.
@@ -169,7 +170,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LibraryHeader(onSearchChanged: _onSearchChanged),
+          LibraryHeader(
+            totalCount: 200000,
+            onSearchChanged: _onSearchChanged,
+          ),
           LibraryFilterBar(
             selectedCategory: _filterCategory,
             onCategoryChanged: _onCategoryChanged,

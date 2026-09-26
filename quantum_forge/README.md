@@ -38,8 +38,8 @@ Quantum Forge is optimized specifically for web browsers. By leveraging WebGL an
 *   **Dynamic Lighting**: Custom 3D shading, specular highlights, and ambient occlusion applied to 2D canvas drawing.
 
 ### 6. Cloud-Connected Reaction Library
-*   **Firestore Database**: A sprawling, centralized database of pre-calculated textbook chemical reactions (Grignard Additions, Fischer Esterifications, Friedel-Crafts, Suzuki Couplings).
-*   **Real-time Search & Filtering**: Instantly search reactions by IUPAC name, reaction type (Addition, Substitution, Elimination), or chemical tags.
+*   **Massive 200,000+ Reaction Database**: A sprawling, centralized Firestore database containing over 2 Lacs of pre-calculated textbook chemical reactions (Grignard Additions, Fischer Esterifications, Friedel-Crafts, Suzuki Couplings, OER, Batteries) programmatically synthesized from literature baselines via combinatorics.
+*   **Real-time Search & Filtering**: Instantly search reactions by IUPAC name, reaction type (Addition, Substitution, Elimination, Electrochemistry), or chemical tags.
 
 ### 7. Seamless Avogadro 2 Integration
 *   Quantum Forge acts as the perfect companion to desktop Avogadro software. 

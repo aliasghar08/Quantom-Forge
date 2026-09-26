@@ -25,6 +25,8 @@ class ReactionCardWidget extends StatelessWidget {
       ReactionCategory.ionic         => const Color(0xFF26A69A),
       ReactionCategory.thermal       => const Color(0xFFFFCA28),
       ReactionCategory.nucleophilic  => const Color(0xFF66BB6A),
+      ReactionCategory.electrochemistry => const Color(0xFFE040FB),
+      ReactionCategory.inorganic     => const Color(0xFF8D6E63),
     };
   }
 
@@ -36,6 +38,8 @@ class ReactionCardWidget extends StatelessWidget {
       ReactionCategory.ionic         => 'Ionic',
       ReactionCategory.thermal       => 'Thermal',
       ReactionCategory.nucleophilic  => 'Nucleophilic',
+      ReactionCategory.electrochemistry => 'Electrochemistry',
+      ReactionCategory.inorganic     => 'Inorganic',
     };
   }
 

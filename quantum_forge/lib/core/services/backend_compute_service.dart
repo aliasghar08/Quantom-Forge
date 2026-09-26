@@ -1,14 +1,14 @@
 // ============================================================================
-// Backend compute service — bridge to the ColabReaction (DMF/UMA) API
+// Backend compute service — bridge to the ColabReaction (DMF) API
 // ----------------------------------------------------------------------------
 // Talks to the FastAPI backend in `backend/` that runs the Direct MaxFlux +
-// UMA machine-learning-potential reaction-path search. When no backend URL is
+// MLIP machine-learning-potential reaction-path search. When no backend URL is
 // configured, the app keeps its local (illustrative) simulation; when it is
 // configured, reactions are dispatched here for the real optimisation.
 //
 // The request/response shapes mirror `backend/app/models/reaction.py`.
 //
-// Deployed backend: https://aliasgharinnocent-uma-backend.hf.space
+// Deployed backend: https://aliasgharinnocent-tx1-backend.hf.space
 // (see `kDefaultComputeBackendUrl` in core/settings/app_settings_provider.dart)
 // ============================================================================
 
@@ -94,13 +94,13 @@ class BackendComputeService {
     return id;
   }
 
-  /// Polls the backend until the reaction settles, returning the final status.
-  Future<ReactionStatusResponse> poll(
+  /// Polls the backend until the reaction settles, yielding intermediate statuses.
+  Stream<ReactionStatusResponse> poll(
     String backendUrl,
     String reactionId, {
     int maxAttempts = 600,
     Duration interval = const Duration(seconds: 2),
-  }) async {
+  }) async* {
     final base = _base(backendUrl);
     for (var i = 0; i < maxAttempts; i++) {
       await Future<void>.delayed(interval);
@@ -112,8 +112,10 @@ class BackendComputeService {
         continue; // transient non-JSON response; retry
       }
       final state = (json['state'] as String?) ?? 'pending';
+      yield _toStatus(json);
+      
       if (state == 'completed' || state == 'error') {
-        return _toStatus(json);
+        return;
       }
     }
     throw StateError('Reaction $reactionId did not settle in time.');
@@ -133,7 +135,7 @@ class BackendComputeService {
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
       message: json['message'] as String?,
       // Kept separate: collapsing this into `message` let the generic
-      // "DMF/UMA optimisation failed." shadow the actual cause.
+      // "DMF optimisation failed." shadow the actual cause.
       error: json['error'] as String?,
       fromBackend: true,
       energyProfile: (json['energy_profile'] as List<dynamic>?)
@@ -213,11 +215,11 @@ class BackendComputeService {
     }
   }
 
-  // ── Hybrid UMA → DFT handoff ──────────────────────────────────────────────
+  // ── Hybrid MLIP → DFT handoff ──────────────────────────────────────────────
 
   /// Fetches the transition-state geometry as an XYZ document.
   ///
-  /// The backend writes the provenance into the comment line (reaction id, UMA
+  /// The backend writes the provenance into the comment line (reaction id, MLIP
   /// barrier, max energy index), so the text is downloaded verbatim rather than
   /// re-serialised here — re-serialising would drop that comment.
   Future<String> exportTransitionState(String backendUrl, String reactionId) {
@@ -279,8 +281,9 @@ class BackendComputeService {
         
         final state = json['status'] as String? ?? 'PENDING';
         final trajectoryDir = json['trajectory_dir'] as String?;
+        final frameCount = json['frame_count'] as int?;
         
-        yield HybridMdStatus(jobId: jobId, state: state, trajectoryDir: trajectoryDir);
+        yield HybridMdStatus(jobId: jobId, state: state, trajectoryDir: trajectoryDir, frameCount: frameCount);
         
         if (state == 'SUCCESS' || state == 'FAILURE' || state == 'REVOKED') {
           break;
@@ -297,10 +300,12 @@ class HybridMdStatus {
   final String jobId;
   final String state;
   final String? trajectoryDir;
+  final int? frameCount;
 
   const HybridMdStatus({
     required this.jobId,
     required this.state,
     this.trajectoryDir,
+    this.frameCount,
   });
 }

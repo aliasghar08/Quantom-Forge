@@ -137,7 +137,7 @@ void main() {
         'atomCount': 12,
         'selectedId': null,
         'nested': {
-          'tags': ['dmf', 'uma'],
+          'tags': ['dmf', 'mlip'],
         },
       });
       AppStorage.setString('qf_session_state', payload);
@@ -146,7 +146,7 @@ void main() {
           jsonDecode(AppStorage.getString('qf_session_state')!) as Map;
       expect(decoded['route'], '/editor');
       expect(decoded['atomCount'], 12);
-      expect(decoded['nested'], {'tags': ['dmf', 'uma']});
+      expect(decoded['nested'], {'tags': ['dmf', 'mlip']});
     });
 
     test('a provider load sees what a previous instance saved', () {

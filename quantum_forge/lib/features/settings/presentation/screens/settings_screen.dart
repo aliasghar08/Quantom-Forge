@@ -1165,11 +1165,11 @@ class _ComputeTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
       children: [
         const ThemeFamilyHeader(
-          title: 'DMF/UMA compute backend',
+          title: 'DMF compute backend',
           icon: Icons.hub,
           subtitle:
               'Optional. Point this at the ColabReaction FastAPI service to run '
-              'the real Direct MaxFlux + UMA reaction-path optimisation. Leave '
+              'the real Direct MaxFlux + MLIP reaction-path optimisation. Leave '
               'empty to use the built-in illustrative simulation.',
         ),
         const _SettingsCard(children: [_BackendUrlField()]),
@@ -1273,7 +1273,7 @@ class _ComputeTab extends StatelessWidget {
   }
 }
 
-/// Editor for the ColabReaction (DMF/UMA) backend base URL.
+/// Editor for the ColabReaction (DMF) backend base URL.
 class _BackendUrlField extends StatefulWidget {
   const _BackendUrlField();
 
@@ -1334,7 +1334,7 @@ class _BackendUrlFieldState extends State<_BackendUrlField> {
             style: TextStyle(color: palette.textPrimary, fontSize: 13),
             decoration: const InputDecoration(
               labelText: 'Backend base URL',
-              hintText: 'https://aliasgharinnocent-uma-backend.hf.space',
+              hintText: 'https://aliasgharinnocent-tx1-backend.hf.space',
               prefixIcon: Icon(Icons.dns_outlined, size: 18),
             ),
             onChanged: context.read<AppSettingsNotifier>().setBackendUrl,
@@ -1353,7 +1353,7 @@ class _BackendUrlFieldState extends State<_BackendUrlField> {
               Expanded(
                 child: Text(
                   settings.hasComputeBackend
-                      ? 'Real DMF/UMA backend active — reactions are optimised '
+                      ? 'Real DMF backend active — reactions are optimised '
                           'server-side.'
                       : 'No backend configured — using the built-in illustrative '
                           'simulation.',

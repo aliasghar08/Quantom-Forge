@@ -217,4 +217,5 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
     else:
         print("Simulation already reached target steps.")
     
-    return {"status": "SUCCESS", "job_id": job_id, "trajectory_dir": output_dir}
+    frames = total_steps // 10000
+    return {"status": "SUCCESS", "job_id": job_id, "trajectory_dir": output_dir, "frame_count": frames}

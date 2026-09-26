@@ -26,20 +26,29 @@
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 
 /// Hard cap on variants per curated parent (keeps memory predictable).
-const int kMaxVariantsPerParent = 500;
+const int kMaxVariantsPerParent = 100000;
 
 /// Hard cap on the generated library size.
-const int kMaxGeneratedTemplates = 3000;
+const int kMaxGeneratedTemplates = 200000;
 
 /// Curated templates + generated variants, built once on first access so app
 /// start-up and any code path that never opens the library stay unaffected.
+@Deprecated('Use generateAllReactionTemplatesAsync to avoid UI freezes')
 List<ReactionTemplate> get allReactionTemplates =>
     _allTemplates ??= buildFullTemplateLibrary(kReactionTemplates);
 
 List<ReactionTemplate>? _allTemplates;
+
+/// Generates the reaction templates async on a background isolate to prevent UI jank.
+Future<List<ReactionTemplate>> generateAllReactionTemplatesAsync() async {
+  if (_allTemplates != null) return _allTemplates!;
+  _allTemplates = await compute(buildFullTemplateLibrary, kReactionTemplates);
+  return _allTemplates!;
+}
 
 /// Exposed for tests so the cache can be reset between cases.
 void resetTemplateLibraryCache() => _allTemplates = null;
@@ -372,6 +381,66 @@ void _emitVariants(
         for (final second in _substituents) {
           if (made >= perParent || out.length >= maxTotal) return;
           emit([siteIndices[a], siteIndices[b]], [first, second]);
+        }
+      }
+    }
+  }
+
+  // Triples - massive combinatorial explosion
+  for (var a = 0; a < siteIndices.length; a++) {
+    for (var b = a + 1; b < siteIndices.length; b++) {
+      for (var c = b + 1; c < siteIndices.length; c++) {
+        for (final first in _substituents) {
+          for (final second in _substituents) {
+            for (final third in _substituents) {
+              if (made >= perParent || out.length >= maxTotal) return;
+              emit([siteIndices[a], siteIndices[b], siteIndices[c]], [first, second, third]);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Quads - true theoretical limit explosion
+  for (var a = 0; a < siteIndices.length; a++) {
+    for (var b = a + 1; b < siteIndices.length; b++) {
+      for (var c = b + 1; c < siteIndices.length; c++) {
+        for (var d = c + 1; d < siteIndices.length; d++) {
+          for (final first in _substituents) {
+            for (final second in _substituents) {
+              for (final third in _substituents) {
+                for (final fourth in _substituents) {
+                  if (made >= perParent || out.length >= maxTotal) return;
+                  emit([siteIndices[a], siteIndices[b], siteIndices[c], siteIndices[d]], [first, second, third, fourth]);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Quints - maximum theoretical exhaustion
+  for (var a = 0; a < siteIndices.length; a++) {
+    for (var b = a + 1; b < siteIndices.length; b++) {
+      for (var c = b + 1; c < siteIndices.length; c++) {
+        for (var d = c + 1; d < siteIndices.length; d++) {
+          for (var e = d + 1; e < siteIndices.length; e++) {
+            for (final first in _substituents) {
+              for (final second in _substituents) {
+                for (final third in _substituents) {
+                  for (final fourth in _substituents) {
+                    for (final fifth in _substituents) {
+                      if (made >= perParent || out.length >= maxTotal) return;
+                      emit([siteIndices[a], siteIndices[b], siteIndices[c], siteIndices[d], siteIndices[e]], [first, second, third, fourth, fifth]);
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }

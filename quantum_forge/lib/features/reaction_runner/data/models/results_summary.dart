@@ -203,11 +203,11 @@ const double _h = 6.62607015e-34; // J·s
 const double _gasConstant = 8.314462618; // J/mol·K
 const double _kcalToJ = 4184.0;
 
-/// Names which displayed values are **not** from the UMA model.
+/// Names which displayed values are **not** from the MLIP model.
 ///
 /// Kept beside the surrogate model it describes so the wording cannot drift from
 /// the metrics. The backend returns geometry, energies and imaginary frequencies
-/// computed by DMF/UMA; everything thermodynamic or kinetic below is still
+/// computed by DMF/MLIP; everything thermodynamic or kinetic below is still
 /// produced in-app, and the user has to be told which is which rather than being
 /// left to assume the whole panel is computed.
 String fallbackDataWarning({required bool fromBackend, required String modelName}) {
@@ -238,7 +238,7 @@ ResultsSummary computeResultsSummary({
   // ── Energy scaling (surrogate response model) ────────────────────────────
   // The scaling below exists only so the *local illustrative simulation* — which
   // has no physics engine — produces plausible magnitudes. It must never touch
-  // genuine backend output: multiplying a real UMA profile by T/300 and shifting
+  // genuine backend output: multiplying a real MLIP profile by T/300 and shifting
   // it by charge/spin would silently falsify computed energies.
   final chargeShift = settings.charge * 4.5;
   final spinShift = (settings.spinMultiplicity - 1) * 8.0;

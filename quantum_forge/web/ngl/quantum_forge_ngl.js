@@ -165,6 +165,49 @@
     }
   }
 
+  /**
+   * Loads an MD simulation natively using remote URLs for topology (PDB) and trajectory (DCD).
+   */
+  async function loadRemoteMd(stage, pdbUrl, dcdUrl, options) {
+    requireNgl();
+    var settings = options || {};
+    try {
+      var loadParams = { defaultRepresentation: false };
+      var component = await stage.loadFile(pdbUrl, loadParams);
+
+      if (dcdUrl) {
+        await component.addTrajectory(dcdUrl);
+      }
+
+      if (settings.representation) {
+        addRepresentation(component, settings);
+      }
+      if (settings.autoView !== false) {
+        safeAutoView(stage);
+      }
+
+      var player = component.trajList && component.trajList[0] ? component.trajList[0] : null;
+
+      loadSeq += 1;
+      lastStage = stage;
+      lastComponent = component;
+      lastLoad = {
+        seq: loadSeq,
+        atoms: component.structure.atomCount,
+        bonds: component.structure.bondCount,
+        hasPlayer: !!player,
+        frameCount: player && player.trajectory ? player.trajectory.frameCount : null,
+        representation: settings.representation || null,
+        colorScheme: settings.colorScheme || null,
+      };
+      lastError = null;
+      return { component: component, summary: lastLoad };
+    } catch (error) {
+      lastError = describe(error);
+      throw error;
+    }
+  }
+
   /** Adds the requested representation, replacing anything already present. */
   function addRepresentation(component, settings) {
     var params = {
@@ -353,6 +396,7 @@
     version: (window.NGL && window.NGL.version) ? window.NGL.version : null,
 
     loadSdf: loadSdf,
+    loadRemoteMd: loadRemoteMd,
     registerAvogadroScheme: registerAvogadroScheme,
     setFrame: setFrame,
     setBondLabels: setBondLabels,

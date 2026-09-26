@@ -1,13 +1,16 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:quantum_forge/features/reaction_library/data/reaction_template_generator.dart';
-import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 
 class LibraryHeader extends StatelessWidget {
+  final int totalCount;
   final ValueChanged<String> onSearchChanged;
 
-  const LibraryHeader({super.key, required this.onSearchChanged});
+  const LibraryHeader({
+    super.key, 
+    required this.totalCount,
+    required this.onSearchChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +37,7 @@ class LibraryHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${allReactionTemplates.length} templates · '
-                  '${kReactionTemplates.length} curated from the literature, '
-                  '${allReactionTemplates.length - kReactionTemplates.length} systematic variants',
+                  '$totalCount systematic variants & templates derived from literature',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 14,

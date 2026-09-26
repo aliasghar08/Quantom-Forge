@@ -24,7 +24,7 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
   final StorageService _storage;
   final ReactionRepository _repo;
 
-  /// Returns the configured ColabReaction (DMF/UMA) backend URL, or an empty
+  /// Returns the configured ColabReaction (DMF) backend URL, or an empty
   /// string to use the local illustrative simulation.
   final String Function()? backendUrlProvider;
 
@@ -82,8 +82,8 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
           ? utf8.decode(productFile.bytes!, allowMalformed: true)
           : '';
 
-      // 1. A configured ColabReaction (DMF/UMA) backend takes precedence — it
-      //    runs the real Direct MaxFlux + UMA optimisation.
+      // 1. A configured ColabReaction (DMF) backend takes precedence — it
+      //    runs the real Direct MaxFlux + MLIP optimisation.
       if (await _dispatchToBackend(reactantXyz, productXyz, settings)) return;
 
       // Guests run in a local, in-memory session — no Firestore, no history.
@@ -152,7 +152,7 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
   ) async {
     _setLoading(true);
     try {
-      // A configured compute backend takes precedence (real DMF/UMA run).
+      // A configured compute backend takes precedence (real DMF run).
       if (await _dispatchToBackend(
           template.reactantXyz, template.productXyz, settings)) {
         return;
@@ -349,9 +349,9 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     });
   }
 
-  // --- ColabReaction (DMF/UMA) backend -------------------------------------
+  // --- ColabReaction (DMF) backend -------------------------------------
   /// Runs the reaction on the configured compute backend (the Direct MaxFlux +
-  /// UMA pipeline ported from ColabReaction v1.0.3).
+  /// MLIP pipeline ported from ColabReaction v1.0.3).
   ///
   /// Returns `true` when a backend is configured and handled the request, and
   /// `false` when none is set so the caller can fall back to local execution.
@@ -378,7 +378,7 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
         reactionId: '',
         state: ReactionState.pending,
         progress: 0.0,
-        message: 'Submitting to ${settings.mlipModel == 'tx1-fastapi' ? 'GNN (tx1)' : 'DMF/UMA'} compute node…',
+        message: 'Submitting to ${settings.mlipModel == 'tx1-fastapi' ? 'GNN (tx1)' : 'DMF'} compute node…',
       );
       notifyListeners();
 
@@ -424,17 +424,18 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
       );
       notifyListeners();
 
-      final result = await _backend.poll(url, reactionId);
-      _isLoading = false;
-      if (result.state == ReactionState.error) {
-        // The backend's own reason is the useful one; `message` is the generic
-        // "DMF/UMA optimisation failed." line.
-        _error = result.error ?? result.message ?? 'Backend optimisation failed.';
+      await for (final result in _backend.poll(url, reactionId)) {
+        if (result.state == ReactionState.error) {
+          // The backend's own reason is the useful one; `message` is the generic
+          // "DMF optimisation failed." line.
+          _error = result.error ?? result.message ?? 'Backend optimisation failed.';
+        }
+        value = result;
+        notifyListeners();
       }
-      value = result;
-      notifyListeners();
+      _isLoading = false;
     } catch (e) {
-      _setError('DMF/UMA backend error: $e');
+      _setError('DMF backend error: $e');
     }
     return true;
   }

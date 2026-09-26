@@ -30,7 +30,7 @@ class ReactionStatusCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (isRunning) ...[
+              if (isRunning && (progress == null || progress! <= 0)) ...[
                 const SizedBox(
                   width: 48,
                   height: 48,
@@ -40,10 +40,11 @@ class ReactionStatusCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-              ] else
+              ] else if (!isRunning) ...[
                 Icon(Icons.science_outlined,
                     size: 48, color: Colors.white.withValues(alpha: 0.2)),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
               Text(
                 message,
                 style: TextStyle(
@@ -52,23 +53,43 @@ class ReactionStatusCard extends StatelessWidget {
               ),
               if (progress != null && progress! > 0) ...[
                 const SizedBox(height: 24),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 6,
-                    backgroundColor: Colors.white12,
-                    valueColor:
-                        const AlwaysStoppedAnimation(Color(0xFF4FC3F7)),
+                SizedBox(
+                  width: 280,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Progress',
+                            style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500),
+                          ),
+                          Text(
+                            '${(progress! * 100).toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                                color: Color(0xFF4FC3F7),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 6,
+                          backgroundColor: Colors.white12,
+                          valueColor:
+                              const AlwaysStoppedAnimation(Color(0xFF4FC3F7)),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${(progress! * 100).toStringAsFixed(0)}%',
-                  style: const TextStyle(
-                      color: Color(0xFF4FC3F7),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13),
                 ),
               ],
             ],

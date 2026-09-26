@@ -24,9 +24,12 @@ import 'package:quantum_forge/core/services/auth_service.dart';
 import 'package:quantum_forge/features/reaction_library/data/firestore_library_repository.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/core/services/session_state_service.dart';
+import 'package:quantum_forge/core/services/feedback_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Hook automatic crash capture BEFORE runApp so no errors are missed.
+  FeedbackService.instance.initialize();
 
   final authService = FirebaseAuthService();
   final storageService = LocalStorageService();
@@ -42,7 +45,7 @@ void main() {
   // were never registered, so nothing in the UI could read or write them.
   final appSettingsNotifier = AppSettingsNotifier();
 
-  // The reaction notifier reads the configured ColabReaction (DMF/UMA) backend
+  // The reaction notifier reads the configured ColabReaction (DMF/MLIP) backend
   // lazily, so the setting can change at runtime without rebuilding the app.
   final reactionNotifier = ReactionNotifier(
     authService,

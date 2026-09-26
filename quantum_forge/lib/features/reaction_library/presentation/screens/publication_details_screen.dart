@@ -11,6 +11,7 @@ import 'package:quantum_forge/core/services/backend_compute_service.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/core/utils/avogadro_element_data.dart';
 import 'package:quantum_forge/state/settings_provider.dart';
+import 'package:quantum_forge/core/theme/theme_provider.dart';
 
 
 class PublicationDetailsScreen extends StatefulWidget {
@@ -31,6 +32,9 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
   double? _productEnergy;
   bool _isLoadingEnergies = true;
 
+  final ScrollController _scrollCtrl = ScrollController();
+  bool _showFab = false;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +42,16 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
       _fetchCrossrefData();
       _fetchEnergies();
     });
+    _scrollCtrl.addListener(() {
+      final show = _scrollCtrl.offset > 200;
+      if (show != _showFab) setState(() => _showFab = show);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchCrossrefData() async {
@@ -126,38 +140,53 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ThemeNotifier.paletteOf(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF0F2027),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1B2A),
-        title: Text('Publication Details: ${widget.template.name}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-        iconTheme: const IconThemeData(color: Colors.white),
+      backgroundColor: palette.scaffold,
+      floatingActionButton: AnimatedScale(
+        scale: _showFab ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutBack,
+        child: FloatingActionButton.small(
+          heroTag: 'pub_scroll_top',
+          backgroundColor: palette.accent,
+          foregroundColor: Colors.black87,
+          onPressed: () => _scrollCtrl.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut),
+          child: const Icon(Icons.keyboard_arrow_up),
+        ),
       ),
-      body: _buildBody(),
+      appBar: AppBar(
+        backgroundColor: palette.scaffold,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          'Publication Details',
+          style: TextStyle(color: palette.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        iconTheme: IconThemeData(color: palette.textSecondary),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: palette.border),
+        ),
+      ),
+      body: _buildBody(palette),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(QuantumTheme palette) {
     if (_isLoadingCrossref) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: Color(0xFF4FC3F7)),
-            SizedBox(height: 16),
-            Text('Fetching publication metadata from CrossRef...', style: TextStyle(color: Colors.white70)),
+            CircularProgressIndicator(color: palette.accent),
+            const SizedBox(height: 16),
+            Text('Fetching publication metadata from CrossRef…', style: TextStyle(color: palette.textSecondary)),
           ],
         ),
       );
     }
 
-    if (_crossrefError != null && _crossrefData == null) {
-      // Do not bail out entirely: render the locally-known reference data with
-      // a warning banner instead of a dead-end error screen.
-    }
-
-    // Parse Data — every field falls back to the bundled template metadata, so
-    // the page stays useful even when CrossRef is unreachable or has no entry.
+    // Parse Data — every field falls back to the bundled template metadata.
     final titleList = _crossrefData?['title'] as List<dynamic>?;
     final rawTitle = (titleList != null && titleList.isNotEmpty) ? titleList[0].toString() : widget.template.name;
     final title = rawTitle.replaceAll(RegExp(r'<[^>]*>'), '').trim();
@@ -166,9 +195,8 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
         'Publication metadata could not be fetched from CrossRef'
             '${_crossrefError != null ? ' ($_crossrefError)' : ''}.\n'
             'The details shown are from the bundled reaction library.';
-    // Clean basic abstract XML/HTML tags if present (e.g. <jats:p>)
     final abstractText = abstractHtml.replaceAll(RegExp(r'<[^>]*>'), '').trim();
-    
+
     final authorsList = _crossrefData?['author'] as List<dynamic>?;
     String authors = 'Unknown Authors';
     if (authorsList != null && authorsList.isNotEmpty) {
@@ -181,38 +209,41 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     }
 
     final publisher = _crossrefData?['publisher']?.toString() ?? 'Unknown Publisher';
-    
+
     final containerTitleList = _crossrefData?['container-title'] as List<dynamic>?;
-    final containerTitle = (containerTitleList != null && containerTitleList.isNotEmpty) 
-        ? containerTitleList[0].toString() 
+    final containerTitle = (containerTitleList != null && containerTitleList.isNotEmpty)
+        ? containerTitleList[0].toString()
         : widget.template.journalRef;
-    
+
     final datePartsList = _crossrefData?['created']?['date-parts'] as List<dynamic>?;
     final createdDate = (datePartsList != null && datePartsList.isNotEmpty) ? datePartsList[0] as List<dynamic>? : null;
     final year = (createdDate != null && createdDate.isNotEmpty) ? createdDate[0].toString() : 'Unknown Year';
 
+    final hPad = MediaQuery.of(context).size.width < 480 ? 16.0 : 24.0;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      controller: _scrollCtrl,
+      padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 80),
       child: AnimationLimiter(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: AnimationConfiguration.toStaggeredList(
-            duration: const Duration(milliseconds: 600),
+            duration: const Duration(milliseconds: 500),
             childAnimationBuilder: (widget) => SlideAnimation(
-              verticalOffset: 50.0,
+              verticalOffset: 40.0,
               child: FadeInAnimation(child: widget),
             ),
             children: [
               if (_crossrefError != null)
                 _buildWarningBanner(_crossrefError!),
               if (_crossrefError != null) const SizedBox(height: 16),
-              _buildHeaderCard(title, authors, containerTitle, publisher, year),
-              const SizedBox(height: 24),
-              _buildAbstractCard(abstractText),
-              const SizedBox(height: 24),
-              _buildEnergiesCard(),
-              const SizedBox(height: 24),
-              _buildExternalLinksCard(title),
+              _buildHeaderCard(title, authors, containerTitle, publisher, year, palette),
+              const SizedBox(height: 20),
+              _buildAbstractCard(abstractText, palette),
+              const SizedBox(height: 20),
+              _buildEnergiesCard(palette),
+              const SizedBox(height: 20),
+              _buildExternalLinksCard(title, palette),
             ],
           ),
         ),
@@ -243,14 +274,17 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     );
   }
 
-  Widget _buildHeaderCard(String title, String authors, String journal, String publisher, String year) {
+  Widget _buildHeaderCard(String title, String authors, String journal, String publisher, String year, QuantumTheme palette) {
     return GlassCard(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -258,24 +292,23 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
                     color: const Color(0xFF4FC3F7).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text('DOI: ${widget.template.doi}', style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: Text('DOI: ${widget.template.doi}', style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
-                const Spacer(),
-                Text(year, style: const TextStyle(color: Colors.white54, fontSize: 14)),
+                Text(year, style: const TextStyle(color: Colors.white54, fontSize: 13)),
               ],
             ),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            Text(authors, style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.5)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            Text(title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, height: 1.3)),
+            const SizedBox(height: 12),
+            Text(authors, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5)),
+            const SizedBox(height: 12),
             const Divider(color: Colors.white10),
             const SizedBox(height: 8),
             Row(
               children: [
                 const Icon(Icons.book, color: Colors.white54, size: 16),
                 const SizedBox(width: 8),
-                Expanded(child: Text('$journal • $publisher', style: const TextStyle(color: Colors.white54, fontSize: 14))),
+                Expanded(child: Text('$journal • $publisher', style: const TextStyle(color: Colors.white54, fontSize: 13))),
               ],
             ),
           ],
@@ -284,7 +317,7 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     );
   }
 
-  Widget _buildAbstractCard(String abstractText) {
+  Widget _buildAbstractCard(String abstractText, QuantumTheme palette) {
     return GlassCard(
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -292,12 +325,12 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
           initiallyExpanded: true,
           iconColor: const Color(0xFF4FC3F7),
           collapsedIconColor: Colors.white54,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          title: const Text('Abstract', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          title: const Text('Abstract', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: Text(abstractText, style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.6)),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Text(abstractText, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.6)),
             ),
           ],
         ),
@@ -305,26 +338,26 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     );
   }
 
-  Widget _buildEnergiesCard() {
+  Widget _buildEnergiesCard(QuantumTheme palette) {
     return GlassCard(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Transition1x GNN Predictions', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Transition1x GNN Predictions', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             if (_isLoadingEnergies)
               const Center(child: CircularProgressIndicator(color: Color(0xFF4FC3F7)))
             else if (_reactantEnergy == null && _productEnergy == null)
-              const Text('Energy predictions unavailable. Ensure tx1-fastapi-backend is running.', style: TextStyle(color: Colors.white54, fontSize: 14))
+              const Text('Energy predictions unavailable. Ensure tx1-fastapi-backend is running.', style: TextStyle(color: Colors.white54, fontSize: 13))
             else
               Row(
                 children: [
                   Expanded(
                     child: _buildEnergyBox('Reactant Energy', _reactantEnergy),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: _buildEnergyBox('Product Energy', _productEnergy),
                   ),
@@ -358,7 +391,7 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     );
   }
 
-  Widget _buildExternalLinksCard(String title) {
+  Widget _buildExternalLinksCard(String title, QuantumTheme palette) {
     final cleanDoi = widget.template.doi.trim();
     // A DOI might exist on doi.org even if CrossRef returns 404. 
     // We should always let the user tap it if a DOI string is provided.
@@ -369,11 +402,11 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
 
     return GlassCard(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('External References', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('External References', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             _buildLinkButton(
               icon: Icons.language,

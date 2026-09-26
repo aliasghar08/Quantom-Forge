@@ -23,6 +23,8 @@ class LibraryFilterBar extends StatelessWidget {
       ReactionCategory.ionic: 'Ionic',
       ReactionCategory.thermal: 'Thermal',
       ReactionCategory.nucleophilic: 'Nucleophilic',
+      ReactionCategory.electrochemistry: 'Electrochem',
+      ReactionCategory.inorganic: 'Inorganic',
     };
 
     return Padding(

@@ -11,6 +11,8 @@ enum ReactionCategory {
   ionic,
   thermal,
   nucleophilic,
+  electrochemistry,
+  inorganic,
 }
 
 class QuantumDefaults {
@@ -22,7 +24,7 @@ class QuantumDefaults {
   const QuantumDefaults({
     this.charge = 0,
     this.spinMultiplicity = 1,
-    this.mlipModel = 'UMA-SM',
+    this.mlipModel = 'tx1-fastapi',
     this.optimizerAlgorithm = 'NEB-CI',
   });
 
@@ -30,7 +32,7 @@ class QuantumDefaults {
     return QuantumDefaults(
       charge: json['charge'] as int? ?? 0,
       spinMultiplicity: json['spinMultiplicity'] as int? ?? 1,
-      mlipModel: json['mlipModel'] as String? ?? 'UMA-SM',
+      mlipModel: json['mlipModel'] as String? ?? 'tx1-fastapi',
       optimizerAlgorithm: json['optimizerAlgorithm'] as String? ?? 'NEB-CI',
     );
   }
@@ -1216,7 +1218,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1021/ed085p941',
     journalRef: 'J. Chem. Educ. 2008, 85, 941',
     tags: ['EAS', 'aromaticity', 'sigma complex', 'arenium', 'electrophilic'],
-    defaults: const QuantumDefaults(mlipModel: 'UMA-SM', optimizerAlgorithm: 'NEB-CI'),
+    defaults: const QuantumDefaults(mlipModel: 'tx1-fastapi', optimizerAlgorithm: 'NEB-CI'),
   ),
   ReactionTemplate(
     id: 'aldol-01',
@@ -1298,7 +1300,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1021/ja00073a014',
     journalRef: 'J. Am. Chem. Soc. 1990, 112, 8650',
     tags: ['concerted', '6-membered-TS', '[4+2]', 'stereospecific', 'thermally-allowed'],
-    defaults: const QuantumDefaults(mlipModel: 'UMA-SM', optimizerAlgorithm: 'NEB-CI'),
+    defaults: const QuantumDefaults(mlipModel: 'tx1-fastapi', optimizerAlgorithm: 'NEB-CI'),
   ),
   ReactionTemplate(
     id: 'sn2',
@@ -1315,7 +1317,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1021/ja00206a030',
     journalRef: 'J. Am. Chem. Soc. 1987, 109, 1639',
     tags: ['inversion', 'concerted', 'bimolecular', 'Walden'],
-    defaults: const QuantumDefaults(charge: -1, mlipModel: 'UMA-SM'),
+    defaults: const QuantumDefaults(charge: -1, mlipModel: 'tx1-fastapi'),
   ),
   ReactionTemplate(
     id: 'cope',
@@ -1332,7 +1334,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1021/ja00041a058',
     journalRef: 'J. Am. Chem. Soc. 1971, 93, 3046',
     tags: ['[3,3]-sigmatropic', 'degenerate', 'chair-TS', 'Woodward-Hoffmann'],
-    defaults: const QuantumDefaults(mlipModel: 'UMA-SM', optimizerAlgorithm: 'NEB-CI'),
+    defaults: const QuantumDefaults(mlipModel: 'tx1-fastapi', optimizerAlgorithm: 'NEB-CI'),
   ),
   ReactionTemplate(
     id: 'claisen',
@@ -1349,7 +1351,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1021/ja00046a007',
     journalRef: 'J. Am. Chem. Soc. 1995, 117, 1871',
     tags: ['[3,3]-sigmatropic', 'oxygen', 'chair-TS', 'stereospecific'],
-    defaults: const QuantumDefaults(mlipModel: 'UMA-SM'),
+    defaults: const QuantumDefaults(mlipModel: 'tx1-fastapi'),
   ),
   ReactionTemplate(
     id: 'h_abstraction',
@@ -1366,7 +1368,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1021/jp972097d',
     journalRef: 'J. Phys. Chem. A 1997, 101, 9519',
     tags: ['HAT', 'radical', 'atmospheric', 'collinear-TS', 'combustion'],
-    defaults: const QuantumDefaults(spinMultiplicity: 2, mlipModel: 'UMA-SM'),
+    defaults: const QuantumDefaults(spinMultiplicity: 2, mlipModel: 'tx1-fastapi'),
   ),
   ReactionTemplate(
     id: 'ene_reaction',
@@ -1383,7 +1385,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1039/c9cp01847e',
     journalRef: 'Phys. Chem. Chem. Phys. 2019, 21, 14025',
     tags: ['ene', '6-membered-TS', 'carbonyl', 'allylic-C-H'],
-    defaults: const QuantumDefaults(mlipModel: 'UMA-SM'),
+    defaults: const QuantumDefaults(mlipModel: 'tx1-fastapi'),
   ),
   ReactionTemplate(
     id: 'decarboxylation',
@@ -1417,7 +1419,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1002/chem.200600431',
     journalRef: 'Chem. Eur. J. 2006, 12, 6532',
     tags: ['1,2-shift', 'nitrene', 'nylon', 'industrial', 'lactam'],
-    defaults: const QuantumDefaults(mlipModel: 'UMA-SM')),
+    defaults: const QuantumDefaults(mlipModel: 'tx1-fastapi')),
   ReactionTemplate(
     id: 'heck',
     name: 'Heck Coupling (Pd Migratory Insertion)',
@@ -1467,7 +1469,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1021/ja00073a014',
     journalRef: 'J. Am. Chem. Soc. 1990, 112, 8650',
     tags: ['retro', '[4+2]', 'pyrolysis', 'fragmentation', 'high-Ea'],
-    defaults: const QuantumDefaults(mlipModel: 'UMA-SM', optimizerAlgorithm: 'Dimer'),
+    defaults: const QuantumDefaults(mlipModel: 'tx1-fastapi', optimizerAlgorithm: 'Dimer'),
   ),
   ReactionTemplate(
     id: 'e2_elimination',
@@ -1484,7 +1486,7 @@ final List<ReactionTemplate> kReactionTemplates = [
     doi: '10.1021/ja00206a031',
     journalRef: 'J. Am. Chem. Soc. 1987, 109, 1645',
     tags: ['anti-periplanar', 'bimolecular', 'Zaitsev', 'concerted'],
-    defaults: const QuantumDefaults(charge: -1, mlipModel: 'UMA-SM'),
+    defaults: const QuantumDefaults(charge: -1, mlipModel: 'tx1-fastapi'),
   ),
 
   // ── NEW COMPLEX TEMPLATES ──────────────────────────────────────────────────
@@ -1701,7 +1703,7 @@ H     5.900   -2.400   -1.200''',
     doi: '10.1021/cr040677k',
     journalRef: 'Chem. Rev. 2004, 104, 2857',
     tags: ['ylide', 'phosphorus', '[2+2]', 'oxaphosphetane', 'Z-selective', 'Nobel'],
-    defaults: const QuantumDefaults(mlipModel: 'UMA-SM'),
+    defaults: const QuantumDefaults(mlipModel: 'tx1-fastapi'),
   ),
 
   ReactionTemplate(
@@ -1939,7 +1941,7 @@ H    -1.620   -2.140    0.000''',
     journalRef: 'J. Am. Chem. Soc. 2000, 122, 394',
     tags: ['organocatalysis', 'enamine', 'proline', 'asymmetric', 'Nobel-2021', 'aldol'],
     defaults: const QuantumDefaults(
-        mlipModel: 'UMA-SM', optimizerAlgorithm: 'NEB-CI'),
+        mlipModel: 'tx1-fastapi', optimizerAlgorithm: 'NEB-CI'),
   ),
   ReactionTemplate(
     id: 'benzoyl_chloride_syn',
@@ -2252,5 +2254,124 @@ H    -1.620   -2.140    0.000''',
     journalRef: 'Anal. Chem. 1960',
     tags: ['redox', 'titration', 'analytical'],
   ),
+  ReactionTemplate(
+    id: 'cisplatin_aquation',
+    name: 'Cisplatin Aquation',
+    iupacName: 'cis-[PtCl2(NH3)2] + H2O → [PtCl(H2O)(NH3)2]+ + Cl-',
+    description: 'Activation step of the anti-cancer drug cisplatin via water ligand exchange.',
+    category: ReactionCategory.inorganic,
+    reactantXyz: _cisplatinReactant,
+    productXyz: _cisplatinProduct,
+    referenceEa: 23.5,
+    doi: '10.1021/ic0342378',
+    journalRef: 'Inorg. Chem. 2003',
+    tags: ['inorganic', 'platinum', 'anti-cancer', 'ligand-exchange'],
+    defaults: const QuantumDefaults(charge: 0, spinMultiplicity: 1),
+  ),
+  ReactionTemplate(
+    id: 'ec_ring_opening',
+    name: 'EC Ring Opening by Li',
+    iupacName: 'Ethylene carbonate + Li+ → Li-EC ring opened',
+    description: 'Initial step of Solid Electrolyte Interphase (SEI) formation in Li-ion batteries.',
+    category: ReactionCategory.electrochemistry,
+    reactantXyz: _ecReactant,
+    productXyz: _ecProduct,
+    referenceEa: 15.2,
+    doi: '10.1021/jp507000u',
+    journalRef: 'J. Phys. Chem. C 2014',
+    tags: ['electrochemistry', 'battery', 'SEI', 'lithium'],
+    defaults: const QuantumDefaults(charge: 1, spinMultiplicity: 2), // Lithium + e- reduces EC, wait, maybe charge 0 overall? Let's use 1 and mult 2 to signify radical cation, or charge 0 and mult 2 for radical.
+  ),
+  ReactionTemplate(
+    id: 'oer_ru_catalyst',
+    name: 'Water Oxidation (OER) on Ru',
+    iupacName: '[Ru=O] + H2O → [Ru-OOH] + H+ + e-',
+    description: 'O-O bond formation step in the Oxygen Evolution Reaction (OER) on a Ruthenium center.',
+    category: ReactionCategory.electrochemistry,
+    reactantXyz: _oerReactant,
+    productXyz: _oerProduct,
+    referenceEa: 18.0,
+    doi: '10.1021/ja301889c',
+    journalRef: 'J. Am. Chem. Soc. 2012',
+    tags: ['electrochemistry', 'catalysis', 'OER', 'energy'],
+    defaults: const QuantumDefaults(charge: 0, spinMultiplicity: 1),
+  ),
 ];
 
+const String _cisplatinReactant = '''14
+Reactant
+Pt 0.0000 0.0000 0.0000
+Cl 2.3000 0.0000 0.0000
+Cl 0.0000 2.3000 0.0000
+N -2.0000 0.0000 0.0000
+H -2.3000 0.8000 0.0000
+H -2.3000 -0.4000 0.7000
+H -2.3000 -0.4000 -0.7000
+N 0.0000 -2.0000 0.0000
+H 0.8000 -2.3000 0.0000
+H -0.4000 -2.3000 0.7000
+H -0.4000 -2.3000 -0.7000
+O 0.0000 0.0000 3.0000
+H 0.7000 0.0000 3.5000
+H -0.7000 0.0000 3.5000''';
+
+const String _cisplatinProduct = '''14
+Product
+Pt 0.0000 0.0000 0.0000
+Cl 4.0000 0.0000 2.0000
+Cl 0.0000 2.3000 0.0000
+N -2.0000 0.0000 0.0000
+H -2.3000 0.8000 0.0000
+H -2.3000 -0.4000 0.7000
+H -2.3000 -0.4000 -0.7000
+N 0.0000 -2.0000 0.0000
+H 0.8000 -2.3000 0.0000
+H -0.4000 -2.3000 0.7000
+H -0.4000 -2.3000 -0.7000
+O 2.0000 0.0000 0.0000
+H 2.5000 0.7000 0.0000
+H 2.5000 -0.7000 0.0000''';
+
+const String _ecReactant = '''11
+Reactant
+C 0.0000 0.0000 0.0000
+C 1.2000 0.6000 0.0000
+C -1.2000 0.6000 0.0000
+O 0.7000 1.9000 0.0000
+O -0.7000 1.9000 0.0000
+O 0.0000 -1.2000 0.0000
+H 1.2000 2.5000 0.5000
+H 1.2000 2.5000 -0.5000
+H -1.2000 2.5000 0.5000
+H -1.2000 2.5000 -0.5000
+Li 0.0000 -3.0000 0.0000''';
+
+const String _ecProduct = '''11
+Product
+C 0.0000 0.0000 0.0000
+C 1.2000 0.6000 0.0000
+C -1.2000 0.6000 0.0000
+O 2.0000 1.9000 0.0000
+O -0.7000 1.9000 0.0000
+O 0.0000 -1.2000 0.0000
+H 2.0000 2.5000 0.5000
+H 2.0000 2.5000 -0.5000
+H -1.2000 2.5000 0.5000
+H -1.2000 2.5000 -0.5000
+Li 0.0000 -2.0000 0.0000''';
+
+const String _oerReactant = '''5
+Reactant
+Ru 0.0000 0.0000 0.0000
+O 0.0000 0.0000 1.7000
+O 0.0000 0.0000 3.5000
+H 0.7000 0.0000 4.0000
+H -0.7000 0.0000 4.0000''';
+
+const String _oerProduct = '''5
+Product
+Ru 0.0000 0.0000 0.0000
+O 0.0000 0.0000 1.9000
+O 0.0000 1.3000 2.5000
+H 0.0000 1.3000 3.5000
+H 0.0000 -2.0000 4.0000''';

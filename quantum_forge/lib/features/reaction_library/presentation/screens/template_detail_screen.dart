@@ -60,7 +60,7 @@ class TemplateDetailScreen extends StatelessWidget {
                     // in a single step and read as far too fast. Interpolating gives
                     // the motion something to show.
                     //
-                    // Still only a preview: the real path comes from DMF/UMA, and the
+                    // Still only a preview: the real path comes from DMF/MLIP, and the
                     // home-screen animation is where that is displayed.
                     trajectoryFrames: _previewTrajectory(template),
                     energyProfile: _generateSyntheticProfile(template.referenceEa),
@@ -219,6 +219,8 @@ class TemplateDetailScreen extends StatelessWidget {
       ReactionCategory.ionic         => const Color(0xFF26A69A),
       ReactionCategory.thermal       => const Color(0xFFFFCA28),
       ReactionCategory.nucleophilic  => const Color(0xFF66BB6A),
+      ReactionCategory.electrochemistry => const Color(0xFFE040FB),
+      ReactionCategory.inorganic     => const Color(0xFF8D6E63),
     };
   }
 
@@ -230,6 +232,8 @@ class TemplateDetailScreen extends StatelessWidget {
       ReactionCategory.ionic         => 'Ionic',
       ReactionCategory.thermal       => 'Thermal',
       ReactionCategory.nucleophilic  => 'Nucleophilic',
+      ReactionCategory.electrochemistry => 'Electrochemistry',
+      ReactionCategory.inorganic     => 'Inorganic',
     };
   }
 
@@ -252,7 +256,7 @@ class TemplateDetailScreen extends StatelessWidget {
   /// A smooth preview path — linear interpolation between the reactant and product
   /// coordinates, which is all the template data supports.
   ///
-  /// Not a computed reaction path: DMF/UMA produces the real one. This exists so
+  /// Not a computed reaction path: DMF/MLIP produces the real one. This exists so
   /// the preview reads as motion instead of a single jump.
   List<String> _previewTrajectory(ReactionTemplate template) {
     final reactant = XyzParser.parse(template.reactantXyz);

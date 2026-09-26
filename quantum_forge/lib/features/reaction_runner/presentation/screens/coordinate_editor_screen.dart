@@ -34,6 +34,7 @@ import 'package:quantum_forge/core/utils/avogadro_interchange.dart';
 import 'package:quantum_forge/core/utils/element_data.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/interactive_builder_widget.dart';
+import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
 
 class CoordinateEditorScreen extends StatefulWidget {
   const CoordinateEditorScreen({super.key, this.initialStructure});
@@ -358,12 +359,52 @@ H  0.00000 -0.75545 -0.47116''';
       
       service.pollHybridMdStream(backendUrl, jobId).listen((status) {
         if (!mounted) return;
-        _snack('Hybrid MD [$jobId]: ${status.state}');
         
         if (status.state == 'SUCCESS' && status.trajectoryDir != null) {
-          _snack('Success! Trajectories saved to: ${status.trajectoryDir}', isError: false);
+          _snack('Success! Playing trajectory...', isError: false);
+          
+          final pdbUrl = '$backendUrl/simulate/download/$jobId/input.pdb';
+          final dcdUrl = '$backendUrl/simulate/download/$jobId/trajectory.dcd';
+          final frameCount = status.frameCount ?? 10000;
+          
+          showDialog(
+            context: context,
+            builder: (ctx) => Dialog(
+              backgroundColor: const Color(0xFF0A1519),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: SizedBox(
+                width: 800,
+                height: 600,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Hybrid MD Simulation', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.of(ctx).pop()),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ReactionAnimationWidget(
+                        trajectoryFrames: const [],
+                        pdbUrl: pdbUrl,
+                        dcdUrl: dcdUrl,
+                        mdFrameCount: frameCount,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+          
         } else if (status.state == 'FAILURE') {
           _snack('MD simulation failed. Check Colab logs.', isError: true);
+        } else {
+          _snack('Hybrid MD [$jobId]: ${status.state}');
         }
       });
       

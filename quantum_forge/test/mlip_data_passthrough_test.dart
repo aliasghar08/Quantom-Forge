@@ -1,5 +1,5 @@
 // ============================================================================
-// UMA data pass-through tests
+// MLIP data pass-through tests
 // ----------------------------------------------------------------------------
 // The backend has always returned `energy_profile_ev` and `max_energy_index`, and
 // both were silently discarded by the app. These tests pin the full payload —
@@ -17,7 +17,7 @@ const Map<String, dynamic> _liveResponse = {
   'reaction_id': '3a3b87ba-c6c6-4cf4-af20-65a391a92966',
   'state': 'completed',
   'progress': 1.0,
-  'message': 'DMF/UMA optimisation converged.',
+  'message': 'DMF/MLIP optimisation converged.',
   'energy_profile': [0.0, 4.428865490335738, 4.428873191813182],
   'energy_profile_ev': [-1538.8092588, -1538.6172046, -1538.6172042],
   'trajectory_frames': [
@@ -34,7 +34,7 @@ const Map<String, dynamic> _liveResponse = {
 };
 
 void main() {
-  test('parses every field the UMA backend returns', () {
+  test('parses every field the MLIP backend returns', () {
     final status = ReactionStatusResponse.fromJson(_liveResponse);
 
     expect(status.reactionId, isNotEmpty);
@@ -63,7 +63,7 @@ void main() {
       'reaction_id': 'failed-run',
       'state': 'error',
       'progress': 1.0,
-      'message': 'DMF/UMA optimisation failed.',
+      'message': 'DMF/MLIP optimisation failed.',
       'error': 'ase.io.extxyz: Frame has 1 atoms, expected 2',
       'energy_profile': null,
       'energy_profile_ev': null,
@@ -73,7 +73,7 @@ void main() {
     });
 
     expect(status.state, ReactionState.error);
-    expect(status.message, 'DMF/UMA optimisation failed.');
+    expect(status.message, 'DMF/MLIP optimisation failed.');
     // Previously merged into `message`, so the generic line shadowed this.
     expect(status.error, 'ase.io.extxyz: Frame has 1 atoms, expected 2');
   });
@@ -104,7 +104,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     // Frame 0 absolute energy, straight from the model, formatted at 4 dp.
-    expect(find.text('UMA E: '), findsOneWidget);
+    expect(find.text('MLIP E: '), findsOneWidget);
     expect(find.text('-1538.8093 eV'), findsOneWidget);
 
     // The relative energy for the same frame is also shown.

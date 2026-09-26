@@ -261,10 +261,14 @@ class NglEngine {
     final queued = _queuedLoad;
     _queuedLoad = null;
     if (queued != null) {
-      if (queued.asTrajectory) {
-        loadTrajectory(queued.sdf, queued.style, resetView: queued.resetView);
-      } else {
-        loadFrame(queued.sdf, queued.style);
+      if (queued.sdf != null) {
+        if (queued.asTrajectory) {
+          loadTrajectory(queued.sdf!, queued.style, resetView: queued.resetView);
+        } else {
+          loadFrame(queued.sdf!, queued.style);
+        }
+      } else if (queued.pdbUrl != null && queued.dcdUrl != null) {
+        loadRemoteMd(queued.pdbUrl!, queued.dcdUrl!, queued.style, resetView: queued.resetView);
       }
     }
 
@@ -467,6 +471,17 @@ class NglEngine {
         _PendingLoad(sdf, style, asTrajectory: true, resetView: resetView),
       );
 
+  /// Loads an MD trajectory from a remote PDB topology and DCD trajectory file natively.
+  Future<void> loadRemoteMd(
+    String pdbUrl,
+    String dcdUrl,
+    NglStyle style, {
+    bool resetView = true,
+  }) =>
+      _enqueueLoad(
+        _PendingLoad.md(pdbUrl, dcdUrl, style, resetView: resetView),
+      );
+
   /// Loads a single-model SDF, replacing the previous structure.
   ///
   /// Used when the bond set changes per frame (Avogadro's "Dynamic bonding?"),
@@ -520,12 +535,7 @@ class NglEngine {
     }
 
     final previous = _component;
-    final result = await _load(
-      request.sdf,
-      request.style,
-      asTrajectory: request.asTrajectory,
-      autoView: request.resetView,
-    );
+    final result = await _load(request);
     if (result == null || _disposed) return;
 
     _component = result;
@@ -534,24 +544,24 @@ class NglEngine {
     }
   }
 
-  Future<JSObject?> _load(
-    String sdf,
-    NglStyle style, {
-    required bool asTrajectory,
-    required bool autoView,
-  }) async {
+  Future<JSObject?> _load(_PendingLoad request) async {
     final stage = _stage;
     final glue = _glue;
     if (stage == null || glue == null) return null;
 
     try {
       final options = _optionsFor(
-        style,
-        asTrajectory: asTrajectory,
-        autoView: autoView,
+        request.style,
+        asTrajectory: request.asTrajectory,
+        autoView: request.resetView,
       );
-      final promise = glue.callMethod('loadSdf'.toJS, stage, sdf.toJS, options)
-          as JSPromise;
+      
+      final JSPromise promise;
+      if (request.sdf != null) {
+        promise = glue.callMethod('loadSdf'.toJS, stage, request.sdf!.toJS, options) as JSPromise;
+      } else {
+        promise = glue.callMethod('loadRemoteMd'.toJS, stage, request.pdbUrl!.toJS, request.dcdUrl!.toJS, options) as JSPromise;
+      }
       final result = await promise.toDart;
       final summary = (result as JSObject).getProperty('component'.toJS);
       return summary as JSObject?;
@@ -850,9 +860,18 @@ class _PendingLoad {
     this.style, {
     required this.asTrajectory,
     required this.resetView,
-  });
+  }) : pdbUrl = null, dcdUrl = null;
 
-  final String sdf;
+  const _PendingLoad.md(
+    this.pdbUrl,
+    this.dcdUrl,
+    this.style, {
+    required this.resetView,
+  }) : sdf = null, asTrajectory = true;
+
+  final String? sdf;
+  final String? pdbUrl;
+  final String? dcdUrl;
   final NglStyle style;
   final bool asTrajectory;
   final bool resetView;

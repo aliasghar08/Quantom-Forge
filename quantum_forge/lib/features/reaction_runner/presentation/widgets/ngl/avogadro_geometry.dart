@@ -338,7 +338,7 @@ class ReactionFrameGeometry {
     // Two half-cylinders per bond; nothing at all for van der Waals.
     //
     // Bonds are filtered against the atom count first. A trajectory whose images
-    // disagree on atom count is not hypothetical — the UMA backend has failed
+    // disagree on atom count is not hypothetical — the MLIP backend has failed
     // with "ase.io.extxyz: Frame has 1 atoms, expected 2" — and an index that
     // only exists in another frame must not take the viewer down mid-animation.
     final drawBonds = displayType.drawsBonds;

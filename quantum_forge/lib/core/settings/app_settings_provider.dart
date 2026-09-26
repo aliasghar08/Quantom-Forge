@@ -11,15 +11,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:quantum_forge/core/services/app_storage.dart';
 
-/// Default ColabReaction (DMF/UMA) compute backend.
+/// Default ColabReaction (DMF/MLIP) compute backend.
 ///
 /// The deployed Hugging Face Space that hosts the FastAPI service in
 /// `backend/app/main.py`. Pre-filling it means a fresh install talks to the real
-/// DMF/UMA pipeline out of the box; clear the field in Settings to fall back to
+/// DMF/MLIP pipeline out of the box; clear the field in Settings to fall back to
 /// the local illustrative simulation, or point it at `http://127.0.0.1:7860`
 /// while running the backend locally.
 const String kDefaultComputeBackendUrl =
-    'https://aliasgharinnocent-uma-backend.hf.space';
+    'https://aliasgharinnocent-tx1-backend.hf.space';
 
 /// Default Transition1x GNN compute backend.
 ///
@@ -139,7 +139,7 @@ class AppSettings {
   final bool cleanUrlAfterImport;
   final bool autoImportDeepLink;
 
-  /// ColabReaction (DMF/UMA) compute backend base URL. Defaults to
+  /// ColabReaction (DMF/MLIP) compute backend base URL. Defaults to
   /// [kDefaultComputeBackendUrl]; when empty the app runs its local
   /// illustrative simulation rather than dispatching to
   /// `<backendUrl>/reactions/submit`.
@@ -491,7 +491,7 @@ class AppSettingsNotifier extends ChangeNotifier {
   void setAutoImportDeepLink(bool value) =>
       updateSettings((s) => s.copyWith(autoImportDeepLink: value));
 
-  /// Sets the ColabReaction (DMF/UMA) compute backend base URL.
+  /// Sets the ColabReaction (DMF/MLIP) compute backend base URL.
   void setBackendUrl(String value) =>
       updateSettings((s) => s.copyWith(backendUrl: value.trim()));
 

@@ -1,11 +1,11 @@
 // ============================================================================
-// Hybrid UMA → DFT workflow card
+// Hybrid MLIP → DFT workflow card
 // ----------------------------------------------------------------------------
-// UMA screens; DFT refines. The DFT itself runs externally (ORCA/Gaussian on a
+// MLIP screens; DFT refines. The DFT itself runs externally (ORCA/Gaussian on a
 // cluster), so this card covers the handoff and the comparison:
-//   * export the transition state as <reaction_id>_uma_ts.xyz
+//   * export the transition state as <reaction_id>_mlip_ts.xyz
 //   * attach DFT results (any number of levels of theory)
-//   * compare UMA vs DFT barriers side by side
+//   * compare MLIP vs DFT barriers side by side
 //   * emit a LaTeX-ready methods sentence
 // ============================================================================
 
@@ -26,9 +26,9 @@ import 'package:quantum_forge/features/reaction_runner/data/models/reaction_mode
 /// wording lives in one place.
 ///
 /// The screening step is attributed to the MACHINE-LEARNED POTENTIAL only. An
-/// earlier template read "UMA-MLIP screening used {model} at the {method} level of
+/// earlier template read "MLIP-MLIP screening used {model} at the {method} level of
 /// theory", which attributes a DFT functional and basis set to a machine-learned
-/// interatomic potential — UMA has no DFT level of theory.
+/// interatomic potential — MLIP has no DFT level of theory.
 String buildMethodsParagraph({
   required String model,
   required String method,
@@ -61,8 +61,8 @@ String buildMethodsParagraph({
       .trim();
 }
 
-/// Difference beyond which UMA is no longer considered reliable for a system.
-const double kUmaReliableDeltaKcal = 5.0;
+/// Difference beyond which MLIP is no longer considered reliable for a system.
+const double kMlipReliableDeltaKcal = 5.0;
 
 class DftWorkflowCard extends StatefulWidget {
   final ReactionStatusResponse status;
@@ -251,7 +251,7 @@ class _DftWorkflowCardState extends State<DftWorkflowCard> {
             const SizedBox(height: 16),
             _ComparisonTable(
               attachments: attachments,
-              umaProfile: widget.status.energyProfile ?? const [],
+              mlipProfile: widget.status.energyProfile ?? const [],
             ),
           ],
         ],
@@ -271,19 +271,19 @@ class _DftWorkflowCardState extends State<DftWorkflowCard> {
   }
 }
 
-/// UMA vs DFT, one row per attached level of theory.
+/// MLIP vs DFT, one row per attached level of theory.
 class _ComparisonTable extends StatelessWidget {
   final List<DftAttachment> attachments;
 
-  /// UMA relative profile (ΔE vs reactant, kcal/mol). The UMA barrier is its
+  /// MLIP relative profile (ΔE vs reactant, kcal/mol). The MLIP barrier is its
   /// highest point.
-  final List<double> umaProfile;
+  final List<double> mlipProfile;
 
-  const _ComparisonTable({required this.attachments, required this.umaProfile});
+  const _ComparisonTable({required this.attachments, required this.mlipProfile});
 
-  double? get _umaBarrierKcal {
-    if (umaProfile.isEmpty) return null;
-    return umaProfile.reduce((a, b) => a > b ? a : b);
+  double? get _mlipBarrierKcal {
+    if (mlipProfile.isEmpty) return null;
+    return mlipProfile.reduce((a, b) => a > b ? a : b);
   }
 
   @override
@@ -292,7 +292,7 @@ class _ComparisonTable extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('UMA vs DFT barrier',
+        const Text('MLIP vs DFT barrier',
             style: TextStyle(
                 color: Colors.white,
                 fontSize: 13,
@@ -315,8 +315,8 @@ class _ComparisonTable extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Δ is UMA − DFT. |Δ| > ${kUmaReliableDeltaKcal.toStringAsFixed(0)} kcal·mol⁻¹ '
-          'means the system is outside the range where UMA is trusted.',
+          'Δ is MLIP − DFT. |Δ| > ${kMlipReliableDeltaKcal.toStringAsFixed(0)} kcal·mol⁻¹ '
+          'means the system is outside the range where MLIP is trusted.',
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.45), fontSize: 10.5),
         ),
@@ -328,22 +328,22 @@ class _ComparisonTable extends StatelessWidget {
         decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.04)),
         children: const [
           _Cell('DFT level of theory', bold: true),
-          _Cell('UMA (kcal·mol⁻¹)', bold: true),
+          _Cell('MLIP (kcal·mol⁻¹)', bold: true),
           _Cell('DFT (kcal·mol⁻¹)', bold: true),
           _Cell('Δ', bold: true),
         ],
       );
 
   List<TableRow> _dataRows(DftAttachment a, Color danger, Color ok) {
-    final uma = _umaBarrierKcal;
+    final mlip = _mlipBarrierKcal;
     final dft = a.barrierKcalMol;
-    final delta = (uma != null && dft != null) ? uma - dft : null;
-    final unreliable = delta != null && delta.abs() > kUmaReliableDeltaKcal;
+    final delta = (mlip != null && dft != null) ? mlip - dft : null;
+    final unreliable = delta != null && delta.abs() > kMlipReliableDeltaKcal;
 
     return [
       TableRow(children: [
         _Cell(a.displayLevel),
-        _Cell(uma == null ? '—' : uma.toStringAsFixed(1)),
+        _Cell(mlip == null ? '—' : mlip.toStringAsFixed(1)),
         _Cell(dft == null ? '— (needs both energies)' : dft.toStringAsFixed(1)),
         _Cell(
           delta == null
@@ -356,8 +356,8 @@ class _ComparisonTable extends StatelessWidget {
       if (unreliable)
         TableRow(children: [
           _Cell(
-            "Outside UMA's reliable range (|Δ| > "
-            '${kUmaReliableDeltaKcal.toStringAsFixed(0)} kcal·mol⁻¹)',
+            "Outside MLIP's reliable range (|Δ| > "
+            '${kMlipReliableDeltaKcal.toStringAsFixed(0)} kcal·mol⁻¹)',
             color: danger,
             span: true,
           ),

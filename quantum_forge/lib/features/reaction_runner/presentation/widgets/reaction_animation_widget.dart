@@ -76,6 +76,9 @@ class ReactionAnimationWidget extends StatefulWidget {
     this.displayType = AvogadroDisplayType.ballAndStick,
     this.dynamicBonding = false,
     this.showBondNumbers = false,
+    this.pdbUrl,
+    this.dcdUrl,
+    this.mdFrameCount,
   });
 
   /// One XYZ document per trajectory image, in path order.
@@ -84,7 +87,7 @@ class ReactionAnimationWidget extends StatefulWidget {
   /// Relative energies in kcal/mol, one per frame.
   final List<double>? energyProfile;
 
-  /// Absolute UMA potential energies in eV, one per frame.
+  /// Absolute MLIP potential energies in eV, one per frame.
   final List<double>? energyProfileEv;
 
   /// Highest-energy image index from the backend, 0-based.
@@ -110,6 +113,15 @@ class ReactionAnimationWidget extends StatefulWidget {
   /// are a working aid for cross-referencing a bond. Exposed so an embedding (and
   /// the browser harness) can start with them on.
   final bool showBondNumbers;
+
+  /// Optional remote PDB topology for MD.
+  final String? pdbUrl;
+  
+  /// Optional remote DCD trajectory for MD.
+  final String? dcdUrl;
+  
+  /// Number of frames in the remote MD trajectory.
+  final int? mdFrameCount;
 
   /// Avogadro's `m_animationFPS` default: `setValue(5)`.
   static const int defaultFrameRate = 5;
@@ -287,6 +299,17 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       _frame = 0;
       _direction = 1;
       _transitionStateFrame = _resolveTransitionStateFrame(frames.length);
+    } else if (widget.pdbUrl != null && widget.dcdUrl != null) {
+      // It's a remote MD trajectory
+      final framesLen = widget.mdFrameCount ?? 1;
+      _parsedFrames = List<List<Atom>?>.filled(framesLen, null);
+      _staticBonds = const <PerceivedBond>[]; // NGL handles bonding natively from PDB
+      
+      _startFrame = 0;
+      _endFrame = framesLen - 1;
+      _frame = 0;
+      _direction = 1;
+      _transitionStateFrame = 0;
     } else {
       _startFrame = 0;
       _endFrame = 0;
@@ -297,7 +320,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     _loaded = true;
     _restartTicker();
     _pushStructure(resetView: true);
-    _pushBondLabelsForFrame(0);
+    if (frames.isNotEmpty) {
+      _pushBondLabelsForFrame(0);
+    }
   }
 
   int _resolveTransitionStateFrame(int frameCount) {
@@ -356,6 +381,18 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       if (!mounted) return;
       final viewer = _viewerKey.currentState;
       if (viewer == null) return;
+
+      if (widget.pdbUrl != null && widget.dcdUrl != null) {
+        _viewFramed = true;
+        await viewer.loadRemoteMd(
+          widget.pdbUrl!,
+          widget.dcdUrl!,
+          _style,
+          resetView: shouldFrame,
+        );
+        viewer.setFrame(_frame);
+        return;
+      }
 
       if (_dynamicBonding) {
         final atoms = _atomsAt(_frame);
@@ -1110,7 +1147,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
             if (energy != null)
               _infoItem('Energy', '${energy.toStringAsFixed(2)} kcal·mol⁻¹'),
             if (absolute != null)
-              _infoItem('UMA E', '${absolute.toStringAsFixed(4)} eV'),
+              _infoItem('MLIP E', '${absolute.toStringAsFixed(4)} eV'),
             _infoItem('Progress', '${_progressPercent.toStringAsFixed(1)}%'),
             _infoItem('Status', _playing ? 'Playing' : 'Stopped'),
             _infoItem('Speed', '$_effectiveFrameRate FPS'),

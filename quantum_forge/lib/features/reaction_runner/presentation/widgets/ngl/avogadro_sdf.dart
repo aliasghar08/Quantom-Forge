@@ -62,7 +62,7 @@ class AvogadroSdfWriter {
   ///
   /// [bonds] is expected to index into [atoms]; any bond naming an atom outside
   /// the list is skipped, because a trajectory whose images disagree on atom
-  /// count is a real case (the UMA backend has failed with "Frame has 1 atoms,
+  /// count is a real case (the MLIP backend has failed with "Frame has 1 atoms,
   /// expected 2") and must not produce a corrupt file.
   static String writeModel(
     List<Atom> atoms,

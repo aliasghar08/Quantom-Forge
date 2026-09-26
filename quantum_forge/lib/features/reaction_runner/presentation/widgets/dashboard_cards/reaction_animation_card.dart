@@ -88,7 +88,7 @@ class ReactionAnimationCard extends StatelessWidget {
                 trajectoryFrames: trajectoryFrames,
                 energyProfile:
                     energyProfile.isEmpty ? null : energyProfile,
-                // Both come straight from the UMA response and were being dropped.
+                // Both come straight from the MLIP response and were being dropped.
                 energyProfileEv: status.energyProfileEv,
                 maxEnergyIndex: status.maxEnergyIndex,
               )

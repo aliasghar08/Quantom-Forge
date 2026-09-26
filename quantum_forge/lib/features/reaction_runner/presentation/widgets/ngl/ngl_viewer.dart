@@ -147,6 +147,26 @@ class NglViewerState extends State<NglViewer> {
     await engine.loadTrajectory(sdf, style, resetView: resetView);
   }
 
+  /// Loads an MD simulation natively using remote URLs for topology and trajectory.
+  Future<void> loadRemoteMd(
+    String pdbUrl,
+    String dcdUrl,
+    NglStyle style, {
+    bool resetView = true,
+  }) async {
+    final engine = _engine;
+    if (engine == null) {
+      _queued = _QueuedStructure.md(
+        pdbUrl,
+        dcdUrl,
+        style,
+        resetView: resetView,
+      );
+      return;
+    }
+    await engine.loadRemoteMd(pdbUrl, dcdUrl, style, resetView: resetView);
+  }
+
   /// Loads a single-model SDF, replacing the previous structure.
   ///
   /// This is the dynamic-bonding path: the bond block changes per frame, so the
@@ -209,14 +229,23 @@ class NglViewerState extends State<NglViewer> {
     final queued = _queued;
     _queued = null;
     if (queued != null) {
-      if (queued.asTrajectory) {
-        engine.loadTrajectory(
-          queued.sdf,
+      if (queued.sdf != null) {
+        if (queued.asTrajectory) {
+          engine.loadTrajectory(
+            queued.sdf!,
+            queued.style,
+            resetView: queued.resetView,
+          );
+        } else {
+          engine.loadFrame(queued.sdf!, queued.style);
+        }
+      } else if (queued.pdbUrl != null && queued.dcdUrl != null) {
+        engine.loadRemoteMd(
+          queued.pdbUrl!,
+          queued.dcdUrl!,
           queued.style,
           resetView: queued.resetView,
         );
-      } else {
-        engine.loadFrame(queued.sdf, queued.style);
       }
     }
 
@@ -273,9 +302,18 @@ class _QueuedStructure {
     this.style, {
     required this.asTrajectory,
     required this.resetView,
-  });
+  }) : pdbUrl = null, dcdUrl = null;
 
-  final String sdf;
+  const _QueuedStructure.md(
+    this.pdbUrl,
+    this.dcdUrl,
+    this.style, {
+    required this.resetView,
+  }) : sdf = null, asTrajectory = true;
+
+  final String? sdf;
+  final String? pdbUrl;
+  final String? dcdUrl;
   final NglStyle style;
   final bool asTrajectory;
   final bool resetView;

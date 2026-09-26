@@ -84,7 +84,7 @@ class ReactionStatusResponse {
 
   /// The backend's own failure reason, kept separate from [message].
   ///
-  /// The API returns both: `message` is the generic "DMF/UMA optimisation failed."
+  /// The API returns both: `message` is the generic "DMF/MLIP optimisation failed."
   /// and `error` carries the real cause ("ase.io.extxyz: Frame has 1 atoms…").
   /// Merging them — as this did — made the generic string win and discarded the
   /// only useful line.
@@ -92,7 +92,7 @@ class ReactionStatusResponse {
 
   final List<double>? energyProfile;
 
-  /// Absolute potential energies from the UMA model, in eV.
+  /// Absolute potential energies from the MLIP model, in eV.
   ///
   /// The backend has always returned these; the app discarded them. They are the
   /// model's own numbers (relative profile is derived from them), so they are kept
@@ -114,12 +114,12 @@ class ReactionStatusResponse {
   /// pastes cluster output into the "Attach DFT result" panel.
   final List<DftAttachment> dftAttachments;
 
-  /// True when this result came from the ColabReaction (DMF/UMA) compute
+  /// True when this result came from the ColabReaction (DMF/MLIP) compute
   /// backend rather than the local illustrative simulation.
   ///
   /// Real results must never be pushed through the surrogate response model in
   /// `computeResultsSummary`, which multiplies energies by T/300 and shifts them
-  /// by charge/spin — that would silently distort genuine UMA output.
+  /// by charge/spin — that would silently distort genuine MLIP output.
   final bool fromBackend;
 
   ReactionStatusResponse({

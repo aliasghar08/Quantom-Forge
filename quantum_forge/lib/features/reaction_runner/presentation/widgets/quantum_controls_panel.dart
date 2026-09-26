@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:quantum_forge/state/settings_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
-import 'package:quantum_forge/core/services/web_services.dart';
+
 import 'package:quantum_forge/features/reaction_library/presentation/screens/publication_details_screen.dart';
 
 class QuantumControlsPanel extends StatefulWidget {
@@ -22,8 +22,6 @@ class QuantumControlsPanel extends StatefulWidget {
 class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
   static const _mlipModels = [
     'tx1-fastapi',
-    'UMA-SM',
-    'UMA-Medium',
     'MACE-MP-0',
     'CHGNet',
     'GFN2-xTB',
@@ -577,26 +575,6 @@ class _QuantumControlsPanelState extends State<QuantumControlsPanel> {
               color: Colors.white.withValues(alpha: 0.5),
               fontSize: 11,
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.code),
-                  label: const Text('View Source'),
-                  onPressed: () {
-                    WebServices.openUrl(
-                      'https://github.com/aliasgharinnocent/Quantum-Forge',
-                    );
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white12,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ),
-            ],
           ),
           const SizedBox(height: 8),
           Row(

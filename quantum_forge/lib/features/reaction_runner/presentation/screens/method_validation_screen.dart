@@ -1,9 +1,9 @@
 // ============================================================================
 // Method validation screen
 // ----------------------------------------------------------------------------
-// "How well does UMA reproduce known barriers?" — the question a reviewer asks
+// "How well does MLIP reproduce known barriers?" — the question a reviewer asks
 // first. Each reference has a literature barrier; running it through the backend
-// reports the UMA value, the signed error and the percentage error.
+// reports the MLIP value, the signed error and the percentage error.
 //
 // The literature values are single numbers with a level of theory attached; they
 // are not uncertainty-weighted, and a real validation would need several
@@ -108,12 +108,12 @@ const List<ValidationReference> kValidationReferences = [
 
 class ValidationResult {
   final ValidationReference reference;
-  final double? umaEa;
+  final double? mlipEa;
   final String? error;
-  const ValidationResult({required this.reference, this.umaEa, this.error});
+  const ValidationResult({required this.reference, this.mlipEa, this.error});
 
   double? get signedError =>
-      umaEa == null ? null : umaEa! - reference.literatureEa;
+      mlipEa == null ? null : mlipEa! - reference.literatureEa;
   double? get percentError => signedError == null || reference.literatureEa == 0
       ? null
       : signedError! / reference.literatureEa * 100.0;
@@ -154,7 +154,7 @@ class _MethodValidationScreenState extends State<MethodValidationScreen> {
         ref.productXyz,
         widget.settings,
       );
-      final status = await service.poll(widget.backendUrl, id);
+      final status = await service.poll(widget.backendUrl, id).last;
       final profile = status.energyProfile;
       if (status.state == ReactionState.error || profile == null || profile.isEmpty) {
         _results[ref.name] = ValidationResult(
@@ -164,7 +164,7 @@ class _MethodValidationScreenState extends State<MethodValidationScreen> {
       } else {
         _results[ref.name] = ValidationResult(
           reference: ref,
-          umaEa: profile.reduce((a, b) => a > b ? a : b),
+          mlipEa: profile.reduce((a, b) => a > b ? a : b),
         );
       }
     } catch (e) {
@@ -210,7 +210,7 @@ class _MethodValidationScreenState extends State<MethodValidationScreen> {
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             Text(
-              'Known barriers, computed with the same UMA settings as your '
+              'Known barriers, computed with the same MLIP settings as your '
               'production runs. This is the table a reviewer asks for. Literature '
               'values are single numbers with a stated level of theory, not '
               'uncertainty-weighted benchmarks.',
@@ -276,7 +276,7 @@ class _MethodValidationScreenState extends State<MethodValidationScreen> {
           children: const [
             _VCell('Reference reaction', bold: true),
             _VCell('Literature', bold: true),
-            _VCell('UMA', bold: true),
+            _VCell('MLIP', bold: true),
             _VCell('Error', bold: true),
             _VCell('Error %', bold: true),
             _VCell('', bold: true),
@@ -304,7 +304,7 @@ class _MethodValidationScreenState extends State<MethodValidationScreen> {
         _VCell(ref.literatureEa.toStringAsFixed(1)),
         _VCell(r == null
             ? '—'
-            : (r.error != null ? 'error' : r.umaEa!.toStringAsFixed(1))),
+            : (r.error != null ? 'error' : r.mlipEa!.toStringAsFixed(1))),
         _VCell(err == null
             ? '—'
             : '${err >= 0 ? '+' : ''}${err.toStringAsFixed(1)}',

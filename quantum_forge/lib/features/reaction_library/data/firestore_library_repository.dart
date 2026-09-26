@@ -17,8 +17,7 @@ class FirestoreLibraryRepository {
 
   Future<List<ReactionTemplate>> getLibraryTemplates({ReactionCategory? category, int limit = 50}) async {
     try {
-      // By default, fetch only a small curated subset to save memory and bandwidth.
-      var q = _libraryCollection.where('isDerived', isEqualTo: false);
+      Query<Object?> q = _libraryCollection;
       if (category != null) {
         q = q.where('category', isEqualTo: category.name);
       }
@@ -60,12 +59,16 @@ class FirestoreLibraryRepository {
   /// caller can therefore report a truthful result instead of assuming success.
   Future<int> seedLibrary(List<ReactionTemplate> templates) async {
     try {
-      final batch = _firestore.batch();
-      for (final template in templates) {
-        final docRef = _libraryCollection.doc(template.id);
-        batch.set(docRef, template.toJson());
+      // Batch size limit is 500 in Firestore
+      for (var i = 0; i < templates.length; i += 500) {
+        final chunk = templates.sublist(i, i + 500 > templates.length ? templates.length : i + 500);
+        final batch = _firestore.batch();
+        for (final template in chunk) {
+          final docRef = _libraryCollection.doc(template.id);
+          batch.set(docRef, template.toJson());
+        }
+        await batch.commit();
       }
-      await batch.commit();
       debugPrint('Seeded ${templates.length} templates to Firestore.');
       return templates.length;
     } catch (e) {
