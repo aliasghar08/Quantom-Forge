@@ -705,8 +705,8 @@ class NglEngine {
       final double markerRadius = 0.25 * scaleFactor;
 
       // Label size in world units. Scaled dynamically. 
-      // Halved the base size from 2.0 to 1.0 as requested.
-      final double labelSize = 1.0 * scaleFactor;
+      // Shrunk to 0.35 to match the visual diameter of an atom (radius ~0.15).
+      final double labelSize = 0.35 * scaleFactor;
 
       for (final label in labels) {
         final position = <JSAny>[
