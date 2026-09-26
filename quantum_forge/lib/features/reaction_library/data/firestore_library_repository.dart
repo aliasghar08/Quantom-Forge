@@ -15,14 +15,37 @@ class FirestoreLibraryRepository {
 
   CollectionReference get _libraryCollection => _firestore.collection('library');
 
-  Future<List<ReactionTemplate>> getLibraryTemplates() async {
+  Future<List<ReactionTemplate>> getLibraryTemplates({int limit = 50}) async {
     try {
-      final snapshot = await _libraryCollection.get();
+      // By default, fetch only a small curated subset to save memory and bandwidth.
+      final snapshot = await _libraryCollection
+          .where('isDerived', isEqualTo: false)
+          .limit(limit)
+          .get();
       return snapshot.docs.map((doc) {
         return ReactionTemplate.fromJson(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
     } catch (e) {
       debugPrint('Error fetching library templates: $e');
+      return [];
+    }
+  }
+
+  Future<List<ReactionTemplate>> searchLibraryTemplates(String query, {int limit = 50}) async {
+    if (query.isEmpty) return getLibraryTemplates(limit: limit);
+    try {
+      // Simple prefix search on 'name'. Firestore requires \uf8ff for prefix queries.
+      // Note: A true full-text search requires an external service like Algolia or Typesense.
+      final snapshot = await _libraryCollection
+          .where('name', isGreaterThanOrEqualTo: query)
+          .where('name', isLessThanOrEqualTo: '$query\uf8ff')
+          .limit(limit)
+          .get();
+      return snapshot.docs.map((doc) {
+        return ReactionTemplate.fromJson(doc.data() as Map<String, dynamic>, doc.id);
+      }).toList();
+    } catch (e) {
+      debugPrint('Error searching library: $e');
       return [];
     }
   }

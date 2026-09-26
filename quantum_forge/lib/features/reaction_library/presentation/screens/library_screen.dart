@@ -58,7 +58,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     var merged = bundled;
 
     try {
-      final cloud = await FirestoreLibraryRepository().getLibraryTemplates();
+      // Heavily optimised: only fetch the first 50 non-derived templates on load.
+      final cloud = await FirestoreLibraryRepository().getLibraryTemplates(limit: 50);
       if (cloud.isNotEmpty) {
         final known = bundled.map((t) => t.id).toSet();
         merged = <ReactionTemplate>[
@@ -101,6 +102,26 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }).toList(growable: false);
   }
 
+  Future<void> _performCloudSearch(String query) async {
+    try {
+      // Fetch up to 50 matching records from the cloud.
+      final cloudResults = await FirestoreLibraryRepository().searchLibraryTemplates(query, limit: 50);
+      if (!mounted) return;
+      if (cloudResults.isNotEmpty) {
+        final known = _allTemplates.map((t) => t.id).toSet();
+        final newItems = cloudResults.where((t) => !known.contains(t.id)).toList();
+        if (newItems.isNotEmpty) {
+          setState(() {
+            _allTemplates = <ReactionTemplate>[..._allTemplates, ...newItems];
+            _recomputeFiltered();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Cloud search failed: $e');
+    }
+  }
+
   void _onSearchChanged(String value) {
     // Debounced: filtering thousands of templates on every keystroke would
     // rebuild the grid once per character typed.
@@ -109,8 +130,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (!mounted) return;
       setState(() {
         _query = value;
-        _recomputeFiltered();
+        _recomputeFiltered(); // Instantly filter local items
       });
+      // Fire off a cloud search to pull in massive library items not yet loaded
+      if (value.isNotEmpty) {
+        _performCloudSearch(value);
+      }
     });
   }
 
