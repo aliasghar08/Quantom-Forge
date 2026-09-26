@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
+import 'package:quantum_forge/core/widgets/reaction_animation_widget.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/distinct_molecules_viewer.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 
@@ -23,7 +23,10 @@ class TemplateDetailScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(template.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          template.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
@@ -40,141 +43,319 @@ class TemplateDetailScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF15151C),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
+                border: Border.all(
+                  color: color.withValues(alpha: 0.3),
+                  width: 2,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: color.withValues(alpha: 0.1),
                     blurRadius: 30,
                     spreadRadius: 5,
-                  )
-                ]
+                  ),
+                ],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 500),
-                  child: ReactionAnimationWidget(
-                    // A smooth preview path. This previously passed
-                    // [reactant, reactant, product] — the reactant duplicated as a
-                    // "dummy TS" — so the animation snapped from reactant to product
-                    // in a single step and read as far too fast. Interpolating gives
-                    // the motion something to show.
-                    //
-                    // Still only a preview: the real path comes from DMF/MLIP, and the
-                    // home-screen animation is where that is displayed.
-                    trajectoryFrames: _previewTrajectory(template),
-                    energyProfile: _generateSyntheticProfile(template.referenceEa),
-                    // A deliberately slower cadence than Avogadro's 5 FPS default.
-                    frameRateOverride: _previewFps,
+                child: ReactionAnimationWidget(
+                  // A smooth preview path. This previously passed
+                  // [reactant, reactant, product] — the reactant duplicated as a
+                  // "dummy TS" — so the animation snapped from reactant to product
+                  // in a single step and read as far too fast. Interpolating gives
+                  // the motion something to show.
+                  //
+                  // Still only a preview: the real path comes from DMF/MLIP, and the
+                  // home-screen animation is where that is displayed.
+                  trajectoryFrames: _previewTrajectory(template),
+                  energyProfile: _generateSyntheticProfile(
+                    template.referenceEa,
                   ),
+                  // A deliberately slower cadence than Avogadro's 5 FPS default.
+                  frameRateOverride: _previewFps,
                 ),
               ),
             ),
             const SizedBox(height: 10),
 
             // ── Metadata Header ───────────────────────────────────────────
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: color.withValues(alpha: 0.5)),
-                  ),
-                  child: Text(
-                    _categoryLabel(template.category),
-                    style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 600) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(Icons.bolt, size: 16, color: Colors.amber.shade400),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Ea: ${template.referenceEa} kcal·mol⁻¹',
-                        style: TextStyle(color: Colors.amber.shade300, fontSize: 12, fontWeight: FontWeight.bold),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: color.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: Text(
+                              _categoryLabel(template.category),
+                              style: TextStyle(
+                                color: color,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.bolt,
+                                  size: 16,
+                                  color: Colors.amber.shade400,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Ea: ${template.referenceEa} kcal·mol⁻¹',
+                                  style: TextStyle(
+                                    color: Colors.amber.shade300,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onLoad();
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: color,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
+                        ),
+                        icon: const Icon(Icons.science),
+                        label: const Text(
+                          'Simulate Reaction',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
-                  ),
-                ),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    onLoad();
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: color,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  ),
-                  icon: const Icon(Icons.science),
-                  label: const Text('Simulate Reaction', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
+                  );
+                } else {
+                  return Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: color.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(
+                          _categoryLabel(template.category),
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.bolt,
+                              size: 16,
+                              color: Colors.amber.shade400,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Ea: ${template.referenceEa} kcal·mol⁻¹',
+                              style: TextStyle(
+                                color: Colors.amber.shade300,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onLoad();
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: color,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
+                        ),
+                        icon: const Icon(Icons.science),
+                        label: const Text(
+                          'Simulate Reaction',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
             const SizedBox(height: 32),
 
             // ── Info Section ──────────────────────────────────────────────
-            const Text('Reaction Name', style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const Text(
+              'Reaction Name',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
             const SizedBox(height: 4),
-            Text(template.name, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+            Text(
+              template.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 16),
-            
-            const Text('IUPAC Description', style: TextStyle(color: Colors.white54, fontSize: 12)),
+
+            const Text(
+              'IUPAC Description',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
             const SizedBox(height: 4),
-            Text(template.iupacName, style: const TextStyle(color: Colors.white70, fontSize: 16, fontStyle: FontStyle.italic)),
+            Text(
+              template.iupacName,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
             const SizedBox(height: 24),
 
-            const Text('Mechanism & Details', style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const Text(
+              'Mechanism & Details',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
             const SizedBox(height: 4),
-            Text(template.description, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.6)),
+            Text(
+              template.description,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                height: 1.6,
+              ),
+            ),
             const SizedBox(height: 32),
 
             // ── Static Molecule Viewers ──────────────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: DistinctMoleculesViewer(
-                    title: 'Reactants',
-                    atoms: XyzParser.parse(template.reactantXyz),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: DistinctMoleculesViewer(
-                    title: 'Products',
-                    atoms: XyzParser.parse(template.productXyz),
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 600) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DistinctMoleculesViewer(
+                        title: 'Reactants',
+                        atoms: XyzParser.parse(template.reactantXyz),
+                      ),
+                      const SizedBox(height: 24),
+                      DistinctMoleculesViewer(
+                        title: 'Products',
+                        atoms: XyzParser.parse(template.productXyz),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  );
+                } else {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: DistinctMoleculesViewer(
+                          title: 'Reactants',
+                          atoms: XyzParser.parse(template.reactantXyz),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: DistinctMoleculesViewer(
+                          title: 'Products',
+                          atoms: XyzParser.parse(template.productXyz),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
             const SizedBox(height: 32),
 
             // ── Tags & Reference ──────────────────────────────────────────
-            const Text('Tags', style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const Text(
+              'Tags',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: template.tags.map((tag) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text('#$tag', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  child: Text(
+                    '#$tag',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
                 );
               }).toList(),
             ),
@@ -195,16 +376,31 @@ class TemplateDetailScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Literature Reference', style: TextStyle(color: Colors.white54, fontSize: 10)),
-                        Text(template.journalRef, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                        const Text(
+                          'Literature Reference',
+                          style: TextStyle(color: Colors.white54, fontSize: 10),
+                        ),
+                        Text(
+                          template.journalRef,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text('DOI: ${template.doi}', style: const TextStyle(color: Colors.blueAccent, fontSize: 12)),
+                        Text(
+                          'DOI: ${template.doi}',
+                          style: const TextStyle(
+                            color: Colors.blueAccent,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
-                  )
+                  ),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -213,27 +409,27 @@ class TemplateDetailScreen extends StatelessWidget {
 
   Color _categoryColor(ReactionCategory c) {
     return switch (c) {
-      ReactionCategory.pericyclic    => const Color(0xFF4FC3F7),
-      ReactionCategory.radical       => const Color(0xFFFF7043),
-      ReactionCategory.organometallic=> const Color(0xFFAB47BC),
-      ReactionCategory.ionic         => const Color(0xFF26A69A),
-      ReactionCategory.thermal       => const Color(0xFFFFCA28),
-      ReactionCategory.nucleophilic  => const Color(0xFF66BB6A),
+      ReactionCategory.pericyclic => const Color(0xFF4FC3F7),
+      ReactionCategory.radical => const Color(0xFFFF7043),
+      ReactionCategory.organometallic => const Color(0xFFAB47BC),
+      ReactionCategory.ionic => const Color(0xFF26A69A),
+      ReactionCategory.thermal => const Color(0xFFFFCA28),
+      ReactionCategory.nucleophilic => const Color(0xFF66BB6A),
       ReactionCategory.electrochemistry => const Color(0xFFE040FB),
-      ReactionCategory.inorganic     => const Color(0xFF8D6E63),
+      ReactionCategory.inorganic => const Color(0xFF8D6E63),
     };
   }
 
   String _categoryLabel(ReactionCategory c) {
     return switch (c) {
-      ReactionCategory.pericyclic    => 'Pericyclic',
-      ReactionCategory.radical       => 'Radical',
-      ReactionCategory.organometallic=> 'Organometallic',
-      ReactionCategory.ionic         => 'Ionic',
-      ReactionCategory.thermal       => 'Thermal',
-      ReactionCategory.nucleophilic  => 'Nucleophilic',
+      ReactionCategory.pericyclic => 'Pericyclic',
+      ReactionCategory.radical => 'Radical',
+      ReactionCategory.organometallic => 'Organometallic',
+      ReactionCategory.ionic => 'Ionic',
+      ReactionCategory.thermal => 'Thermal',
+      ReactionCategory.nucleophilic => 'Nucleophilic',
       ReactionCategory.electrochemistry => 'Electrochemistry',
-      ReactionCategory.inorganic     => 'Inorganic',
+      ReactionCategory.inorganic => 'Inorganic',
     };
   }
 
@@ -271,7 +467,9 @@ class TemplateDetailScreen extends StatelessWidget {
       final t = frame / (_previewFrames - 1);
       final buffer = StringBuffer()
         ..writeln(reactant.length)
-        ..writeln('${template.name} — preview frame ${frame + 1}/$_previewFrames');
+        ..writeln(
+          '${template.name} — preview frame ${frame + 1}/$_previewFrames',
+        );
       for (var a = 0; a < reactant.length; a++) {
         final r = reactant[a];
         final p = product[a];
@@ -304,4 +502,3 @@ class TemplateDetailScreen extends StatelessWidget {
     return profile;
   }
 }
-

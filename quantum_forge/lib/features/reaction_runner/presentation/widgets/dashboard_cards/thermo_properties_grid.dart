@@ -38,17 +38,29 @@ class ThermoPropertiesGrid extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 240,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              mainAxisExtent: 96,
-            ),
-            itemCount: metrics.length,
-            itemBuilder: (context, index) => _MetricTile(metric: metrics[index]),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Calculate how many columns fit (min width ~ 180, max ~240, let's just use 240)
+              int crossAxisCount = (constraints.maxWidth / 240).ceil();
+              if (crossAxisCount < 1) crossAxisCount = 1;
+              
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: metrics.map((m) {
+                  double w = constraints.maxWidth;
+                  if (crossAxisCount > 1) {
+                    w = (constraints.maxWidth - (crossAxisCount - 1) * 12) / crossAxisCount;
+                  }
+                  return SizedBox(
+                    width: w,
+                    child: IntrinsicHeight(
+                      child: _MetricTile(metric: m),
+                    ),
+                  );
+                }).toList(),
+              );
+            }
           ),
         ],
       ),

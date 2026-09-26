@@ -76,6 +76,7 @@ class ReactionAnimationWidget extends StatefulWidget {
     this.displayType = AvogadroDisplayType.ballAndStick,
     this.dynamicBonding = false,
     this.showBondNumbers = false,
+    this.compactMode = false,
     this.pdbUrl,
     this.dcdUrl,
     this.mdFrameCount,
@@ -83,6 +84,9 @@ class ReactionAnimationWidget extends StatefulWidget {
 
   /// One XYZ document per trajectory image, in path order.
   final List<String> trajectoryFrames;
+
+  /// Whether to render in compact mode (only the 3D canvas, no toolbars).
+  final bool compactMode;
 
   /// Relative energies in kcal/mol, one per frame.
   final List<double>? energyProfile;
@@ -116,10 +120,10 @@ class ReactionAnimationWidget extends StatefulWidget {
 
   /// Optional remote PDB topology for MD.
   final String? pdbUrl;
-  
+
   /// Optional remote DCD trajectory for MD.
   final String? dcdUrl;
-  
+
   /// Number of frames in the remote MD trajectory.
   final int? mdFrameCount;
 
@@ -303,8 +307,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       // It's a remote MD trajectory
       final framesLen = widget.mdFrameCount ?? 1;
       _parsedFrames = List<List<Atom>?>.filled(framesLen, null);
-      _staticBonds = const <PerceivedBond>[]; // NGL handles bonding natively from PDB
-      
+      _staticBonds =
+          const <PerceivedBond>[]; // NGL handles bonding natively from PDB
+
       _startFrame = 0;
       _endFrame = framesLen - 1;
       _frame = 0;
@@ -769,25 +774,29 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isUnbounded = constraints.maxHeight.isInfinite;
-          final card = _buildCard(isUnbounded, constraints);
-          
-          // If bounded, we wrap in SingleChildScrollView so the timeline and controls
-          // can be scrolled if the parent's finite height is too small for them.
-          // If unbounded (Dashboard), we rely on the parent's SingleChildScrollView.
-          if (!isUnbounded) {
-            return SingleChildScrollView(
-              primary: false,
-              child: card,
-            );
-          } else {
-            return card;
-          }
+          return _buildCard(isUnbounded, constraints);
         },
       ),
     );
   }
 
   Widget _buildCard(bool isUnbounded, BoxConstraints constraints) {
+    if (widget.compactMode) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: isUnbounded
+              ? _buildCanvasSlotUnbounded(constraints)
+              : _buildCanvasSlotBounded(constraints),
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.18),
@@ -824,9 +833,10 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   /// layouts do not blow up. The outer scroll view handles any residual
   /// overflow past the clamp.
   Widget _buildCanvasSlotUnbounded(BoxConstraints constraints) {
-    // Unbounded (e.g. Dashboard): dynamically give the canvas 75% of the viewport height,
-    // bypassing any strict width ratio clamps so it has "as much space as it wants".
-    final height = MediaQuery.of(context).size.height * 0.75;
+    // Unbounded (e.g. Dashboard): dynamically give the canvas a reasonable height.
+    final screenH = MediaQuery.of(context).size.height;
+    final screenW = MediaQuery.of(context).size.width;
+    final height = (screenW < 600) ? screenH * 0.40 : screenH * 0.75;
     return SizedBox(
       height: height,
       child: GestureDetector(
@@ -865,8 +875,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
       child: Wrap(
-        spacing: 10,
-        runSpacing: 6,
+        spacing: 8.0,
+        runSpacing: 8.0,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           _phaseChip(),
@@ -886,7 +896,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
           _displayTypePicker(),
           _palettePicker(),
           _iconButton(
-            (_showBondNumbers && _showBondEnergies) ? Icons.analytics : Icons.analytics_outlined,
+            (_showBondNumbers && _showBondEnergies)
+                ? Icons.analytics
+                : Icons.analytics_outlined,
             () {
               _claimKeyboard();
               final newState = !(_showBondNumbers && _showBondEnergies);
@@ -1482,8 +1494,12 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     );
   }
 
-  Widget _iconButton(IconData icon, VoidCallback onTap,
-      {String? tooltip, Key? key}) {
+  Widget _iconButton(
+    IconData icon,
+    VoidCallback onTap, {
+    String? tooltip,
+    Key? key,
+  }) {
     Widget child = InkWell(
       key: key,
       onTap: onTap,
@@ -1556,9 +1572,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
             spacing: 12,
             runSpacing: 8,
             children: bonds.map((b) {
-              final energy = 100 *
-                      math.exp(-2.0 * (b.dist - b.idealDist)) *
-                      scaleFactor +
+              final energy =
+                  100 * math.exp(-2.0 * (b.dist - b.idealDist)) * scaleFactor +
                   chargeShift;
               return Row(
                 mainAxisSize: MainAxisSize.min,

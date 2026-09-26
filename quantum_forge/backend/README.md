@@ -1,4 +1,4 @@
-# Quantum Forge compute backend — DMF/UMA reaction paths
+# Quantum Forge compute backend — DMF/UMA & Hybrid ML/MM
 
 This service runs the **real** reaction-path optimisation that the Flutter app
 previously faked. It is a faithful port of
@@ -13,6 +13,14 @@ reactant.xyz + product.xyz
    └─ energy profile           (eV / hartree / kcal·mol⁻¹ / ΔE vs reactant)
    plus ASE vibrational analysis → imaginary frequencies at the TS
 ```
+
+## Hybrid ML/MM Molecular Dynamics
+
+In addition to reaction paths, the backend now supports dynamic Hybrid ML/MM simulations for peptide studies (via `worker_hybrid.py`):
+* **Format Support:** Natively supports both `.pdb` and Cartesian `.xyz` coordinates.
+* **Automated Preparation:** Automatically uses `OpenMM.app.Modeller` to build missing hydrogens, construct a Tip3P water box (1.0nm padding), and neutralize the system (0.15M ionic strength) before simulation.
+* **Subset Masking:** The PyTorch MLIP dynamically targets only the isolated peptide atoms, allowing the classical AMBER19 forcefield to handle the solvent box with high performance.
+* **Dynamic Lengths:** The Flutter app can request custom simulation lengths (e.g. 100 ns, 200 ns) which the worker converts directly into OpenMM MD steps dynamically.
 
 ## Requirements
 

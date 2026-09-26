@@ -150,21 +150,23 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       const SizedBox(height: 24),
                       
                       // Thermodynamics Grid (Shrinkwrapped to fit inside scroll view)
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: EdgeInsets.zero,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          mainAxisExtent: 85, // Fixed height for cards to prevent text overflow
-                        ),
-                        itemCount: metrics.length,
-                        itemBuilder: (context, index) {
-                          final m = metrics[index];
-                          return _buildThermoCard(m['title'], m['value'], m['icon']);
-                        },
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: metrics.map((m) {
+                          // Calculate width based on crossAxisCount
+                          double w = constraints.maxWidth;
+                          if (crossAxisCount > 1) {
+                            w = (constraints.maxWidth - (crossAxisCount - 1) * 16) / crossAxisCount;
+                          }
+                          // Provide a minimum height but allow it to grow if needed
+                          return SizedBox(
+                            width: w,
+                            child: IntrinsicHeight(
+                              child: _buildThermoCard(m['title'], m['value'], m['icon']),
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ],
                   ),

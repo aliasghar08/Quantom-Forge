@@ -80,11 +80,16 @@ deliberately does not.
 * Live thermodynamic cards: Gibbs energy, enthalpy, entropy, rate constant, ZPE,
   dipole, HOMO–LUMO gap, polarisability, RMS gradient.
 
-### 5. Cloud reaction library
+### 5. Hybrid ML/MM Molecular Dynamics
+* **Complete Peptide System**: Natively handles both `.pdb` and `.xyz` uploads. Automatically solvates, neutralizes, and adds missing hydrogens using OpenMM `Modeller`.
+* **Dynamic MLIP Masking**: Custom PyTorch TorchScript masking restricts the MLIP evaluation solely to the peptide atoms, letting AMBER19 handle the massive solvent box.
+* **UI Integration**: Control simulation length dynamically from the 3D builder and launch GPU-accelerated jobs directly from the browser.
+
+### 6. Cloud reaction library
 * Firestore-backed library of textbook reactions (Grignard, Fischer esterification,
   Friedel–Crafts, Suzuki) with real-time search and filtering.
 
-### 6. Scientific theming
+### 7. Scientific theming
 Seven presets, each grounded in a real convention rather than a colour preference.
 A theme is not just a `ColorScheme` — it also supplies the palette used by the
 hand-written 2D/3D painters and the chart series colours.
@@ -102,7 +107,7 @@ hand-written 2D/3D painters and the chart series colours.
 Themes persist across sessions; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> cycles
 them.
 
-### 7. Settings that actually apply
+### 8. Settings that actually apply
 *Settings* is a real screen (drawer gear icon, or the app-bar gear) with five tabs —
 Appearance, Editor, Export, Avogadro, Compute. Every control writes through to
 storage immediately and takes effect without a restart:
@@ -117,7 +122,7 @@ storage immediately and takes effect without a restart:
 * **Compute** — temperature, step count, NEB images, convergence, and the analysis
   switches, mirroring the Quantum Controls panel.
 
-### 8. Avogadro 2 bridge
+### 9. Avogadro 2 bridge
 Two directions, because Avogadro 2 has no URL-open hook:
 
 * **Avogadro → web.** The bundled plugin (`avogadro_plugin/`) sends the open molecule
@@ -129,7 +134,7 @@ Two directions, because Avogadro 2 has no URL-open hook:
   structure (XYZ + CJSON) and an energy manifest. See
   [`avogadro_plugin/README.md`](quantum_forge/avogadro_plugin/README.md).
 
-### 9. Accounts
+### 10. Accounts
 Firebase Authentication with profile and email shown in the drawer.
 
 ## 🛠️ Stack

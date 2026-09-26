@@ -14,7 +14,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
+import 'package:quantum_forge/core/widgets/reaction_animation_widget.dart';
 import 'glass_card.dart';
 
 class ReactionAnimationCard extends StatelessWidget {

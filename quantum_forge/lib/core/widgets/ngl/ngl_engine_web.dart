@@ -670,15 +670,43 @@ class NglEngine {
         0.25.toJS,
       ].toJS;
 
-      // Marker radius in world units. 0.06 A is a small dot — smaller than a
-      // hydrogen atom's covalent radius (0.31 A), so the badge does not
-      // visually collide with the atoms at either end of the bond it labels.
-      const double markerRadius = 0.06;
+      // Advanced scaling algorithm: Calculate the spatial extent of the molecule 
+      // to determine dynamic scaling. NGL autoView scales the camera to fit the 
+      // bounding box, which means world-space label sizes need to grow 
+      // proportionally with large molecules to remain readable on screen.
+      double minX = double.infinity, maxX = double.negativeInfinity;
+      double minY = double.infinity, maxY = double.negativeInfinity;
+      double minZ = double.infinity, maxZ = double.negativeInfinity;
 
-      // Label size in world units. 0.25 A is small enough to not clutter the
-      // screen on dense molecules, but physical scaling means it will remain
-      // perfectly readable when the user zooms in to inspect the bond.
-      const double labelSize = 0.25;
+      for (final label in labels) {
+        if (label.x < minX) minX = label.x;
+        if (label.x > maxX) maxX = label.x;
+        if (label.y < minY) minY = label.y;
+        if (label.y > maxY) maxY = label.y;
+        if (label.z < minZ) minZ = label.z;
+        if (label.z > maxZ) maxZ = label.z;
+      }
+
+      final extX = maxX - minX;
+      final extY = maxY - minY;
+      final extZ = maxZ - minZ;
+      
+      // Use the diagonal of the bounding box as a robust measure of spatial spread.
+      final diagonal = math.sqrt(extX * extX + extY * extY + extZ * extZ);
+      
+      // A standard small molecule (like ethane) has a diagonal of ~5-10 Angstroms.
+      // We clamp the base diagonal at 10.0 to prevent labels from being too small,
+      // and use a square-root dampening for massive structures to prevent text 
+      // collision and overlap while remaining legible.
+      final effectiveDiagonal = math.max(10.0, diagonal);
+      final scaleFactor = math.sqrt(effectiveDiagonal / 10.0);
+
+      // Marker radius in world units. Scaled dynamically.
+      final double markerRadius = 0.25 * scaleFactor;
+
+      // Label size in world units. Scaled dynamically. 
+      // Increased base size from 1.0 to 2.0 to enlarge them substantially.
+      final double labelSize = 2.0 * scaleFactor;
 
       for (final label in labels) {
         final position = <JSAny>[

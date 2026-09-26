@@ -15,7 +15,7 @@ celery_app = Celery(
 )
 
 @celery_app.task(name="run_hybrid_md")
-def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
+def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi", simulation_length_ns: float = 200.0):
     """
     Executes a hybrid ML/MM Molecular Dynamics simulation.
     Uses openmm-torch for the MLIP on the peptide, and AMBER for the receptor/solvent.
@@ -42,6 +42,14 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
         
         parsed_path = os.path.join(output_dir, "input.pdb")
         Chem.MolToPDBFile(mol, parsed_path)
+        pdb_path = parsed_path
+        
+    elif os.path.exists(pdb_path) and pdb_path.lower().endswith('.xyz'):
+        print(f"Converting XYZ to PDB: {pdb_path}")
+        from ase.io import read, write
+        atoms = read(pdb_path)
+        parsed_path = os.path.join(output_dir, "input.pdb")
+        write(parsed_path, atoms)
         pdb_path = parsed_path
         
     if mlip_model == "GFN2-xTB":
@@ -75,7 +83,8 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
             write(os.path.join(output_dir, 'trajectory.xyz'), atoms, append=True)
         dyn.attach(write_frame, interval=10000)
         
-        total_steps = 100000000
+        # Target steps: (simulation_length_ns) * 1,000,000 fs / 2 fs per step
+        total_steps = int((simulation_length_ns * 1e6) / 2.0)
         dyn.run(total_steps)
         
         # Convert XYZ to DCD using MDAnalysis so the NGL Viewer can read it
@@ -106,16 +115,32 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
     # Load AMBER forcefields
     forcefield = app.ForceField('amber19-all.xml', 'amber19/tip3pfb.xml')
     
-    # Note: If the PDB lacks hydrogens or solvent, Modeller should be used here.
-    # For this snippet, we assume a fully solvated and parameterized system is ready.
-    # Often, you'll need specific ligand XML parameters if using classical forcefield,
-    # but since we're overriding ligand forces with MLIP, we still need basic parameters
-    # to create the system, or we manually define the system without ligand internal forces.
+    print("Preparing the system using Modeller...")
+    modeller = app.Modeller(pdb.topology, pdb.positions)
     
-    system = forcefield.createSystem(pdb.topology, nonbondedMethod=app.PME,
+    print("Adding missing hydrogens...")
+    # We ignore warnings about missing atoms as we might just have a backbone or partial sidechains,
+    # but Modeller is usually smart enough.
+    modeller.addHydrogens(forcefield)
+    
+    print("Adding solvent box (water and ions to neutralize)...")
+    modeller.addSolvent(forcefield, model='tip3p', padding=1.0*unit.nanometer, ionicStrength=0.15*unit.molar)
+    
+    system = forcefield.createSystem(modeller.topology, nonbondedMethod=app.PME,
                                      nonbondedCutoff=1.0*unit.nanometer,
                                      constraints=app.HBonds)
     
+    peptide_indices = []
+    for atom in modeller.topology.atoms():
+        # Adjust this condition based on your exact PDB structure
+        if atom.residue.chain.id == 'B' or atom.residue.name in ['BETA_PEP', 'PEP'] or atom.residue.name.upper() in ['ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL']:
+            # For this isolated peptide simulation, any standard amino acid is part of the peptide.
+            # Water (HOH) and ions (NA, CL) are excluded.
+            peptide_indices.append(atom.index)
+            
+    if not peptide_indices:
+        print("Warning: No peptide indices found! MLIP force will not be applied correctly.")
+        
     # 3. MLIP Integration
     import export_model
     # Generate a unique path for the dynamically traced model for this job
@@ -124,7 +149,15 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
     model_path = os.path.join(base_inputs_dir, f"tx1_traced_{job_id}.pt")
     
     print(f"Dynamically tracing PyTorch model for the specific molecule... ({pdb_path})")
-    traced_path = export_model.export_model(peptide_pdb_path=pdb_path, output_path=model_path)
+    
+    # We pass the original pdb_path to read atomic numbers, but we trace it for the whole system size!
+    total_atoms = modeller.topology.getNumAtoms()
+    traced_path = export_model.export_model(
+        peptide_pdb_path=pdb_path, 
+        output_path=model_path,
+        total_atoms=total_atoms,
+        peptide_indices=peptide_indices
+    )
     
     if not traced_path:
         raise RuntimeError("Failed to dynamically trace PyTorch model for OpenMM.")
@@ -132,17 +165,6 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
     torch_force = openmmtorch.TorchForce(traced_path)
     
     # 4. Force Masking
-    # We must extract atomic indices for the 4-mer/5-mer peptide ligand.
-    # Let's assume the peptide is Chain B (or whatever identifier distinguishes it).
-    # In standard GPR120 8ID6, receptor is Chain A.
-    peptide_indices = []
-    for atom in pdb.topology.atoms():
-        # Adjust this condition based on your exact PDB structure
-        if atom.residue.chain.id == 'B' or atom.residue.name in ['BETA_PEP']:
-            peptide_indices.append(atom.index)
-            
-    if not peptide_indices:
-        print("Warning: No peptide indices found! MLIP force will not be applied correctly.")
         
     # Configure TorchForce to ONLY evaluate on these indices
     # We also might want to remove the classical bonded interactions for these indices
@@ -177,8 +199,8 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
     platform = mm.Platform.getPlatformByName('CUDA')
     properties = {'Precision': 'mixed'}
     
-    simulation = app.Simulation(pdb.topology, system, integrator, platform, properties)
-    simulation.context.setPositions(pdb.positions)
+    simulation = app.Simulation(modeller.topology, system, integrator, platform, properties)
+    simulation.context.setPositions(modeller.positions)
     
     checkpoint_path = os.path.join(output_dir, 'checkpoint.chk')
     is_resuming = os.path.exists(checkpoint_path)
@@ -200,9 +222,8 @@ def run_hybrid_md(pdb_path: str, job_id: str, mlip_model: str = "tx1-fastapi"):
     simulation.reporters.append(state_reporter)
     simulation.reporters.append(chk_reporter)
     
-    # Target steps: 200 ns = 100,000,000 steps (at 2 fs)
-    # We will use 100,000,000 for the full production run
-    total_steps = 100000000
+    # Target steps: (simulation_length_ns) * 1,000,000 fs / 2 fs per step
+    total_steps = int((simulation_length_ns * 1e6) / 2.0)
     
     # If resuming, step() still needs the remaining steps, or just total_steps if openmm handles it.
     # Actually openmm simulation.step() advances by X steps from current step.

@@ -46,7 +46,7 @@ import 'coordinate_editor_screen.dart';
 import 'package:quantum_forge/features/settings/presentation/screens/settings_screen.dart';
 import 'package:quantum_forge/state/dashboard_viewmodel.dart';
 import 'dart:convert';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
+import 'package:quantum_forge/core/widgets/reaction_animation_widget.dart';
 import 'package:quantum_forge/core/services/feedback_service.dart';
 
 import 'package:quantum_forge/core/services/chemical_resolver_service.dart';

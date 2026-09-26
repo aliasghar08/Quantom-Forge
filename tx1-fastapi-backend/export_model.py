@@ -12,16 +12,26 @@ class OpenMMTorchWrapper(nn.Module):
     we must embed the atomic numbers inside the module or pass them via a trick.
     Typically, for a specific ligand, we can hardcode the z array into the model instance.
     """
-    def __init__(self, model, z_array):
+    def __init__(self, model, z_array, total_atoms, peptide_indices=None):
         super().__init__()
         self.model = model
         # Register z as a buffer so it becomes part of the TorchScript module
         self.register_buffer('z', torch.tensor(z_array, dtype=torch.long).unsqueeze(0))
         # Mask is all 1s for the ligand
         self.register_buffer('mask', torch.ones((1, len(z_array)), dtype=torch.float32))
+        
+        if peptide_indices is not None:
+            self.register_buffer('peptide_indices', torch.tensor(peptide_indices, dtype=torch.long))
+        else:
+            self.peptide_indices = None
+            
+        self.total_atoms = total_atoms
 
     def forward(self, positions):
-        # positions from OpenMM are in shape (N, 3) in nanometers.
+        # positions from OpenMM are in shape (N_total, 3) in nanometers.
+        if self.peptide_indices is not None:
+            positions = positions[self.peptide_indices]
+            
         # We may need to convert them to Angstroms if TX1 expects Angstroms (typically 1 nm = 10 A)
         pos_A = positions * 10.0
         pos_A = pos_A.unsqueeze(0).float() # shape (1, N, 3)
@@ -35,7 +45,7 @@ class OpenMMTorchWrapper(nn.Module):
         
         return energy_kjmol
 
-def export_model(peptide_pdb_path=None, output_path=None):
+def export_model(peptide_pdb_path=None, output_path=None, total_atoms=None, peptide_indices=None):
     # 1. Load the original model from Drive
     model = MolecularGraphNetwork()
     ckpt = os.environ.get("QUANTUM_FORGE_MODEL_CHECKPOINT", "./t1x_model_checkpoint.pt")
@@ -75,11 +85,14 @@ def export_model(peptide_pdb_path=None, output_path=None):
     
     print(f"Extracted {num_atoms_in_ligand} atoms. Z-array: {extracted_z}")
     
-    wrapped_model = OpenMMTorchWrapper(model, extracted_z)
+    if total_atoms is None:
+        total_atoms = num_atoms_in_ligand
+        
+    wrapped_model = OpenMMTorchWrapper(model, extracted_z, total_atoms, peptide_indices)
     
     # 2. Trace the model
-    # Dummy input positions (N, 3)
-    dummy_positions = torch.randn((num_atoms_in_ligand, 3), dtype=torch.float32)
+    # Dummy input positions (N_total, 3)
+    dummy_positions = torch.randn((total_atoms, 3), dtype=torch.float32)
     
     traced_model = torch.jit.trace(wrapped_model, (dummy_positions,))
     

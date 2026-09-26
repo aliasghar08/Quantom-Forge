@@ -34,7 +34,7 @@ import 'package:quantum_forge/core/utils/avogadro_interchange.dart';
 import 'package:quantum_forge/core/utils/element_data.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/features/reaction_runner/presentation/widgets/interactive_builder_widget.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
+import 'package:quantum_forge/core/widgets/reaction_animation_widget.dart';
 
 class CoordinateEditorScreen extends StatefulWidget {
   const CoordinateEditorScreen({super.key, this.initialStructure});
@@ -307,12 +307,13 @@ H  0.00000 -0.75545 -0.47116''';
     }
     
     final pdbController = TextEditingController(text: '/content/peptide.pdb');
+    final lengthController = TextEditingController(text: '200');
     
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: _palette.panel,
-        title: Text('Start Hybrid ML/MM MD', style: TextStyle(color: _palette.textPrimary)),
+        title: Text('Run Molecular Dynamics (Hybrid ML/MM)', style: TextStyle(color: _palette.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,6 +323,23 @@ H  0.00000 -0.75545 -0.47116''';
             const SizedBox(height: 12),
             TextField(
               controller: pdbController,
+              style: TextStyle(color: _palette.textPrimary),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: _palette.viewport,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Simulation Length (ns):',
+                style: TextStyle(color: _palette.textSecondary, fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: lengthController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: TextStyle(color: _palette.textPrimary),
               decoration: InputDecoration(
                 filled: true,
@@ -353,7 +371,12 @@ H  0.00000 -0.75545 -0.47116''';
     final service = const BackendComputeService();
     try {
       _snack('Submitting Hybrid MD job to Colab...');
-      final jobId = await service.submitHybridMd(backendUrl, pdbController.text.trim());
+      final lengthNs = double.tryParse(lengthController.text) ?? 200.0;
+      final jobId = await service.submitHybridMd(
+        backendUrl, 
+        pdbController.text.trim(),
+        simulationLengthNs: lengthNs,
+      );
       
       _snack('Job $jobId started. Polling status...');
       
@@ -382,7 +405,7 @@ H  0.00000 -0.75545 -0.47116''';
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Hybrid MD Simulation', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          const Text('Run Molecular Dynamics (Hybrid ML/MM)', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                           IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.of(ctx).pop()),
                         ],
                       ),
@@ -624,11 +647,11 @@ H  0.00000 -0.75545 -0.47116''';
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          _buildToolBtn(BuilderTool.navigate, Icons.pan_tool, 'Navigate', showTooltips,
+          _buildToolBtn(BuilderTool.navigate, Icons.pan_tool, 'Rotate & Pan', showTooltips,
               'Orbit the camera. Drag anywhere in the 3D view.'),
-          _buildToolBtn(BuilderTool.draw, Icons.edit, 'Draw', showTooltips,
+          _buildToolBtn(BuilderTool.draw, Icons.add_circle_outline, 'Add Atoms', showTooltips,
               'Click empty space to place an atom; drag from an atom to bond.'),
-          _buildToolBtn(BuilderTool.delete, Icons.delete, 'Delete', showTooltips,
+          _buildToolBtn(BuilderTool.delete, Icons.remove_circle_outline, 'Erase Atoms', showTooltips,
               'Click an atom to remove it.'),
           const SizedBox(width: 12),
           Text('Element:', style: TextStyle(color: palette.textSecondary)),
@@ -655,7 +678,7 @@ H  0.00000 -0.75545 -0.47116''';
                 .toList(),
           ),
           const SizedBox(width: 12),
-          Text('Auto-optimise', style: TextStyle(color: palette.textSecondary)),
+          Text('Auto-Minimize Energy (UFF)', style: TextStyle(color: palette.textSecondary, fontWeight: FontWeight.bold)),
           Switch(
             value: _autoOptimize,
             activeThumbColor: palette.accent,
@@ -829,7 +852,7 @@ class _AvogadroActionBar extends StatelessWidget {
           FilledButton.icon(
             onPressed: onSimulateHybridMd,
             icon: const Icon(Icons.science, size: 16),
-            label: const Text('Simulate Hybrid MD'),
+            label: const Text('Run Molecular Dynamics (Hybrid ML/MM)'),
             style: FilledButton.styleFrom(
               backgroundColor: Colors.purple.shade400,
               foregroundColor: Colors.white,

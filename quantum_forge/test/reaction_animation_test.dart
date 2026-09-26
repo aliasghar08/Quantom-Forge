@@ -22,7 +22,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
+import 'package:quantum_forge/core/widgets/reaction_animation_widget.dart';
 
 const String _frame1 =
     '3\nReactant\nC 0.00 0.00 0.00\nO 1.43 0.00 0.00\nH 2.39 0.00 0.00\n';

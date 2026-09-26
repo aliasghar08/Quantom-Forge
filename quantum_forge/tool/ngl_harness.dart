@@ -29,7 +29,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
+import 'package:quantum_forge/core/widgets/reaction_animation_widget.dart';
 
 /// `C–H1` fixed at 1.09 A, `H2` stretching away from the carbon until the bond
 /// breaks.

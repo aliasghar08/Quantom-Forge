@@ -247,11 +247,11 @@ class BackendComputeService {
   // ==========================================
   
   /// Submits the PDB for hybrid MD simulation and returns the job_id.
-  Future<String> submitHybridMd(String backendUrl, String pdbPath) async {
+  Future<String> submitHybridMd(String backendUrl, String pdbPath, {double simulationLengthNs = 200.0}) async {
     final base = _base(backendUrl);
     final json = await WebServices.postJson(
       '$base/simulate/hybrid-md',
-      {'pdb_path': pdbPath, 'steps': 5000},
+      {'pdb_path': pdbPath, 'simulation_length_ns': simulationLengthNs},
       headers: {'Bypass-Tunnel-Reminder': 'true'},
     );
     final id = json['job_id'] as String?;

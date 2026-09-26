@@ -19,7 +19,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/ngl/ngl_axes_triad.dart';
+import 'package:quantum_forge/core/widgets/ngl/ngl_axes_triad.dart';
 
 // Column-major, so each line below is one COLUMN of the matrix: the image of
 // that world basis vector in camera space.

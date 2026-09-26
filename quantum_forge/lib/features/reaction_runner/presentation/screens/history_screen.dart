@@ -5,6 +5,7 @@ import 'package:quantum_forge/core/services/auth_service.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/features/auth/presentation/screens/auth_screen.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
+import 'package:quantum_forge/core/widgets/animations/staggered_animation_list_item.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -142,13 +143,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   final isCompleted = reaction.state == ReactionState.completed;
                   final isFailed = reaction.state == ReactionState.error;
 
-                  return AnimationConfiguration.staggeredList(
-                    position: index,
-                    duration: const Duration(milliseconds: 500),
-                    child: SlideAnimation(
-                      verticalOffset: 50.0,
-                      child: FadeInAnimation(
-                        child: Material(
+                  return StaggeredAnimationListItem(
+                    index: index,
+                    child: Material(
                           color: Colors.transparent,
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(
@@ -212,8 +209,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             },
                           ),
                         ),
-                      ),
-                    ),
                   );
                 },
               ),

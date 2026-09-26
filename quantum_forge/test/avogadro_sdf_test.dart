@@ -13,8 +13,8 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart' show Atom, atomFor;
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/ngl/avogadro_geometry.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/ngl/avogadro_sdf.dart';
+import 'package:quantum_forge/core/widgets/ngl/avogadro_geometry.dart';
+import 'package:quantum_forge/core/widgets/ngl/avogadro_sdf.dart';
 
 Atom at(String symbol, double x, [double y = 0, double z = 0]) =>
     atomFor(symbol, x, y, z);

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/utils/unicode_math.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/reaction_animation_widget.dart';
+import 'package:quantum_forge/core/widgets/reaction_animation_widget.dart';
 
 // ============================================================================
 // DistinctMoleculesViewer — tabbed viewer for distinct molecules
@@ -19,7 +19,8 @@ class DistinctMoleculesViewer extends StatefulWidget {
   });
 
   @override
-  State<DistinctMoleculesViewer> createState() => _DistinctMoleculesViewerState();
+  State<DistinctMoleculesViewer> createState() =>
+      _DistinctMoleculesViewerState();
 }
 
 class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
@@ -47,7 +48,7 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
     // then run the heavy algorithm. (compute() fails on Web with DataCloneError for custom classes).
     await Future.delayed(const Duration(milliseconds: 50));
     final rawMolecules = XyzParser.getDistinctMolecules(widget.atoms);
-    
+
     final uniqueMols = <List<Atom>>[];
     final seenFormulas = <String>{};
     for (final mol in rawMolecules) {
@@ -58,7 +59,7 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
         uniqueMols.add(mol);
       }
     }
-    
+
     if (mounted) {
       setState(() {
         _distinctMolecules = uniqueMols;
@@ -93,21 +94,24 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
           children: [
             CircularProgressIndicator(color: Color(0xFF4FC3F7)),
             SizedBox(height: 16),
-            Text('Analyzing distinct fragments...', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(
+              'Analyzing distinct fragments...',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
           ],
         ),
       );
     }
 
     final distinctMolecules = _distinctMolecules!;
-    
+
     // Safety check if atoms change and the selected index is now out of bounds
     if (_selectedIndex >= distinctMolecules.length) {
       _selectedIndex = 0;
     }
 
-    final selectedMol = distinctMolecules.isNotEmpty 
-        ? distinctMolecules[_selectedIndex] 
+    final selectedMol = distinctMolecules.isNotEmpty
+        ? distinctMolecules[_selectedIndex]
         : <Atom>[];
 
     return Container(
@@ -118,6 +122,7 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // ── Header ─────────────────────────────────────────────────────────
           Padding(
@@ -128,30 +133,42 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF4FC3F7).withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: const Color(0xFF4FC3F7).withValues(alpha: 0.35)),
+                      color: const Color(0xFF4FC3F7).withValues(alpha: 0.35),
+                    ),
                   ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.science,
-                        color: Color(0xFF4FC3F7), size: 14),
-                    const SizedBox(width: 6),
-                    Text(
-                      widget.title,
-                      style: const TextStyle(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.science,
+                        color: Color(0xFF4FC3F7),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        widget.title,
+                        style: const TextStyle(
                           color: Color(0xFF4FC3F7),
                           fontSize: 13,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ]),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(8),
@@ -159,18 +176,22 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
                   child: Text(
                     '${distinctMolecules.length} unique component${distinctMolecules.length == 1 ? '' : 's'} ($_rawMoleculesCount total)',
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.55),
-                        fontSize: 11),
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontSize: 11,
+                    ),
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF4FC3F7).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                        color: const Color(0xFF4FC3F7).withValues(alpha: 0.2)),
+                      color: const Color(0xFF4FC3F7).withValues(alpha: 0.2),
+                    ),
                   ),
                   child: const Text(
                     'Select a fragment',
@@ -183,10 +204,11 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
 
           // ── Divider ─────────────────────────────────────────────────────────
           Divider(
-              height: 1,
-              color: Colors.white.withValues(alpha: 0.06),
-              indent: 16,
-              endIndent: 16),
+            height: 1,
+            color: Colors.white.withValues(alpha: 0.06),
+            indent: 16,
+            endIndent: 16,
+          ),
 
           if (distinctMolecules.isNotEmpty) ...[
             // ── Selectable Tabs ────────────────────────────────────────────────
@@ -214,7 +236,9 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
                       duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(right: 12),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? cardColor.withValues(alpha: 0.15)
@@ -260,10 +284,7 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
                           ),
                           const SizedBox(width: 8),
                           // Element pills
-                          Wrap(
-                            spacing: 4,
-                            children: _elementPills(molAtoms),
-                          ),
+                          Wrap(spacing: 4, children: _elementPills(molAtoms)),
                         ],
                       ),
                     ),
@@ -286,18 +307,32 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 400),
-                    child: ReactionAnimationWidget(
-                      // Not using a ValueKey prevents destroying the WebGL context!
-                      // Flutter will reuse the widget and just pass new trajectoryFrames.
-                      trajectoryFrames: [_toXyz(selectedMol)],
-                    ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (MediaQuery.of(context).size.width < 600) {
+                        return SizedBox(
+                          height: 250,
+                          width: double.infinity,
+                          child: ReactionAnimationWidget(
+                            trajectoryFrames: [_toXyz(selectedMol)],
+                            compactMode: true,
+                          ),
+                        );
+                      } else {
+                        return ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 400),
+                          child: ReactionAnimationWidget(
+                            trajectoryFrames: [_toXyz(selectedMol)],
+                            compactMode: true,
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ),
               ),
             ),
-          ]
+          ],
         ],
       ),
     );
