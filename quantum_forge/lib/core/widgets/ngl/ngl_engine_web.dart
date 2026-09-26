@@ -705,8 +705,8 @@ class NglEngine {
       final double markerRadius = 0.25 * scaleFactor;
 
       // Label size in world units. Scaled dynamically. 
-      // Increased base size from 1.0 to 2.0 to enlarge them substantially.
-      final double labelSize = 2.0 * scaleFactor;
+      // Halved the base size from 2.0 to 1.0 as requested.
+      final double labelSize = 1.0 * scaleFactor;
 
       for (final label in labels) {
         final position = <JSAny>[
