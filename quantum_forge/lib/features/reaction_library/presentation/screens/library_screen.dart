@@ -36,18 +36,29 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<ReactionTemplate> _allTemplates = const [];
   List<ReactionTemplate> _filtered = const [];
   bool _isLoading = true;
+  int? _cloudCount; // null = loading, -1 = unavailable
   Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _loadTemplates();
+    _fetchCloudCount();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     super.dispose();
+  }
+
+  /// Fetches the total Firestore document count using a single aggregation RPC
+  /// (no documents downloaded). Updates the header subtitle once the value arrives.
+  Future<void> _fetchCloudCount() async {
+    final count = await FirestoreLibraryRepository().getTotalCount();
+    if (mounted) {
+      setState(() => _cloudCount = count);
+    }
   }
 
   Future<void> _loadTemplates() async {
@@ -180,7 +191,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           LibraryHeader(
-            totalCount: 200000,
+            localCount: _allTemplates.length,
+            cloudCount: _cloudCount,
             onSearchChanged: _onSearchChanged,
           ),
           LibraryFilterBar(

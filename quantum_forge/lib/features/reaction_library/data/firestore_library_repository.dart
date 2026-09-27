@@ -31,6 +31,22 @@ class FirestoreLibraryRepository {
     }
   }
 
+  /// Returns the total number of reaction documents stored in Firestore.
+  ///
+  /// Uses the Firestore `count()` aggregation query which is a single RPC and
+  /// does not download any documents — cost is one read regardless of library size.
+  /// Falls back to -1 on any error so the UI can show "—" instead of crashing.
+  Future<int> getTotalCount() async {
+    try {
+      final result = await _libraryCollection.count().get();
+      return result.count ?? 0;
+    } catch (e) {
+      debugPrint('Error fetching library count: $e');
+      return -1;
+    }
+  }
+
+
   Future<List<ReactionTemplate>> searchLibraryTemplates(String query, {ReactionCategory? category, int limit = 50}) async {
     if (query.isEmpty) return getLibraryTemplates(category: category, limit: limit);
     try {
