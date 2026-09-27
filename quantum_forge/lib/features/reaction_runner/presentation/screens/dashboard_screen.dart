@@ -420,7 +420,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Expanded(
                       flex: 7,
-                      child: SingleChildScrollView(child: mainContent),
+                      child: SingleChildScrollView(
+                        key: const PageStorageKey('dashboard_main_scroll'),
+                        child: mainContent,
+                      ),
                     ),
                     const SizedBox(width: 24),
                     // FIX: use SizedBox to enforce the panel's flex share
@@ -431,6 +434,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: SizedBox(
                         width: double.infinity,
                         child: SingleChildScrollView(
+                          key: const PageStorageKey('dashboard_controls_scroll'),
                           child: QuantumControlsPanel(
                             activeTemplate: _viewModel.activeTemplate,
                           ),
@@ -443,6 +447,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
 
             return SingleChildScrollView(
+              key: const PageStorageKey('dashboard_main_scroll'),
               padding: EdgeInsets.all(isDesktop ? 24 : 16),
               child: SizedBox(
                 width: double.infinity, // FIX: full-width when narrow layout

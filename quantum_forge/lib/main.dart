@@ -31,6 +31,11 @@ void main() {
   // Hook automatic crash capture BEFORE runApp so no errors are missed.
   FeedbackService.instance.initialize();
 
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('Caught Flutter UI Error: ${details.exceptionAsString()}');
+    return const SizedBox.shrink(); // Avoid solid grey flash
+  };
+
   final authService = FirebaseAuthService();
   final storageService = LocalStorageService();
   final reactionRepository = FirestoreReactionRepository();

@@ -270,9 +270,12 @@ class NglViewerState extends State<NglViewer> {
       child: Stack(
         children: [
           Positioned.fill(
-            child: HtmlElementView(
-              viewType: NglEngine.viewType,
-              onPlatformViewCreated: _onPlatformViewCreated,
+            child: RepaintBoundary(
+              key: ValueKey('ngl_canvas_$hashCode'),
+              child: HtmlElementView(
+                viewType: NglEngine.viewType,
+                onPlatformViewCreated: _onPlatformViewCreated,
+              ),
             ),
           ),
           if (widget.showAxesTriad)

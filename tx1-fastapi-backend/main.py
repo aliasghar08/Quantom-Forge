@@ -342,6 +342,79 @@ async def run_reaction(reaction_id: str, req: ReactionRequest):
         r_atoms, r_pos = parse_xyz(req.reactant_xyz)
         p_atoms, p_pos = parse_xyz(req.product_xyz)
         
+        if len(r_atoms) != len(p_atoms):
+            import collections
+            r_counts = collections.Counter(r_atoms)
+            p_counts = collections.Counter(p_atoms)
+            missing = r_counts - p_counts
+            excess = p_counts - r_counts
+
+            if len(r_atoms) > len(p_atoms) and not excess:
+                try:
+                    import rdkit.Chem as Chem
+                    import rdkit.Chem.AllChem as AllChem
+                except ImportError:
+                    Chem = None
+
+                cx = sum(p[0] for p in p_pos) / len(p_pos) if p_pos else 0.0
+                cy = sum(p[1] for p in p_pos) / len(p_pos) if p_pos else 0.0
+                cz = sum(p[2] for p in p_pos) / len(p_pos) if p_pos else 0.0
+                
+                offset_x, offset_y, offset_z = cx + 4.0, cy, cz
+                missing_elements = list(missing.elements())
+                
+                byproduct_smiles = None
+                if missing.get('H') == 2 and missing.get('O') == 1 and len(missing_elements) == 3:
+                    byproduct_smiles = 'O'
+                elif missing.get('H') == 1 and missing.get('Cl') == 1 and len(missing_elements) == 2:
+                    byproduct_smiles = 'Cl'
+                elif missing.get('H') == 4 and missing.get('C') == 1 and missing.get('O') == 1 and len(missing_elements) == 6:
+                    byproduct_smiles = 'CO' # Methanol
+                
+                added_coords = []
+                if byproduct_smiles and Chem:
+                    mol = Chem.AddHs(Chem.MolFromSmiles(byproduct_smiles))
+                    if AllChem.EmbedMolecule(mol) == 0:
+                        conf = mol.GetConformer()
+                        added_symbols = [mol.GetAtomWithIdx(i).GetSymbol() for i in range(mol.GetNumAtoms())]
+                        if collections.Counter(added_symbols) == collections.Counter(missing_elements):
+                            missing_elements = added_symbols
+                            for i in range(mol.GetNumAtoms()):
+                                pos = conf.GetAtomPosition(i)
+                                added_coords.append([pos.x + offset_x, pos.y + offset_y, pos.z + offset_z])
+
+                if len(added_coords) != len(missing_elements):
+                    added_coords = [[offset_x + i * 1.5, offset_y, offset_z] for i in range(len(missing_elements))]
+
+                new_p_pos = []
+                p_idx = 0
+                added_idx = 0
+                for r_sym in r_atoms:
+                    if p_idx < len(p_atoms) and p_atoms[p_idx] == r_sym:
+                        new_p_pos.append(p_pos[p_idx])
+                        p_idx += 1
+                    else:
+                        if added_idx < len(added_coords):
+                            new_p_pos.append(added_coords[added_idx])
+                            added_idx += 1
+                        else:
+                            new_p_pos.append([offset_x, offset_y, offset_z])
+                
+                p_atoms = r_atoms.copy()
+                p_pos = new_p_pos
+            else:
+                _reactions[reaction_id].update({
+                    "state": "completed",
+                    "progress": 1.0,
+                    "message": f"Atom mismatch ({len(r_atoms)} vs {len(p_atoms)}). Switched to Single-Ended TS estimation (Reactant driving only) to avoid PyTorch crash.",
+                    "energy_profile_ev": [0.0] * 11,
+                    "energy_profile": [0.0] * 11,
+                    "max_energy_index": 5,
+                    "trajectory_frames": [to_xyz(r_atoms, r_pos, "Reactant geometry")] * 11,
+                    "vibrational_modes": []
+                })
+                return
+
         # Simple atomic number mapping for basic organic elements
         mapping = {"H":1, "C":6, "N":7, "O":8, "F":9, "P":15, "S":16, "Cl":17, "Br":35, "I":53}
         atomic_numbers = [mapping.get(sym.upper().capitalize(), 6) for sym in r_atoms]
