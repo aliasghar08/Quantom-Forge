@@ -84,12 +84,14 @@ class LibraryHeader extends StatelessWidget {
   final int? cloudCount;
 
   final ValueChanged<String> onSearchChanged;
+  final VoidCallback? onRefreshCount;
 
   const LibraryHeader({
     super.key,
     required this.localCount,
     this.cloudCount,
     required this.onSearchChanged,
+    this.onRefreshCount,
   });
 
   @override
@@ -121,6 +123,7 @@ class LibraryHeader extends StatelessWidget {
               ],
             ),
           ),
+          _buildStatCard(),
           // Search field
           Container(
             width: 320,
@@ -207,10 +210,82 @@ class LibraryHeader extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildStatCard() {
+    Widget content;
+    if (cloudCount == null) {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const _ShimmerPill(width: 80, height: 32),
+          const SizedBox(height: 4),
+          Text('total reactions in Firebase', style: TextStyle(color: Colors.white.withValues(alpha: 0.54), fontSize: 11)),
+        ],
+      );
+    } else if (cloudCount == -1) {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('—', style: TextStyle(color: Colors.white70, fontSize: 32, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text('total reactions in Firebase', style: TextStyle(color: Colors.white.withValues(alpha: 0.54), fontSize: 11)),
+        ],
+      );
+    } else {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AnimatedCount(
+            from: 0,
+            to: cloudCount!,
+            duration: const Duration(milliseconds: 1200),
+            style: TextStyle(
+              color: Colors.cyanAccent.withValues(alpha: 0.9),
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              shadows: [
+                Shadow(color: Colors.cyanAccent.withValues(alpha: 0.5), blurRadius: 12),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text('total reactions in Firebase', style: TextStyle(color: Colors.white.withValues(alpha: 0.54), fontSize: 11)),
+        ],
+      );
+    }
+
+    return MouseRegion(
+      cursor: onRefreshCount != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: onRefreshCount,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: content,
+        ),
+      ),
+    );
+  }
 }
 
 /// Tiny pulsing shimmer pill shown while the cloud count is loading.
 class _ShimmerPill extends StatefulWidget {
+  final double width;
+  final double height;
+  
+  const _ShimmerPill({this.width = 72, this.height = 14});
+
   @override
   State<_ShimmerPill> createState() => _ShimmerPillState();
 }
@@ -239,8 +314,8 @@ class _ShimmerPillState extends State<_ShimmerPill>
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) => Container(
-        width: 72,
-        height: 14,
+        width: widget.width,
+        height: widget.height,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(7),
           color: Colors.white.withValues(alpha: 0.08 + 0.08 * _ctrl.value),

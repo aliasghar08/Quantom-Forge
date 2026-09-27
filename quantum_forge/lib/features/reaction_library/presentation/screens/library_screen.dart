@@ -219,6 +219,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
             localCount: _items.length,
             cloudCount: _cloudCount,
             onSearchChanged: _onSearchChanged,
+            onRefreshCount: () {
+              setState(() => _cloudCount = null);
+              _fetchCloudCount();
+            },
           ),
           LibraryFilterBar(
             selectedCategory: _filterCategory,
