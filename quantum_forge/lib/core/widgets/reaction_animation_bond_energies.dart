@@ -21,7 +21,11 @@ extension _ReactionAnimationBondEnergiesExt on _ReactionAnimationWidgetState {
 
       if (bonds.isEmpty) return const SizedBox.shrink();
 
-      final settings = context.watch<QuantumSettingsNotifier>().value;
+      // Use context.read to avoid subscribing the animation widget to every
+      // QuantumSettingsNotifier change — the parent already rebuilds us when
+      // settings that affect the energy profile change, so a second
+      // subscription here would cause a redundant rebuild of the whole subtree.
+      final settings = context.read<QuantumSettingsNotifier>().value;
 
       double scaleFactor = (settings.temperatureK / 300.0);
       if (settings.solventModel != 'Vacuum') {

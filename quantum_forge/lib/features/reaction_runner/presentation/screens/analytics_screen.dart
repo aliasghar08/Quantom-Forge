@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/features/reaction_runner/data/models/reaction_models.dart';
@@ -14,6 +15,11 @@ class AnalyticsScreen extends StatefulWidget {
 }
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  // ── Phase 1 QA counters ───────────────────────────────────────────────────
+  static int buildCount = 0;
+  static int computeCount = 0;
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Mock data for analytics
   final List<double> _mockFrames = List.generate(20, (i) {
     // Parabola shape: max at i=10
@@ -31,6 +37,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   void _updateMetrics(QuantumSettings settings, ReactionStatusResponse? reactionStatus) {
     if (_lastSettings == settings && _lastStatus == reactionStatus && _cachedMetrics.isNotEmpty) return;
+    computeCount++;
+    if (kDebugMode) {
+      debugPrint('[QA] AnalyticsScreen._computeMetrics #$computeCount '
+          '(state=${reactionStatus?.state}, progress=${reactionStatus?.progress})');
+    }
     _lastSettings = settings;
     _lastStatus = reactionStatus;
 
@@ -100,6 +111,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    buildCount++;
+    if (kDebugMode) {
+      debugPrint('[QA] AnalyticsScreen.build #$buildCount (computeCount=#$computeCount)');
+    }
     return ValueListenableBuilder<QuantumSettings>(
       valueListenable: context.read<QuantumSettingsNotifier>(),
       builder: (context, settings, _) {

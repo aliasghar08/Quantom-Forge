@@ -18,6 +18,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'ngl_axes_triad.dart';
@@ -52,6 +53,12 @@ class NglViewer extends StatefulWidget {
 }
 
 class NglViewerState extends State<NglViewer> {
+  // ── Phase 1 QA counters ───────────────────────────────────────────────────
+  static int buildCount = 0;
+  static int engineAttachCount = 0;
+  static int engineDisposeCount = 0;
+  // ─────────────────────────────────────────────────────────────────────────
+
   NglEngine? _engine;
 
   /// A load issued before the platform view existed, replayed on attach.
@@ -83,6 +90,11 @@ class NglViewerState extends State<NglViewer> {
 
   @override
   void dispose() {
+    NglViewerState.engineDisposeCount++;
+    if (kDebugMode) {
+      debugPrint('[QA] NglViewer.dispose engineDisposeCount=#${NglViewerState.engineDisposeCount} '
+          'buildCount=#${NglViewerState.buildCount}');
+    }
     _orientationPoll?.cancel();
     _engine?.dispose();
     _engine = null;
@@ -216,6 +228,12 @@ class NglViewerState extends State<NglViewer> {
   List<double>? cameraOrientation() => _engine?.cameraOrientation();
 
   void _onPlatformViewCreated(int viewId) {
+    NglViewerState.engineAttachCount++;
+    if (kDebugMode) {
+      debugPrint('[QA] NglViewer.engineAttach #${NglViewerState.engineAttachCount} '
+          '(disposeCount=#${NglViewerState.engineDisposeCount}, '
+          'buildCount=#${NglViewerState.buildCount})');
+    }
     final engine = NglEngine.forView(viewId);
     if (engine == null) return;
 
@@ -256,6 +274,11 @@ class NglViewerState extends State<NglViewer> {
 
   @override
   Widget build(BuildContext context) {
+    NglViewerState.buildCount++;
+    if (kDebugMode) {
+      debugPrint('[QA] NglViewer.build #${NglViewerState.buildCount} '
+          '(attachCount=#${NglViewerState.engineAttachCount})');
+    }
     if (!NglEngine.isSupported) {
       return SizedBox(
         width: widget.width,

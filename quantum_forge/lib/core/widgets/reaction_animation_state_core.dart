@@ -5,6 +5,12 @@ extension _ReactionAnimationCoreExt on _ReactionAnimationWidgetState {
   // ── Loading ───────────────────────────────────────────────────────────────
 
   void _load() {
+    _ReactionAnimationWidgetState.reloadCount++;
+    if (kDebugMode) {
+      debugPrint('[QA] ReactionAnimationWidget._load #${_ReactionAnimationWidgetState.reloadCount} '
+          '(build #${_ReactionAnimationWidgetState.buildCount}, frame=$_frame, '
+          'frames=${widget.trajectoryFrames.length})');
+    }
     final frames = widget.trajectoryFrames;
     _parsedFrames = const <List<Atom>?>[];
     _staticBonds = const <PerceivedBond>[];

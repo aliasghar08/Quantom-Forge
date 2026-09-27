@@ -47,6 +47,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -156,6 +157,11 @@ class ReactionAnimationWidget extends StatefulWidget {
 }
 
 class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
+  // ── Phase 1 QA counters ───────────────────────────────────────────────────
+  static int buildCount = 0;
+  static int reloadCount = 0;
+  // ─────────────────────────────────────────────────────────────────────────
+
   final GlobalKey<NglViewerState> _viewerKey = GlobalKey<NglViewerState>();
   final FocusNode _playerFocus = FocusNode(debugLabel: 'reaction-player');
 
@@ -247,6 +253,11 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   void didUpdateWidget(covariant ReactionAnimationWidget old) {
     super.didUpdateWidget(old);
 
+    if (kDebugMode) {
+      debugPrint('[QA] ReactionAnimationWidget.didUpdateWidget #$buildCount '
+          '(reload #$reloadCount, frame=$_frame, frames=${widget.trajectoryFrames.length})');
+    }
+
     final framesChanged = !identical(
       old.trajectoryFrames,
       widget.trajectoryFrames,
@@ -273,6 +284,11 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
   @override
   Widget build(BuildContext context) {
+    buildCount++;
+    if (kDebugMode) {
+      debugPrint('[QA] ReactionAnimationWidget.build #$buildCount '
+          '(reload #$reloadCount, frame=$_frame, frames=${widget.trajectoryFrames.length})');
+    }
     if (!_loaded || widget.trajectoryFrames.isEmpty) {
       return const AspectRatio(
         aspectRatio: 1.5,

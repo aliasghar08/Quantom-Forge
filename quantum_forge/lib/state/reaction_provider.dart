@@ -58,6 +58,19 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     this.gnnBackendUrlProvider,
   }) : super(null);
 
+  int _notifyCount = 0;
+
+  @override
+  void notifyListeners() {
+    _notifyCount++;
+    if (kDebugMode) {
+      debugPrint('[QA] ReactionNotifier.notifyListeners #$_notifyCount '
+          '(value=${value?.state}, progress=${value?.progress}, '
+          'hasListeners=${hasListeners ? "yes" : "no"})');
+    }
+    super.notifyListeners();
+  }
+
   bool get isLoading => isLoadingNotifier.value;
   String? get error => errorNotifier.value;
 

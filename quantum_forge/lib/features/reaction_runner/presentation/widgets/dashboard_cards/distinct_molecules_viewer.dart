@@ -309,11 +309,18 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
                   borderRadius: BorderRadius.circular(14),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
+                      // Use a shared key so the ReactionAnimationWidget
+                      // survives the SizedBox↔ConstrainedBox layout branch
+                      // toggle on resize — otherwise the HtmlElementView
+                      // (WebGL context) is destroyed and recreated at 600 px.
+                      const viewerKey =
+                          ValueKey<String>('distinct-mol-viewer');
                       if (MediaQuery.of(context).size.width < 600) {
                         return SizedBox(
                           height: 250,
                           width: double.infinity,
                           child: ReactionAnimationWidget(
+                            key: viewerKey,
                             trajectoryFrames: [_toXyz(selectedMol)],
                             compactMode: true,
                           ),
@@ -322,6 +329,7 @@ class _DistinctMoleculesViewerState extends State<DistinctMoleculesViewer> {
                         return ConstrainedBox(
                           constraints: const BoxConstraints(maxHeight: 400),
                           child: ReactionAnimationWidget(
+                            key: viewerKey,
                             trajectoryFrames: [_toXyz(selectedMol)],
                             compactMode: true,
                           ),

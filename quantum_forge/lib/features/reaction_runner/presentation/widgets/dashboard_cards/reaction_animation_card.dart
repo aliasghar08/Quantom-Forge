@@ -82,27 +82,19 @@ class ReactionAnimationCard extends StatelessWidget {
             ),
 
             // ── Animation ──────────────────────────────────────────
-            // No SizedBox, no Expanded — the widget owns its own height.
-            if (trajectoryFrames.length >= 3)
-              ReactionAnimationWidget(
-                trajectoryFrames: trajectoryFrames,
-                energyProfile:
-                    energyProfile.isEmpty ? null : energyProfile,
-                // Both come straight from the MLIP response and were being dropped.
-                energyProfileEv: status.energyProfileEv,
-                maxEnergyIndex: status.maxEnergyIndex,
-              )
-            else
-              const AspectRatio(
-                aspectRatio: 1.5,
-                child: Center(
-                  child: Text(
-                    'Need ≥ 3 trajectory frames for animation',
-                    style:
-                        TextStyle(color: Colors.white38, fontSize: 13),
-                  ),
-                ),
-              ),
+            // Always mount ReactionAnimationWidget so the WebGL context
+            // (HtmlElementView) is never destroyed and recreated across
+            // reaction state transitions. The widget's own empty-state guard
+            // (AspectRatio + spinner) is shown while frames are absent; when
+            // frames arrive they are loaded via didUpdateWidget without any
+            // HTML element re-parenting — eliminating the grey-flash flicker.
+            ReactionAnimationWidget(
+              trajectoryFrames: trajectoryFrames,
+              energyProfile:
+                  energyProfile.isEmpty ? null : energyProfile,
+              energyProfileEv: status.energyProfileEv,
+              maxEnergyIndex: status.maxEnergyIndex,
+            ),
           ],
         ),
       ),
