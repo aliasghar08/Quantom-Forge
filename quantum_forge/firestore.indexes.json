@@ -1,23 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "reactions",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "state", "order": "ASCENDING" },
-        { "fieldPath": "template_id", "order": "ASCENDING" },
-        { "fieldPath": "created_at", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "library",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "isDerived", "order": "ASCENDING" },
-        { "fieldPath": "category", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "library",
       "queryScope": "COLLECTION",
       "fields": [
