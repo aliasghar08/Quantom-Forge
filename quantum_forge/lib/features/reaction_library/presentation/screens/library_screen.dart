@@ -1,22 +1,23 @@
 // ============================================================================
-// Library Screen — Searchable, filterable template browser
+// Library Screen — Server-side paginated Firestore browser
 //
-// Performance notes (the library now holds thousands of templates):
-//   * filtering happens once per input change, not on every build;
-//   * the search box is debounced so typing does not rebuild the grid per key;
-//   * the grid itself builds only the cards inside the viewport (see LibraryGrid).
+// Architecture:
+//   * ALL data comes from Firestore. No local generation in this screen.
+//   * First page (24 items) loads on open.
+//   * Subsequent pages load as the user scrolls toward the bottom.
+//   * Search + category filter hit Firestore indexes — never local arrays.
+//   * The 41 curated templates are seeded on first-run only (not 200K variants).
 // ============================================================================
 
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
-import 'package:quantum_forge/features/reaction_library/data/reaction_template_generator.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_header.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_filter_bar.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/library_grid.dart';
-
 import 'package:quantum_forge/features/reaction_library/data/firestore_library_repository.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -29,152 +30,176 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  static const Duration _searchDebounce = Duration(milliseconds: 180);
+  static const Duration _searchDebounce = Duration(milliseconds: 350);
 
+  final _repo = FirestoreLibraryRepository();
+  final _scrollController = ScrollController();
+
+  // ── State ──────────────────────────────────────────────────────────────────
   String _query = '';
   ReactionCategory? _filterCategory;
-  List<ReactionTemplate> _allTemplates = const [];
-  List<ReactionTemplate> _filtered = const [];
-  bool _isLoading = true;
+
+  List<ReactionTemplate> _items = [];
+  DocumentSnapshot? _nextCursor;
+  bool _isFirstLoad = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+
   int? _cloudCount; // null = loading, -1 = unavailable
+
+  String _error = '';
+
   Timer? _debounce;
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    _loadTemplates();
+    _loadFirstPage();
     _fetchCloudCount();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  /// Fetches the total Firestore document count using a single aggregation RPC
-  /// (no documents downloaded). Updates the header subtitle once the value arrives.
-  Future<void> _fetchCloudCount() async {
-    final count = await FirestoreLibraryRepository().getTotalCount();
-    if (mounted) {
-      setState(() => _cloudCount = count);
+  // ── Scroll → load more ────────────────────────────────────────────────────
+
+  void _onScroll() {
+    final pos = _scrollController.position;
+    // Trigger when within 300px of the bottom
+    if (pos.pixels >= pos.maxScrollExtent - 300 &&
+        !_isLoadingMore &&
+        _hasMore &&
+        _query.isEmpty) {
+      _loadNextPage();
     }
   }
 
-  Future<void> _loadTemplates() async {
-    // Always show locally generated templates immediately — the library is
-    // NEVER blank. Firestore data merges in silently when it arrives.
-    if (_allTemplates.isEmpty) {
-      final local = await generateAllReactionTemplatesAsync();
-      if (mounted) {
-        setState(() {
-          _allTemplates = local;
-          _recomputeFiltered();
-          _isLoading = false;
-        });
-      }
-    }
+  // ── Data loading ───────────────────────────────────────────────────────────
 
-    // Attempt to enrich with Firestore in the background.
-    try {
-      final cloud = await FirestoreLibraryRepository().getLibraryTemplates(
-        category: _filterCategory,
-        limit: 50,
-      );
-      if (cloud.isEmpty) {
-        debugPrint('Cloud library is empty — seeding from local templates...');
-        unawaited(generateAllReactionTemplatesAsync()
-            .then((t) => FirestoreLibraryRepository().seedLibrary(t)));
-        return; // local templates already shown
-      }
-      if (mounted) {
-        final known = _allTemplates.map((t) => t.id).toSet();
-        final newItems = cloud.where((t) => !known.contains(t.id)).toList();
-        if (newItems.isNotEmpty) {
-          setState(() {
-            _allTemplates = <ReactionTemplate>[..._allTemplates, ...newItems];
-            _recomputeFiltered();
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Cloud library fetch failed (local templates shown): $e');
-    }
-  }
+  Future<void> _loadFirstPage() async {
+    setState(() {
+      _isFirstLoad = true;
+      _error = '';
+      _items = [];
+      _nextCursor = null;
+      _hasMore = true;
+    });
 
-
-  /// Filters once per input change rather than on every build.
-  ///
-  /// The previous `_filtered` getter re-scanned and re-allocated the entire
-  /// library on every rebuild — including every hover and animation frame.
-  void _recomputeFiltered() {
-    final query = _query.trim().toLowerCase();
-    final category = _filterCategory;
-
-    if (query.isEmpty && category == null) {
-      _filtered = _allTemplates;
+    if (_query.isNotEmpty) {
+      await _runSearch(_query);
       return;
     }
 
-    _filtered = _allTemplates.where((t) {
-      if (category != null && t.category != category) return false;
-      if (query.isEmpty) return true;
-      return t.name.toLowerCase().contains(query) ||
-          t.iupacName.toLowerCase().contains(query) ||
-          t.description.toLowerCase().contains(query) ||
-          t.tags.any((tag) => tag.toLowerCase().contains(query));
-    }).toList(growable: false);
-  }
-
-  Future<void> _performCloudSearch(String query) async {
     try {
-      // Fetch up to 50 matching records from the cloud.
-      final cloudResults = await FirestoreLibraryRepository().searchLibraryTemplates(
-        query,
-        category: _filterCategory,
-        limit: 50,
-      );
+      final page = await _repo.getPage(category: _filterCategory);
       if (!mounted) return;
-      if (cloudResults.isNotEmpty) {
-        final known = _allTemplates.map((t) => t.id).toSet();
-        final newItems = cloudResults.where((t) => !known.contains(t.id)).toList();
-        if (newItems.isNotEmpty) {
-          setState(() {
-            _allTemplates = <ReactionTemplate>[..._allTemplates, ...newItems];
-            _recomputeFiltered();
-          });
-        }
+      if (page.items.isEmpty) {
+        // Firestore empty — auto-seed the 41 curated base templates.
+        await _seedCurated();
+        return;
       }
+      setState(() {
+        _items = page.items;
+        _nextCursor = page.nextCursor;
+        _hasMore = page.hasMore;
+        _isFirstLoad = false;
+      });
     } catch (e) {
-      debugPrint('Cloud search failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load library. Check your connection.';
+        _isFirstLoad = false;
+      });
     }
   }
 
+  Future<void> _loadNextPage() async {
+    if (_isLoadingMore || !_hasMore || _nextCursor == null) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await _repo.getPage(
+        category: _filterCategory,
+        after: _nextCursor,
+      );
+      if (!mounted) return;
+      setState(() {
+        _items = [..._items, ...page.items];
+        _nextCursor = page.nextCursor;
+        _hasMore = page.hasMore;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _runSearch(String query) async {
+    try {
+      final results =
+          await _repo.search(query, category: _filterCategory);
+      if (!mounted) return;
+      setState(() {
+        _items = results;
+        _nextCursor = null;
+        _hasMore = false; // search results are not paginated further
+        _isFirstLoad = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Search failed. Check your connection.';
+        _isFirstLoad = false;
+      });
+    }
+  }
+
+  Future<void> _fetchCloudCount() async {
+    final count = await _repo.getTotalCount();
+    if (mounted) setState(() => _cloudCount = count);
+  }
+
+  /// Seeds only the 41 curated templates on first run (not the 200K variants).
+  Future<void> _seedCurated() async {
+    debugPrint('Firestore empty — seeding curated templates...');
+    try {
+      await _repo.seedLibrary(kReactionTemplates);
+    } catch (e) {
+      debugPrint('Seed failed: $e');
+    }
+    if (!mounted) return;
+    // Re-fetch after seeding
+    _loadFirstPage();
+  }
+
+  // ── Event handlers ─────────────────────────────────────────────────────────
+
   void _onSearchChanged(String value) {
-    // Debounced: filtering thousands of templates on every keystroke would
-    // rebuild the grid once per character typed.
     _debounce?.cancel();
     _debounce = Timer(_searchDebounce, () {
       if (!mounted) return;
-      setState(() {
-        _query = value;
-        _recomputeFiltered(); // Instantly filter local items
-      });
-      // Fire off a cloud search to pull in massive library items not yet loaded
-      if (value.isNotEmpty) {
-        _performCloudSearch(value);
+      setState(() => _query = value.trim());
+      if (value.trim().isEmpty) {
+        _loadFirstPage();
+      } else {
+        _runSearch(value.trim());
       }
     });
   }
 
   void _onCategoryChanged(ReactionCategory? category) {
-    setState(() {
-      _filterCategory = category;
-      _recomputeFiltered();
-    });
-    // If we changed category, we should pull cloud items for the new category
-    _loadTemplates();
+    setState(() => _filterCategory = category);
+    _loadFirstPage();
   }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +216,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           LibraryHeader(
-            localCount: _allTemplates.length,
+            localCount: _items.length,
             cloudCount: _cloudCount,
             onSearchChanged: _onSearchChanged,
           ),
@@ -200,16 +225,76 @@ class _LibraryScreenState extends State<LibraryScreen> {
             onCategoryChanged: _onCategoryChanged,
           ),
           const SizedBox(height: 8),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : LibraryGrid(
-                    items: _filtered,
-                    onTemplateSelected: widget.onTemplateSelected,
-                  ),
-          ),
+          Expanded(child: _buildBody()),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isFirstLoad) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              'Loading library from cloud…',
+              style: TextStyle(color: Colors.white54, fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_error.isNotEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_off_rounded,
+                size: 56, color: Colors.white.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
+            Text(_error,
+                style: const TextStyle(color: Colors.white54, fontSize: 14)),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: _loadFirstPage,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white70),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.science_outlined,
+                size: 64, color: Colors.white.withValues(alpha: 0.2)),
+            const SizedBox(height: 16),
+            Text(
+              _query.isNotEmpty
+                  ? 'No reactions match "$_query"'
+                  : 'No reactions found',
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45), fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return LibraryGrid(
+      items: _items,
+      onTemplateSelected: widget.onTemplateSelected,
+      isLoadingMore: _isLoadingMore,
+      scrollController: _scrollController,
     );
   }
 }
