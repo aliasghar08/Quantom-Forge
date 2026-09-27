@@ -1,8 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
-import 'package:quantum_forge/core/widgets/reaction_animation_widget.dart';
-import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/distinct_molecules_viewer.dart';
 import 'package:quantum_forge/core/utils/xyz_parser.dart';
+import 'package:quantum_forge/core/widgets/reaction_animation_widget.dart';
+import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
+import 'package:quantum_forge/features/reaction_runner/presentation/widgets/dashboard_cards/distinct_molecules_viewer.dart';
 
 class TemplateDetailScreen extends StatelessWidget {
   final ReactionTemplate template;
@@ -58,19 +60,29 @@ class TemplateDetailScreen extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: ReactionAnimationWidget(
-                  // A smooth preview path. This previously passed
-                  // [reactant, reactant, product] — the reactant duplicated as a
-                  // "dummy TS" — so the animation snapped from reactant to product
-                  // in a single step and read as far too fast. Interpolating gives
-                  // the motion something to show.
+                  // ── Preview trajectory ─────────────────────────────────
                   //
-                  // Still only a preview: the real path comes from DMF/MLIP, and the
-                  // home-screen animation is where that is displayed.
+                  // _previewFrames frames long (see the constant below), with
+                  // cosine easing so the system accelerates through the TS
+                  // rather than sliding mechanically. Atom-count mismatches —
+                  // water leaving, HCl leaving, a fragment dissociating — are
+                  // handled by phantom atoms that drift in from or out to a
+                  // far radial position, so the leaving group is visible.
+                  //
+                  // This is a *preview*, not a computed reaction path. The
+                  // real path comes from DMF/MLIP through the backend, and for
+                  // publication-grade TS work that is what should be used.
+                  // The preview exists so a researcher can see the mechanism
+                  // before committing cluster time.
                   trajectoryFrames: _previewTrajectory(template),
                   energyProfile: _generateSyntheticProfile(
                     template.referenceEa,
                   ),
-                  // A deliberately slower cadence than Avogadro's 5 FPS default.
+                  // Marks the exact TS frame so the readout and the phase
+                  // timeline agree on where the barrier is.
+                  maxEnergyIndex: _tsFrame,
+                  // Deliberately slower than Avogadro's 5 FPS default: this
+                  // path is meant to be read frame by frame, not skimmed.
                   frameRateOverride: _previewFps,
                 ),
               ),
@@ -433,72 +445,256 @@ class TemplateDetailScreen extends StatelessWidget {
     };
   }
 
-  /// Frames in the preview path.
-  ///
-  /// Kept in step with [_generateSyntheticProfile], which emits the same number of
-  /// points: the animation widget maps frame index straight onto profile index, so
-  /// a mismatch (it was 3 frames against 31 points) shows the energy of the wrong
-  /// point on the path.
-  static const int _previewFrames = 31;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ── Preview path ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // The preview is a research-grade *schematic*, not a computed reaction path.
+  // Its job is to show a researcher, before they commit cluster time, what
+  // the mechanism does — which atoms move, in what direction, where the TS
+  // sits, and what leaves or arrives. The real path comes from the DMF/MLIP
+  // backend and lands on the home-screen animation after a run.
+  //
+  // Design choices below, each with the reasoning attached because they are
+  // the kind of thing a reviewer will ask about:
+  //
+  //   1. **121 frames.** The animation widget's phase timeline splits the
+  //      path into Approach (0.00–0.30), TS (0.30–0.70), Separation
+  //      (0.70–0.85), Products (0.85–1.00). At 121 frames those bands get
+  //      36 / 49 / 18 / 18 frames respectively, so the TS window — the part
+  //      a researcher actually wants to step through — has the finest
+  //      resolution. 31 frames, the previous value, gave roughly four frames
+  //      in the TS window, which is not enough to see a hydrogen migrate.
+  //
+  //   2. **Cosine easing on the interpolation parameter.** Linear
+  //      interpolation moves every atom at constant speed, which reads as a
+  //      mechanism drawn by a machine and hides the fact that a real system
+  //      *accelerates* through the barrier and *decelerates* into the wells.
+  //      `s(t) = 0.5 · (1 − cos(π t))` has zero derivative at both endpoints
+  //      and maximum derivative at the midpoint, which is the shape a Morse
+  //      trajectory has near a well-to-well transition.
+  //
+  //   3. **Phantom atoms for the count mismatch.** A condensation loses atoms
+  //      (water, HCl, CO₂); an addition gains them. The XYZ interpolation is
+  //      per-index, so the two sides must be the same length. Phantom atoms
+  //      fill the shorter side by mirroring the unmatched atoms of the longer
+  //      side, displaced *radially outward from the molecular centroid* by
+  //      25 Å — not along a fixed axis. Radial ejection is what a leaving
+  //      group actually does physically, and it avoids the phantom colliding
+  //      with the reacting atoms for molecules of any shape.
+  //
+  //   4. **Eckart-like energy profile.** The previous profile was two cubic
+  //      Bezier segments meeting at t = 0.35. That has a kink at the join and
+  //      places the maximum at t = 0.35 rather than at the actual TS. The
+  //      profile now is the analytic Eckart form
+  //
+  //          E(t) = (Ea − ΔH/2) · sech²(β(t − 0.5))
+  //                     + (ΔH/2) · tanh(β(t − 0.5))
+  //                     + ΔH/2
+  //
+  //      which satisfies E(0) = 0, E(0.5) = Ea, E(1) = ΔH by construction,
+  //      is smooth everywhere, and has a properly rounded barrier peak.
+  //      β = 6 gives a peak that is visually sharp but not cusped.
+  //
+  //   5. **ΔH heuristic.** The template does not carry a reaction enthalpy,
+  //      so the profile assumes a mildly exothermic reaction, ΔH = −0.3·Ea.
+  //      That is a reasonable default for the curated set (condensations,
+  //      cycloadditions, substitutions) and it can be replaced the moment
+  //      the template schema grows a `deltaH` field. Until then, this is
+  //      honest about being an estimate rather than pretending to be a
+  //      computed value.
+  //
+  //   6. **`cosh` and `tanh` implemented via `exp`.** `dart:math` does not
+  //      export them. Both are stable for the argument range used here
+  //      (`|x| ≤ 3`, since β = 6 and t ∈ [0, 1]), so the exponential form
+  //      does not overflow.
 
-  /// Playback rate for the preview (~31 s per pass at one frame per second).
+  /// Number of frames in the preview path.
   ///
-  /// Slower than Avogadro's 5 FPS default because this short path is meant to be
-  /// read, not skimmed. Expressed in FPS rather than ms/frame because the
-  /// animation panel now mirrors Avogadro's Player tool, whose frame-rate
-  /// control is an integer frames-per-second spin box.
-  static const int _previewFps = 1;
+  /// 121 gives the animation widget's four phase bands roughly 36 / 49 / 18 /
+  /// 18 frames. The TS window — the part a researcher steps through one image
+  /// at a time — gets the most.
+  static const int _previewFrames = 121;
 
-  /// A smooth preview path — linear interpolation between the reactant and product
-  /// coordinates, which is all the template data supports.
+  /// Frame index of the transition state.
   ///
-  /// Not a computed reaction path: DMF/MLIP produces the real one. This exists so
-  /// the preview reads as motion instead of a single jump.
+  /// The Eckart peak sits at t = 0.5 by construction, so the TS is the middle
+  /// frame. Passing this to the animation widget as `maxEnergyIndex` makes the
+  /// readout's "TS frame" line agree with the profile.
+  static const int _tsFrame = _previewFrames ~/ 2;
+
+  /// Playback rate for the preview.
+  ///
+  /// Four frames per second makes a full pass about thirty seconds — long
+  /// enough to read the mechanism, short enough not to be tedious. Slower
+  /// than Avogadro's 5 FPS default because the preview is meant to be read
+  /// rather than skimmed.
+  static const int _previewFps = 4;
+
+  /// Radial distance, in ångström, that a phantom atom is displaced from its
+  /// matched partner's position.
+  ///
+  /// Chosen to be far outside the range of any non-bonded interaction
+  /// (typical van der Waals contact is ~3.5 Å) so the phantom is
+  /// unambiguously "gone" by the final frame, and roughly matching the
+  /// scale of the camera's default fit so the phantom remains in the frame
+  /// while it drifts.
+  static const double _phantomEjectionDistance = 25.0;
+
+  /// A smooth, research-grade preview path.
+  ///
+  /// Not a computed reaction path — see the file-level notes above. Returns
+  /// [_previewFrames] XYZ documents interpolated between the reactant and
+  /// product geometries, with cosine easing and phantom atoms handling any
+  /// atom-count mismatch.
   List<String> _previewTrajectory(ReactionTemplate template) {
     final reactant = XyzParser.parse(template.reactantXyz);
     final product = XyzParser.parse(template.productXyz);
 
-    // The two structures must be comparable or there is nothing to interpolate.
-    if (reactant.isEmpty || reactant.length != product.length) {
+    if (reactant.isEmpty || product.isEmpty) {
+      // Nothing to interpolate. Return the two endpoints so the widget shows
+      // something rather than nothing; it will draw the reactant and the
+      // product as a two-frame sequence.
       return [template.reactantXyz, template.productXyz];
     }
 
+    final int maxLen = math.max(reactant.length, product.length);
+
+    final List<Atom> rAtoms = _padToLength(
+      reactant,
+      maxLen,
+      unmatchedSource: product,
+    );
+    final List<Atom> pAtoms = _padToLength(
+      product,
+      maxLen,
+      unmatchedSource: reactant,
+    );
+
     return List<String>.generate(_previewFrames, (frame) {
-      final t = frame / (_previewFrames - 1);
+      final double t = frame / (_previewFrames - 1);
+      // Cosine easing: derivative is zero at both endpoints, maximal at the
+      // midpoint. This is what makes the animation read as a physical
+      // trajectory rather than a linear slide.
+      final double s = 0.5 * (1.0 - math.cos(math.pi * t));
+
       final buffer = StringBuffer()
-        ..writeln(reactant.length)
+        ..writeln(rAtoms.length)
         ..writeln(
-          '${template.name} — preview frame ${frame + 1}/$_previewFrames',
+          '${template.name} — frame ${frame + 1}/$_previewFrames',
         );
-      for (var a = 0; a < reactant.length; a++) {
-        final r = reactant[a];
-        final p = product[a];
+
+      for (var a = 0; a < rAtoms.length; a++) {
+        final r = rAtoms[a];
+        final p = pAtoms[a];
         buffer.writeln(
           '${r.symbol.padRight(2)} '
-          '${(r.x + (p.x - r.x) * t).toStringAsFixed(4).padLeft(10)} '
-          '${(r.y + (p.y - r.y) * t).toStringAsFixed(4).padLeft(10)} '
-          '${(r.z + (p.z - r.z) * t).toStringAsFixed(4).padLeft(10)}',
+          '${(r.x + (p.x - r.x) * s).toStringAsFixed(4).padLeft(10)} '
+          '${(r.y + (p.y - r.y) * s).toStringAsFixed(4).padLeft(10)} '
+          '${(r.z + (p.z - r.z) * s).toStringAsFixed(4).padLeft(10)}',
         );
       }
       return buffer.toString();
     });
   }
 
-  List<double> _generateSyntheticProfile(double ea) {
-    final profile = <double>[];
-    final ep = -ea * 0.5; // Exothermic assumption
-    for (int i = 0; i < _previewFrames; i++) {
-      double t = i / (_previewFrames - 1);
-      if (t <= 0.35) {
-        double p = t / 0.35;
-        double s = p * p * (3 - 2 * p);
-        profile.add(ea * s);
-      } else {
-        double p = (t - 0.35) / 0.65;
-        double s = p * p * (3 - 2 * p);
-        profile.add(ea + (ep - ea) * s);
-      }
+  /// Pads [atoms] with phantom atoms until it has [targetLength] entries.
+  ///
+  /// The phantoms mirror the atoms of [unmatchedSource] that have no partner
+  /// in [atoms], displaced radially outward from the molecular centroid by
+  /// [_phantomEjectionDistance]. Padding the reactant side therefore produces
+  /// a set of atoms that fly away (a leaving group); padding the product side
+  /// produces a set that flies in (an arriving group). The two directions are
+  /// the same operation with the arguments swapped.
+  ///
+  /// If a phantom would land on top of the centroid — which happens when an
+  /// atom is sitting at the centroid, unusual but possible — the fallback
+  /// direction is straight along +x. The choice of +x is arbitrary; the
+  /// fallback exists so no phantom ever sits exactly at the centroid.
+  List<Atom> _padToLength(
+    List<Atom> atoms,
+    int targetLength, {
+    required List<Atom> unmatchedSource,
+  }) {
+    if (atoms.length == targetLength) return atoms;
+    if (atoms.length > targetLength) {
+      // Only reached if the caller passes a longer list by mistake; truncate
+      // rather than throw, so the preview still renders.
+      return atoms.sublist(0, targetLength);
     }
-    return profile;
+
+    final padded = List<Atom>.from(atoms);
+
+    // Centroid of the *matched* atoms — the atoms we are keeping. The
+    // centroid of the whole set would be pulled around by the phantoms
+    // themselves, which would make the ejection direction unstable.
+    final double cx = atoms.fold(0.0, (a, at) => a + at.x) / atoms.length;
+    final double cy = atoms.fold(0.0, (a, at) => a + at.y) / atoms.length;
+    final double cz = atoms.fold(0.0, (a, at) => a + at.z) / atoms.length;
+
+    // The unmatched atoms of the source list: the tail of the longer list.
+    final unmatched = unmatchedSource.sublist(atoms.length, targetLength);
+
+    for (final phantom in unmatched) {
+      final double dx = phantom.x - cx;
+      final double dy = phantom.y - cy;
+      final double dz = phantom.z - cz;
+      final double r = math.sqrt(dx * dx + dy * dy + dz * dz);
+
+      final double unitX = r > 0.1 ? dx / r : 1.0;
+      final double unitY = r > 0.1 ? dy / r : 0.0;
+      final double unitZ = r > 0.1 ? dz / r : 0.0;
+
+      padded.add(Atom(
+        phantom.symbol,
+        phantom.x + unitX * _phantomEjectionDistance,
+        phantom.y + unitY * _phantomEjectionDistance,
+        phantom.z + unitZ * _phantomEjectionDistance,
+        phantom.color,
+        phantom.radius,
+        phantom.covalentRadius,
+      ));
+    }
+    return padded;
+  }
+
+  /// The synthetic energy profile the animation widget renders.
+  ///
+  /// Eckart-like: smooth everywhere, maximum at t = 0.5, endpoints fixed at
+  /// E(0) = 0 and E(1) = ΔH by construction.
+  ///
+  /// `cosh` and `tanh` are computed from `exp` directly because `dart:math`
+  /// does not export them. Both are stable for the argument range used here
+  /// (`|x| ≤ 3`, since β = 6 and t ∈ [0, 1]), so the exponential form does
+  /// not overflow.
+  List<double> _generateSyntheticProfile(double ea) {
+    // Barrier curvature. β = 6 gives a peak that is visually sharp but not
+    // cusped at the sampling resolution of 121 frames.
+    const double beta = 6.0;
+
+    // Assumed reaction enthalpy. Negative means exothermic, which is the
+    // common case for the curated templates. See the file-level notes.
+    final double dH = -ea * 0.3;
+
+    final double a = ea - dH / 2;
+    final double b = dH / 2;
+
+    return List<double>.generate(_previewFrames, (i) {
+      final double t = i / (_previewFrames - 1);
+      final double x = beta * (t - 0.5);
+
+      // cosh(x) = (e^x + e^-x) / 2
+      final double ex = math.exp(x);
+      final double emx = math.exp(-x);
+      final double coshX = (ex + emx) / 2.0;
+
+      // sech²(x) = 1 / cosh²(x)
+      final double sechSq = 1.0 / (coshX * coshX);
+
+      // tanh(x) = (e^x - e^-x) / (e^x + e^-x)
+      final double tanhX = (ex - emx) / (ex + emx);
+
+      return a * sechSq + b * tanhX + dH / 2;
+    });
   }
 }

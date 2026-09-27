@@ -157,10 +157,28 @@ class ReactionAnimationWidget extends StatefulWidget {
 }
 
 class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
-  // ── Phase 1 QA counters ───────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  // QA counters
+  // ─────────────────────────────────────────────────────────────────────
+  // All counters are static, so they accumulate across instances. If
+  // `initCount` goes above 1 for a single logical animation, the widget is
+  // being destroyed and recreated by a parent — which unmounts the NGL
+  // platform view and is the root cause of "appears and disappears".
+  //
+  // `reloadCount` counts `_load()` invocations. If it goes above 1 without
+  // the trajectory actually changing, the equality check in
+  // `didUpdateWidget` is being bypassed.
+  //
+  // `_instanceId` is unique per State instance, so a log line can be
+  // attributed to the specific mount that emitted it.
+  // ═══════════════════════════════════════════════════════════════════════
   static int buildCount = 0;
   static int reloadCount = 0;
-  // ─────────────────────────────────────────────────────────────────────────
+  static int initCount = 0;
+  static int disposeCount = 0;
+  static int didUpdateCount = 0;
+
+  late final int _instanceId;
 
   final GlobalKey<NglViewerState> _viewerKey = GlobalKey<NglViewerState>();
   final FocusNode _playerFocus = FocusNode(debugLabel: 'reaction-player');
@@ -226,9 +244,26 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   static const double _t2 = 0.70;
   static const double _t3 = 0.85;
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // Lifecycle
+  // ═══════════════════════════════════════════════════════════════════════
+
   @override
   void initState() {
     super.initState();
+    initCount++;
+    _instanceId = initCount;
+    if (kDebugMode) {
+      debugPrint(
+        '[QA] anim.initState  instance=#$_instanceId  '
+        'initCount=$initCount  disposeCount=$disposeCount  '
+        'frames=${widget.trajectoryFrames.length}  '
+        'pdbUrl=${widget.pdbUrl != null}  '
+        'dcdUrl=${widget.dcdUrl != null}  '
+        'compact=${widget.compactMode}',
+      );
+    }
+
     _displayType = widget.displayType;
     _dynamicBonding = widget.dynamicBonding;
     _showBondNumbers = widget.showBondNumbers;
@@ -244,6 +279,14 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
   @override
   void dispose() {
+    disposeCount++;
+    if (kDebugMode) {
+      debugPrint(
+        '[QA] anim.dispose    instance=#$_instanceId  '
+        'disposeCount=$disposeCount  '
+        'buildCount=$buildCount  reloadCount=$reloadCount',
+      );
+    }
     _ticker?.cancel();
     _playerFocus.dispose();
     super.dispose();
@@ -252,17 +295,68 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   @override
   void didUpdateWidget(covariant ReactionAnimationWidget old) {
     super.didUpdateWidget(old);
+    didUpdateCount++;
+
+    final framesIdentical =
+        identical(old.trajectoryFrames, widget.trajectoryFrames);
+    final framesSameLength =
+        old.trajectoryFrames.length == widget.trajectoryFrames.length;
+    final sameFirstFrame = old.trajectoryFrames.isNotEmpty &&
+        widget.trajectoryFrames.isNotEmpty &&
+        old.trajectoryFrames.first == widget.trajectoryFrames.first;
+    final sameLastFrame = old.trajectoryFrames.isNotEmpty &&
+        widget.trajectoryFrames.isNotEmpty &&
+        old.trajectoryFrames.last == widget.trajectoryFrames.last;
+
+    final pdbChanged = old.pdbUrl != widget.pdbUrl;
+    final dcdChanged = old.dcdUrl != widget.dcdUrl;
+    final mdFrameCountChanged = old.mdFrameCount != widget.mdFrameCount;
+    final displayTypeChanged = old.displayType != widget.displayType;
+    final dynamicBondingChanged = old.dynamicBonding != widget.dynamicBonding;
+    final showBondNumbersChanged =
+        old.showBondNumbers != widget.showBondNumbers;
+    final compactModeChanged = old.compactMode != widget.compactMode;
+    final frameRateOverrideChanged =
+        old.frameRateOverride != widget.frameRateOverride;
+    final energyProfileChanged =
+        !identical(old.energyProfile, widget.energyProfile);
+    final maxEnergyIndexChanged =
+        old.maxEnergyIndex != widget.maxEnergyIndex;
 
     if (kDebugMode) {
-      debugPrint('[QA] ReactionAnimationWidget.didUpdateWidget #$buildCount '
-          '(reload #$reloadCount, frame=$_frame, frames=${widget.trajectoryFrames.length})');
+      debugPrint(
+        '[QA] anim.didUpdateWidget  instance=#$_instanceId  '
+        '#$didUpdateCount  '
+        'framesIdentical=$framesIdentical  '
+        'sameLen=$framesSameLength  '
+        'firstFrameSame=$sameFirstFrame  lastFrameSame=$sameLastFrame  '
+        'old.len=${old.trajectoryFrames.length}  '
+        'new.len=${widget.trajectoryFrames.length}  '
+        'pdbChanged=$pdbChanged  dcdChanged=$dcdChanged  '
+        'mdFrameCountChanged=$mdFrameCountChanged  '
+        'displayTypeChanged=$displayTypeChanged  '
+        'dynamicBondingChanged=$dynamicBondingChanged  '
+        'showBondNumbersChanged=$showBondNumbersChanged  '
+        'compactModeChanged=$compactModeChanged  '
+        'frameRateOverrideChanged=$frameRateOverrideChanged  '
+        'energyProfileChanged=$energyProfileChanged  '
+        'maxEnergyIndexChanged=$maxEnergyIndexChanged',
+      );
     }
 
-    final framesChanged = !identical(
-      old.trajectoryFrames,
-      widget.trajectoryFrames,
-    );
+    // Current behaviour uses identity, which is over-eager: a parent that
+    // rebuilds the frame list on every tick will trigger a reload every tick.
+    // The diagnostic above prints enough to identify whether that is happening.
+    final framesChanged =
+        !identical(old.trajectoryFrames, widget.trajectoryFrames);
     if (framesChanged) {
+      if (kDebugMode) {
+        debugPrint(
+          '[QA] anim.didUpdateWidget -> framesChanged=true, '
+          'calling _load()  instance=#$_instanceId  '
+          'reloadCount_before=$reloadCount',
+        );
+      }
       _load();
       return;
     }
@@ -270,6 +364,12 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     if (old.frameRateOverride != widget.frameRateOverride &&
         widget.frameRateOverride != null &&
         !_fpsUserSet) {
+      if (kDebugMode) {
+        debugPrint(
+          '[QA] anim.didUpdateWidget -> frameRateOverride changed, '
+          'restarting ticker  instance=#$_instanceId',
+        );
+      }
       setState(() {
         _frameRate = widget.frameRateOverride!.clamp(
           ReactionAnimationWidget.minFrameRate,
@@ -286,10 +386,27 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   Widget build(BuildContext context) {
     buildCount++;
     if (kDebugMode) {
-      debugPrint('[QA] ReactionAnimationWidget.build #$buildCount '
-          '(reload #$reloadCount, frame=$_frame, frames=${widget.trajectoryFrames.length})');
+      debugPrint(
+        '[QA] anim.build  instance=#$_instanceId  '
+        'buildCount=$buildCount  reloadCount=$reloadCount  '
+        '_loaded=$_loaded  '
+        'frames=${widget.trajectoryFrames.length}  '
+        'frame=$_frame  '
+        'playing=$_playing  '
+        'ticker=${_ticker != null}',
+      );
     }
+
     if (!_loaded || widget.trajectoryFrames.isEmpty) {
+      if (kDebugMode) {
+        debugPrint(
+          '[QA] anim.build -> PLACEHOLDER branch  '
+          'instance=#$_instanceId  '
+          '_loaded=$_loaded  framesEmpty=${widget.trajectoryFrames.isEmpty}  '
+          'pdbUrlNull=${widget.pdbUrl == null}  '
+          'dcdUrlNull=${widget.dcdUrl == null}',
+        );
+      }
       return const AspectRatio(
         aspectRatio: 1.5,
         child: Center(
@@ -313,6 +430,13 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isUnbounded = constraints.maxHeight.isInfinite;
+          if (kDebugMode) {
+            debugPrint(
+              '[QA] anim.LayoutBuilder  instance=#$_instanceId  '
+              'maxW=${constraints.maxWidth}  maxH=${constraints.maxHeight}  '
+              'isUnbounded=$isUnbounded',
+            );
+          }
           return _buildCard(isUnbounded, constraints);
         },
       ),
@@ -320,7 +444,25 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   }
 
   Widget _buildCard(bool isUnbounded, BoxConstraints constraints) {
+    if (kDebugMode) {
+      debugPrint(
+        '[QA] anim._buildCard  instance=#$_instanceId  '
+        'isUnbounded=$isUnbounded  '
+        'compactMode=${widget.compactMode}  '
+        'showBondEnergies=$_showBondEnergies  '
+        'frameCount=$_frameCount  '
+        'calling _buildCanvasSlot{Unbounded|Bounded} and '
+        '_buildHeader/_buildBondEnergiesPanel/_buildTimeline/'
+        '_buildReadout/_buildPlayerControls',
+      );
+    }
+
     if (widget.compactMode) {
+      if (kDebugMode) {
+        debugPrint(
+          '[QA] anim._buildCard -> COMPACT branch  instance=#$_instanceId',
+        );
+      }
       return Container(
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.18),
@@ -333,6 +475,13 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
               ? _buildCanvasSlotUnbounded(constraints)
               : _buildCanvasSlotBounded(constraints),
         ),
+      );
+    }
+
+    if (kDebugMode) {
+      debugPrint(
+        '[QA] anim._buildCard -> FULL branch  instance=#$_instanceId  '
+        'canvasSlot=${isUnbounded ? "Unbounded" : "Bounded"}',
       );
     }
 
@@ -372,19 +521,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   /// layouts do not blow up. The outer scroll view handles any residual
   /// overflow past the clamp.
   
-
-  
-
   // ── Header: phase, fragment counts, display type, reset view ──────────────
-
   
-
-  
-
-  
-
-  
-
   // ── 3D canvas ─────────────────────────────────────────────────────────────
 
   /// Element-colour palette picker.
@@ -398,31 +536,16 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   /// scheme is the Jmol table, which is what most web viewers show. Offering
   /// both makes the comparison a click instead of an argument.
   
-
-  
-
   // ── Phase timeline ────────────────────────────────────────────────────────
-
   
-
   // ── Readout ───────────────────────────────────────────────────────────────
-
-  
 
   /// The bonds the current frame is drawn with.
   ///
   /// Recomputed when dynamic bonding is on, so the count in the readout always
   /// describes the picture rather than a stale first frame.
   
-
-  
-
   // ── Avogadro's Player panel ───────────────────────────────────────────────
-
-  
-
-  
-
 }
 
 // ============================================================================
@@ -434,4 +557,3 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 // value commits it, out-of-range input is clamped rather than rejected, and the
 // external value wins whenever the field is not being edited.
 // ============================================================================
-
