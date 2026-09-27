@@ -51,37 +51,46 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _loadTemplates() async {
+    // Always show locally generated templates immediately — the library is
+    // NEVER blank. Firestore data merges in silently when it arrives.
+    if (_allTemplates.isEmpty) {
+      final local = await generateAllReactionTemplatesAsync();
+      if (mounted) {
+        setState(() {
+          _allTemplates = local;
+          _recomputeFiltered();
+          _isLoading = false;
+        });
+      }
+    }
+
+    // Attempt to enrich with Firestore in the background.
     try {
       final cloud = await FirestoreLibraryRepository().getLibraryTemplates(
         category: _filterCategory,
         limit: 50,
       );
       if (cloud.isEmpty) {
-        debugPrint('Cloud library is empty. Seeding templates...');
-        // Fire-and-forget background seed
-        unawaited(generateAllReactionTemplatesAsync().then((templates) {
-          return FirestoreLibraryRepository().seedLibrary(templates);
-        }).then((_) {
-          _loadTemplates();
-        }));
+        debugPrint('Cloud library is empty — seeding from local templates...');
+        unawaited(generateAllReactionTemplatesAsync()
+            .then((t) => FirestoreLibraryRepository().seedLibrary(t)));
+        return; // local templates already shown
       }
-
       if (mounted) {
-        setState(() {
-          _allTemplates = cloud;
-          _recomputeFiltered();
-          _isLoading = false;
-        });
+        final known = _allTemplates.map((t) => t.id).toSet();
+        final newItems = cloud.where((t) => !known.contains(t.id)).toList();
+        if (newItems.isNotEmpty) {
+          setState(() {
+            _allTemplates = <ReactionTemplate>[..._allTemplates, ...newItems];
+            _recomputeFiltered();
+          });
+        }
       }
     } catch (e) {
-      debugPrint('Library fetch failed: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      debugPrint('Cloud library fetch failed (local templates shown): $e');
     }
   }
+
 
   /// Filters once per input change rather than on every build.
   ///
