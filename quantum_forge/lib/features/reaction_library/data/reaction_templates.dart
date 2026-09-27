@@ -58,6 +58,7 @@ class ReactionTemplate {
   final double referenceEa; // kcal·mol⁻¹
   final String doi;
   final String journalRef;
+  final String? author;
   final List<String> tags;
   final QuantumDefaults defaults;
 
@@ -87,6 +88,7 @@ class ReactionTemplate {
     required this.referenceEa,
     required this.doi,
     required this.journalRef,
+    this.author,
     this.tags = const [],
     this.defaults = const QuantumDefaults(),
     this.isDerived = false,
@@ -108,6 +110,7 @@ class ReactionTemplate {
       referenceEa: (json['referenceEa'] as num?)?.toDouble() ?? 0.0,
       doi: json['doi'] as String? ?? '',
       journalRef: json['journalRef'] as String? ?? '',
+      author: json['author'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [],
       defaults: json['defaults'] != null
           ? QuantumDefaults.fromJson(json['defaults'] as Map<String, dynamic>)
@@ -128,6 +131,7 @@ class ReactionTemplate {
       'referenceEa': referenceEa,
       'doi': doi,
       'journalRef': journalRef,
+      'author': author,
       'tags': tags,
       'defaults': defaults.toJson(),
       'isDerived': isDerived,

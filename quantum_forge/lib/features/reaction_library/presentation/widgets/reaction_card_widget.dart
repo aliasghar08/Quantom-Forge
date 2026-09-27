@@ -183,15 +183,47 @@ class ReactionCardWidget extends StatelessWidget {
 
               // ── Footer: DOI + Load button ───────────────────────────────────
               Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: Text(
-                      template.journalRef,
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          fontSize: 9),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          template.journalRef.isNotEmpty ? template.journalRef : 'No journal ref',
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.4),
+                              fontSize: 9),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                        if (template.author != null && template.author!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'Author: ${template.author}',
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                  fontSize: 9),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            template.doi.isNotEmpty ? 'DOI Available' : 'No DOI',
+                            style: TextStyle(
+                                color: template.doi.isNotEmpty 
+                                    ? Colors.greenAccent.withValues(alpha: 0.6) 
+                                    : Colors.white.withValues(alpha: 0.3),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
