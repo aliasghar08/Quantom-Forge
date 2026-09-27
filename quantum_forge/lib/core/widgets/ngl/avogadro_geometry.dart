@@ -44,17 +44,18 @@ enum AvogadroDisplayType {
   licorice('Licorice'),
 
   vanDerWaals('Van der Waals'),
-
-  wireframe('Wireframe');
+  wireframe('Wireframe'),
+  hyperball('Hyperball'),
+  surface('Molecular Surface');
 
   const AvogadroDisplayType(this.label);
 
   /// Avogadro's own menu label, verbatim.
   final String label;
 
-  /// Whether this display type draws bond cylinders at all. Van der Waals is
+  /// Whether this display type draws bond cylinders at all. Van der Waals and surface are
   /// spheres only; wireframe is bonds only.
-  bool get drawsBonds => this != AvogadroDisplayType.vanDerWaals;
+  bool get drawsBonds => this != AvogadroDisplayType.vanDerWaals && this != AvogadroDisplayType.surface;
 
   /// Whether this display type draws atom spheres.
   bool get drawsAtoms => this != AvogadroDisplayType.wireframe;
@@ -418,11 +419,13 @@ class ReactionFrameGeometry {
   static double _sphereRadius(int atomicNumber, AvogadroDisplayType type) {
     switch (type) {
       case AvogadroDisplayType.ballAndStick:
+      case AvogadroDisplayType.hyperball:
         return (AvogadroElementData.vanDerWaalsRadius(atomicNumber) ?? 0.0) *
             AvogadroElementData.ballAndStickAtomScale;
       case AvogadroDisplayType.licorice:
         return AvogadroElementData.licoriceRadius;
       case AvogadroDisplayType.vanDerWaals:
+      case AvogadroDisplayType.surface:
         return (AvogadroElementData.vanDerWaalsRadius(atomicNumber) ?? 0.0) *
             AvogadroElementData.vanDerWaalsScale;
       case AvogadroDisplayType.wireframe:
@@ -442,10 +445,12 @@ class ReactionFrameGeometry {
   static double _cylinderRadius(AvogadroDisplayType type) {
     switch (type) {
       case AvogadroDisplayType.ballAndStick:
+      case AvogadroDisplayType.hyperball:
         return AvogadroElementData.ballAndStickBondRadius;
       case AvogadroDisplayType.licorice:
         return AvogadroElementData.licoriceRadius;
       case AvogadroDisplayType.vanDerWaals:
+      case AvogadroDisplayType.surface:
         return 0.0;
       case AvogadroDisplayType.wireframe:
         return AvogadroElementData.wireframeBondRadius;

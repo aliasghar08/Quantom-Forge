@@ -29,6 +29,8 @@ extension NglRepresentationName on AvogadroDisplayType {
     AvogadroDisplayType.licorice => 'licorice',
     AvogadroDisplayType.vanDerWaals => 'spacefill',
     AvogadroDisplayType.wireframe => 'line',
+    AvogadroDisplayType.hyperball => 'hyperball',
+    AvogadroDisplayType.surface => 'surface',
   };
 }
 

@@ -48,48 +48,44 @@ class LibraryGrid extends StatelessWidget {
       );
     }
 
+    final width = MediaQuery.sizeOf(context).width;
+    final columns = width >= 1200
+        ? 3
+        : width >= 820
+            ? 2
+            : 1;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final columns = width >= 1200
-              ? 3
-              : width >= 820
-                  ? 2
-                  : 1;
-
-          return AnimationLimiter(
-            child: GridView.builder(
-              padding: EdgeInsets.zero,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                mainAxisSpacing: _spacing,
-                crossAxisSpacing: _spacing,
-                mainAxisExtent: _cardHeight,
-              ),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return AnimationConfiguration.staggeredGrid(
-                  position: index,
-                  duration: const Duration(milliseconds: 375),
-                  columnCount: columns,
-                  child: ScaleAnimation(
-                    scale: 0.85,
-                    child: FadeInAnimation(
-                      child: ReactionCardWidget(
-                        key: ValueKey(item.id),
-                        template: item,
-                        onLoad: () => onTemplateSelected(item),
-                      ),
-                    ),
+      child: AnimationLimiter(
+        child: GridView.builder(
+          padding: EdgeInsets.zero,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: _spacing,
+            crossAxisSpacing: _spacing,
+            mainAxisExtent: _cardHeight,
+          ),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return AnimationConfiguration.staggeredGrid(
+              position: index,
+              duration: const Duration(milliseconds: 375),
+              columnCount: columns,
+              child: ScaleAnimation(
+                scale: 0.85,
+                child: FadeInAnimation(
+                  child: ReactionCardWidget(
+                    key: ValueKey(item.id),
+                    template: item,
+                    onLoad: () => onTemplateSelected(item),
                   ),
-                );
-              },
-            ),
-          );
-        },
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
