@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/screens/template_detail_screen.dart';
+import 'package:quantum_forge/core/widgets/glass_container.dart';
 
 class ReactionCardWidget extends StatelessWidget {
   final ReactionTemplate template;
@@ -47,21 +48,23 @@ class ReactionCardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = categoryColor(template.category);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: 0.08),
-            Colors.white.withValues(alpha: 0.04),
-          ],
+    return GlassContainer(
+      color: color,
+      opacity: 0.05,
+      blur: 16.0,
+      border: Border.all(color: color.withValues(alpha: 0.3), width: 1.2),
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: color.withValues(alpha: 0.15),
+          blurRadius: 24.0,
+          spreadRadius: -4,
+          offset: const Offset(0, 8),
         ),
-      ),
-      child: InkWell(
+      ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
           Navigator.of(context).push(
@@ -184,6 +187,26 @@ class ReactionCardWidget extends StatelessWidget {
               // ── Footer: DOI + Load button ───────────────────────────────────
               Row(
                 children: [
+                  if (template.doi.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: color.withValues(alpha: 0.5)),
+                        ),
+                        child: Text(
+                          'DOI',
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   Expanded(
                     child: Text(
                       template.journalRef,
@@ -217,6 +240,7 @@ class ReactionCardWidget extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

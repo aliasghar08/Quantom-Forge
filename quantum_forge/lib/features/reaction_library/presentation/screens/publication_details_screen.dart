@@ -1,7 +1,7 @@
-import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:quantum_forge/features/reaction_library/data/reaction_templates.dart';
-import 'package:quantum_forge/core/services/web_services.dart';
+
 import 'package:quantum_forge/core/widgets/animations/staggered_animation_list.dart';
 import 'package:provider/provider.dart';
 import 'package:quantum_forge/core/settings/app_settings_provider.dart';
@@ -10,6 +10,7 @@ import 'package:quantum_forge/core/utils/xyz_parser.dart';
 import 'package:quantum_forge/core/utils/avogadro_element_data.dart';
 import 'package:quantum_forge/state/settings_provider.dart';
 import 'package:quantum_forge/core/theme/theme_provider.dart';
+import 'package:quantum_forge/core/services/crossref_service.dart';
 
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/publication/publication_warning_banner.dart';
 import 'package:quantum_forge/features/reaction_library/presentation/widgets/publication/publication_header_card.dart';
@@ -70,26 +71,22 @@ class _PublicationDetailsScreenState extends State<PublicationDetailsScreen> {
     }
 
     try {
-      final cleanDoi = widget.template.doi.trim();
       final settings = Provider.of<AppSettingsNotifier>(context, listen: false).settings;
-      final uri = settings.hasGnnBackend 
-          ? '${settings.gnnBackendUrl}/crossref/${Uri.encodeComponent(cleanDoi)}'
-          : 'https://api.crossref.org/works/${Uri.encodeComponent(cleanDoi)}';
-          
-      final responseBody = await WebServices.fetchString(uri);
+      final gnnUrl = settings.hasGnnBackend ? settings.gnnBackendUrl : null;
       
-      final json = jsonDecode(responseBody) as Map<String, dynamic>;
-      if (json['message'] != null) {
+      final data = await CrossrefService.fetchMetadata(widget.template.doi, gnnBackendUrl: gnnUrl);
+      
+      if (data != null) {
         if (mounted) {
           setState(() {
-            _crossrefData = json['message'] as Map<String, dynamic>;
+            _crossrefData = data;
             _isLoadingCrossref = false;
           });
         }
       } else {
         if (mounted) {
           setState(() {
-            _crossrefError = 'Invalid DOI response';
+            _crossrefError = 'Failed to load metadata or invalid DOI.';
             _isLoadingCrossref = false;
           });
         }
