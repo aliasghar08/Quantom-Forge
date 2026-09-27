@@ -84,6 +84,10 @@ class MolecularGraphNetwork(nn.Module):
         )
 
     def forward(self, z, pos, mask=None):
+        if z.size(1) != pos.size(1):
+            raise RuntimeError(
+                f"forward: z has {z.size(1)} atoms but pos has {pos.size(1)}"
+            )
         node_features = self.embedding(z)
 
         pos_expanded_1 = pos.unsqueeze(2)  # [batch, N, 1, 3]
@@ -342,6 +346,41 @@ async def run_reaction(reaction_id: str, req: ReactionRequest):
         r_atoms, r_pos = parse_xyz(req.reactant_xyz)
         p_atoms, p_pos = parse_xyz(req.product_xyz)
         
+        if len(r_atoms) != len(p_atoms):
+            
+            # Deterministic padding: pair each reactant atom with the matching product atom
+            # when one is available, otherwise give the reactant's position. This preserves
+            # the reactant's atom ordering, which is what the model expects, and it always
+            # emits exactly len(r_atoms) positions.
+
+            # Build a queue of available product atoms grouped by symbol, in product order.
+            from collections import defaultdict, deque
+            available = defaultdict(deque)
+            for sym, pos_item in zip(p_atoms, p_pos):
+                available[sym].append(pos_item)
+
+            new_p_atoms = []
+            new_p_pos = []
+            for r_sym, r_p in zip(r_atoms, r_pos):
+                if available[r_sym]:
+                    new_p_atoms.append(r_sym)
+                    new_p_pos.append(available[r_sym].popleft())
+                else:
+                    # No partner; keep the reactant's position so the frame has a place
+                    # to be, and the interpolated path will move other atoms instead.
+                    new_p_atoms.append(r_sym)
+                    new_p_pos.append(list(r_p))
+
+            p_atoms = new_p_atoms
+            p_pos = new_p_pos
+
+            assert len(p_atoms) == len(r_atoms), (
+                f"padding failed: {len(p_atoms)} product atoms vs {len(r_atoms)} reactant atoms"
+            )
+            assert len(p_pos) == len(r_pos), (
+                f"padding failed: {len(p_pos)} product positions vs {len(r_pos)} reactant positions"
+            )
+            
         # Simple atomic number mapping for basic organic elements
         mapping = {"H":1, "C":6, "N":7, "O":8, "F":9, "P":15, "S":16, "Cl":17, "Br":35, "I":53}
         atomic_numbers = [mapping.get(sym.upper().capitalize(), 6) for sym in r_atoms]
@@ -362,6 +401,12 @@ async def run_reaction(reaction_id: str, req: ReactionRequest):
             z = torch.tensor(atomic_numbers, dtype=torch.long).unsqueeze(0)
             pos = torch.tensor(cur_pos, dtype=torch.float32).unsqueeze(0)
             mask = (z != 0).float()
+            
+            if len(atomic_numbers) != len(cur_pos):
+                raise RuntimeError(
+                    f"shape mismatch before forward: atomic_numbers={len(atomic_numbers)} "
+                    f"cur_pos={len(cur_pos)}. This is a bug in the padding logic, not the model."
+                )
             
             if model is not None:
                 with torch.no_grad():
