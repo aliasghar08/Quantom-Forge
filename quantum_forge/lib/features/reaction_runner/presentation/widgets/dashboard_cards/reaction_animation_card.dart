@@ -49,14 +49,12 @@ class ReactionAnimationCard extends StatelessWidget {
                     const Icon(Icons.animation,
                         color: Color(0xFF4FC3F7), size: 18),
                     const SizedBox(width: 8),
-                    const Flexible(
-                      child: Text(
-                        'Reaction Mechanism',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold),
-                      ),
+                    const Text(
+                      'Reaction Mechanism',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold),
                     ),
                   ]),
                   Container(

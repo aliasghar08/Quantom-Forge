@@ -50,47 +50,6 @@ class NglEngine {
   /// Platform-view type name. Must match `NglEngine.viewType` in the stub.
   static const String viewType = 'quantum-forge-ngl-viewer';
 
-  /// Background colour NGL is created with.
-  ///
-  /// Avogadro's shipped default is opaque black — `settings.value(
-  /// "backgroundColor", QColor(0, 0, 0, 255))` in avogadroapp's
-  /// `MainWindow::setupInterface()` — so an animation here and the same
-  /// structure on the desktop sit on the same background. NGL's own default is
-  /// also black, so this is belt and braces.
-  static const String backgroundColor = '#000000';
-
-  /// Camera projection.
-  ///
-  /// Orthographic by explicit request: no size distortion with depth, which is
-  /// what makes it the right choice for a publication figure.
-  ///
-  /// Not claimed as Avogadro parity, because it is not: Avogadro's
-  /// `Rendering::Camera` constructor sets `m_projectionType(Perspective)`
-  /// (`avogadro/rendering/camera.cpp`), and NGL's own default is
-  /// `'perspective'`. This is a deliberate divergence.
-  static const String cameraType = 'orthographic';
-
-  /// Near clip plane distance from the camera target, in angstrom.
-  ///
-  /// NGL's default is `0`, which clips anything at or behind the target plane.
-  /// A negative near plane puts the clip well behind the molecule so a large
-  /// structure cannot lose its back half while orbiting.
-  static const int clipNear = -100;
-
-  /// Far clip plane distance from the camera target, in angstrom.
-  static const int clipFar = 100;
-
-  /// Multisample level. NGL's default is `0`; `2` is 4x MSAA.
-  static const int sampleLevel = 2;
-
-  /// Directional (key) light intensity. NGL's default is `1.2`.
-  static const double lightIntensity = 1.0;
-
-  /// Ambient light intensity. NGL's default is `0.3`; raised slightly so
-  /// surfaces facing away from the key light keep their element colour instead
-  /// of going to near-black, which matters for reading CPK colours off a figure.
-  static const double ambientIntensity = 0.4;
-
   /// Depth-cueing range, in angstrom from the camera.
   ///
   /// Chosen rather than defaulted (NGL ships `fogNear: 50`, `fogFar: 100`).
@@ -130,6 +89,9 @@ class NglEngine {
   /// this queue a badge push landing in either gap is dropped without a trace —
   /// the stage is null, the call returns, and the badges simply never appear.
   List<BondLabel>? _queuedBondLabels;
+
+  /// The current style parameters for the stage.
+  NglStyle _currentStyle = const NglStyle();
 
   web.ResizeObserver? _resizeObserver;
 
@@ -190,7 +152,7 @@ class NglEngine {
         ..style.width = '100%'
         ..style.height = '100%'
         ..style.position = 'relative'
-        ..style.backgroundColor = backgroundColor;
+        ..style.backgroundColor = '#000000';
 
       final engine = NglEngine._(viewId, element);
       _engines[viewId] = engine;
@@ -237,7 +199,7 @@ class NglEngine {
     try {
       final stageConstructor = ngl.getProperty<JSFunction>('Stage'.toJS);
       final params = JSObject()
-        ..setProperty('backgroundColor'.toJS, backgroundColor.toJS);
+        ..setProperty('backgroundColor'.toJS, _currentStyle.backgroundColor.toJS);
       _stage = stageConstructor.callAsConstructor<JSObject>(
         _element as JSAny,
         params,
@@ -300,17 +262,15 @@ class NglEngine {
       stage.callMethod(
         'setParameters'.toJS,
         JSObject()
-          ..setProperty('backgroundColor'.toJS, backgroundColor.toJS)
-          ..setProperty('cameraType'.toJS, cameraType.toJS)
-          ..setProperty('clipNear'.toJS, clipNear.toJS)
-          ..setProperty('clipFar'.toJS, clipFar.toJS)
+          ..setProperty('backgroundColor'.toJS, _currentStyle.backgroundColor.toJS)
+          ..setProperty('cameraType'.toJS, _currentStyle.cameraType.name.toJS)
+          ..setProperty('clipNear'.toJS, (-100).toJS)
+          ..setProperty('clipFar'.toJS, 100.toJS)
           ..setProperty('fogNear'.toJS, fogNear.toJS)
           ..setProperty('fogFar'.toJS, fogFar.toJS)
-          ..setProperty('sampleLevel'.toJS, sampleLevel.toJS)
-          // Both verified real against NGL 2.5.0: `lightIntensity` exists and
-          // defaults to 1.2, `ambientIntensity` to 0.3.
-          ..setProperty('lightIntensity'.toJS, lightIntensity.toJS)
-          ..setProperty('ambientIntensity'.toJS, ambientIntensity.toJS)
+          ..setProperty('sampleLevel'.toJS, (_currentStyle.quality == NglQuality.low ? 0 : 2).toJS)
+          ..setProperty('lightIntensity'.toJS, _currentStyle.lightIntensity.toJS)
+          ..setProperty('ambientIntensity'.toJS, _currentStyle.ambientIntensity.toJS)
           // Requested, and honest about the result: measured against 2.5.0,
           // neither of these keys is in `viewer.parameters` and neither has any
           // observable effect — not through `setParameters`, and not through the
@@ -436,16 +396,7 @@ class NglEngine {
         style.displayType.representation.toJS,
       )
       ..setProperty('colorScheme'.toJS, _colorSchemeFor(style.palette).toJS)
-      // `quality: 'high'` is a *representation* parameter, not a stage one —
-      // `setParameters({quality: 'high'})` is silently ignored. Verified on
-      // ball+stick: it resolves to sphereDetail 2 / radialSegments 20.
-      //
-      // Note that `sphereSegments` and `cylinderSegments` do not exist in NGL at
-      // all, and would not matter here anyway: with impostors enabled the spheres
-      // are ray-traced as perfect spheres in the fragment shader, so their mesh
-      // tessellation never reaches the screen. `smoothSheet` belongs to the
-      // ribbon/cartoon representation and has no meaning for ball+stick.
-      ..setProperty('quality'.toJS, 'high'.toJS);
+      ..setProperty('quality'.toJS, style.quality.name.toJS);
     // `line` takes no radius; passing one is harmless, but omitting it keeps the
     // wireframe request honest about what it is asking for.
     if (style.displayType != AvogadroDisplayType.wireframe) {
@@ -591,6 +542,23 @@ class NglEngine {
   /// → back would leave three overlapping models drawn at once.
   void applyStyle(NglStyle style) {
     if (_disposed) return;
+    _currentStyle = style;
+    
+    // 1. Update scene parameters (lighting, camera, bg color)
+    final stage = _stage;
+    if (stage != null) {
+      _applySceneParameters(stage);
+      _element.style.backgroundColor = style.backgroundColor;
+      
+      // Auto-spin support
+      if (style.spin) {
+        stage.callMethod('setSpin'.toJS, true.toJS);
+      } else {
+        stage.callMethod('setSpin'.toJS, false.toJS);
+      }
+    }
+
+    // 2. Update molecular representation (displayType, colors, radii)
     final component = _component;
     final glue = _glue;
     if (component == null || glue == null) return;

@@ -55,27 +55,14 @@ enum NglPalette {
 }
 
 /// The ball-and-stick proportions this app renders with.
-///
-/// **These are not Avogadro's.** They were verified by measurement against NGL
-/// 2.5.0, because the assumption that they reproduce Avogadro's ball-and-stick
-/// does not survive contact with the library:
-///
-/// | | these parameters | Avogadro 2 |
-/// |---|---|---|
-/// | sphere radius | 0.15 A for **every** element | 0.3 x VDW(Z): H 0.36, C 0.531, O 0.45 |
-/// | bond cylinder radius | 0.075 A | 0.1 A, flat |
-///
-/// NGL derives both from one `radiusSize` and cannot separate them: with the
-/// default `radiusType: 'size'`, `sphere = 0.15 x radiusScale x aspectRatio` and
-/// `bond = 0.15 x radiusScale`, so `aspectRatio` moves the spheres and never the
-/// bonds. The Avogadro profile therefore needs per-element radii and a decoupled
-/// bond radius, which is custom geometry rather than a NGL representation.
-///
-/// They are kept as named constants precisely so the consequence is one edit
-/// away: on a small molecule this reads as a thin uniform-stick figure, not as
-/// Avogadro.
 const double kNglBallAndStickRadiusScale = 0.5;
 const double kNglBallAndStickAspectRatio = 2.0;
+
+/// Quality settings
+enum NglQuality { low, medium, high }
+
+/// Camera projections
+enum NglCameraType { perspective, orthographic, stereo }
 
 /// Everything the renderer needs to draw a structure.
 class NglStyle {
@@ -84,23 +71,48 @@ class NglStyle {
     this.palette = NglPalette.avogadro,
     this.radiusScale = kNglBallAndStickRadiusScale,
     this.aspectRatio = kNglBallAndStickAspectRatio,
+    this.quality = NglQuality.high,
+    this.cameraType = NglCameraType.orthographic,
+    this.backgroundColor = '#000000',
+    this.lightIntensity = 1.0,
+    this.ambientIntensity = 0.4,
+    this.spin = false,
   });
 
   final AvogadroDisplayType displayType;
   final NglPalette palette;
-
-  /// NGL `radiusScale`. Only meaningful for the sphere-and-cylinder types.
   final double radiusScale;
-
-  /// NGL `aspectRatio` — applied to the spheres, not to the bonds.
   final double aspectRatio;
+  final NglQuality quality;
+  final NglCameraType cameraType;
+  final String backgroundColor;
+  final double lightIntensity;
+  final double ambientIntensity;
+  final bool spin;
 
-  NglStyle copyWith({AvogadroDisplayType? displayType, NglPalette? palette}) =>
+  NglStyle copyWith({
+    AvogadroDisplayType? displayType,
+    NglPalette? palette,
+    double? radiusScale,
+    double? aspectRatio,
+    NglQuality? quality,
+    NglCameraType? cameraType,
+    String? backgroundColor,
+    double? lightIntensity,
+    double? ambientIntensity,
+    bool? spin,
+  }) =>
       NglStyle(
         displayType: displayType ?? this.displayType,
         palette: palette ?? this.palette,
-        radiusScale: radiusScale,
-        aspectRatio: aspectRatio,
+        radiusScale: radiusScale ?? this.radiusScale,
+        aspectRatio: aspectRatio ?? this.aspectRatio,
+        quality: quality ?? this.quality,
+        cameraType: cameraType ?? this.cameraType,
+        backgroundColor: backgroundColor ?? this.backgroundColor,
+        lightIntensity: lightIntensity ?? this.lightIntensity,
+        ambientIntensity: ambientIntensity ?? this.ambientIntensity,
+        spin: spin ?? this.spin,
       );
 
   @override
@@ -109,9 +121,25 @@ class NglStyle {
       other.displayType == displayType &&
       other.palette == palette &&
       other.radiusScale == radiusScale &&
-      other.aspectRatio == aspectRatio;
+      other.aspectRatio == aspectRatio &&
+      other.quality == quality &&
+      other.cameraType == cameraType &&
+      other.backgroundColor == backgroundColor &&
+      other.lightIntensity == lightIntensity &&
+      other.ambientIntensity == ambientIntensity &&
+      other.spin == spin;
 
   @override
-  int get hashCode =>
-      Object.hash(displayType, palette, radiusScale, aspectRatio);
+  int get hashCode => Object.hash(
+        displayType,
+        palette,
+        radiusScale,
+        aspectRatio,
+        quality,
+        cameraType,
+        backgroundColor,
+        lightIntensity,
+        ambientIntensity,
+        spin,
+      );
 }

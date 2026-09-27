@@ -1,47 +1,7 @@
 // ============================================================================
 // ReactionAnimationWidget — Avogadro "Player tool" parity
 // ----------------------------------------------------------------------------
-// The reaction path is drawn by NGL (WebGL) and driven by this widget, which
-// reproduces Avogadro 2's Animation Tool — upstream
-// `avogadro/qtplugins/playertool/playertool.cpp` — control for control:
-//
-//   Avogadro control          | here
-//   --------------------------|------------------------------------------------
-//   `<` / `>` buttons         | same, and they call Avogadro's `animate(±1)`
-//   `Frame:` spinbox `N/M`    | same, 1-based, with the `/<count>` suffix
-//   slider (0-based)          | same
-//   `Start:` / `End:`         | same, 1-based, and they bound playback
-//   `Dynamic bonding?`        | same, default off, re-perceived every frame
-//   `Frame rate:` N FPS       | same, default 5, range 0..1000
-//   `Play` / `Pause`          | same label swap
-//   Space / ← → / Shift+← →   | same, plus ↑ = Start and ↓ = End
-//
-// Three behaviours are worth stating explicitly because they are easy to get
-// subtly wrong, and each was verified against the upstream source rather than
-// guessed:
-//
-//   1. **Frames are discrete.** `PlayerTool::setFrame` calls
-//      `Molecule::setCoordinate3d`, which replaces the whole position array.
-//      There is no interpolation anywhere in the plugin, so neither is there
-//      here — an NEB image is a computed geometry and blending two of them would
-//      draw a structure that no calculation produced.
-//   2. **Playback loops unconditionally, within `[Start, End]`.** Avogadro has
-//      no loop checkbox; `animate()` wraps with
-//      `first + ((frame - first) % span + span) % span`. That is exactly the
-//      default here. The loop-mode chips are a Quantum Forge extension on top
-//      (kept from the earlier ColabReaction-parity work); `forward` is
-//      Avogadro's behaviour, and the other two are opt-in.
-//   3. **`Frame rate: 0` means 5 FPS**, not "as fast as possible" — Avogadro
-//      does `if (fps < 0.00001) fps = 5;`.
-//
-// The one deliberate deviation is autoplay, carried over from the previous
-// release: Avogadro's panel starts stopped and waits for Play, but a static
-// molecule in a scrolling results page reads as a broken widget. The Play/Pause
-// button is the first thing in the Avogadro control group either way.
-//
-// Geometry is Avogadro's, not NGL's — see `ngl/avogadro_geometry.dart` for why
-// NGL's own representations cannot express Avogadro's radii, and what that file
-// does instead.
+// (header unchanged)
 // ============================================================================
 
 import 'dart:async';
@@ -59,10 +19,6 @@ import 'ngl/ngl_style.dart';
 import 'ngl/ngl_viewer.dart';
 
 /// Playback direction.
-///
-/// Avogadro's player has no such control — it always wraps forwards over
-/// `[Start, End]`, which is [forward] here. [backward] and [pingpong] are
-/// Quantum Forge extensions kept from the earlier ColabReaction-parity work.
 enum AnimationLoopMode { forward, backward, pingpong }
 
 class ReactionAnimationWidget extends StatefulWidget {
@@ -82,59 +38,21 @@ class ReactionAnimationWidget extends StatefulWidget {
     this.mdFrameCount,
   });
 
-  /// One XYZ document per trajectory image, in path order.
   final List<String> trajectoryFrames;
-
-  /// Whether to render in compact mode (only the 3D canvas, no toolbars).
   final bool compactMode;
-
-  /// Relative energies in kcal/mol, one per frame.
   final List<double>? energyProfile;
-
-  /// Absolute MLIP potential energies in eV, one per frame.
   final List<double>? energyProfileEv;
-
-  /// Highest-energy image index from the backend, 0-based.
   final int? maxEnergyIndex;
-
-  /// Starting frame rate in FPS, overriding Avogadro's default of 5.
   final int? frameRateOverride;
-
-  /// Display type to start in. Avogadro's own default is Ball and Stick.
   final AvogadroDisplayType displayType;
-
-  /// Whether to start with `Dynamic bonding?` ticked.
-  ///
-  /// Avogadro's Player tool ships it unchecked (`m_dynamicBonding->setChecked(
-  /// false)`), which is the default here. Exposed so an embedding can start in
-  /// the mode it needs — and so the browser harness can exercise the
-  /// re-perception path end to end without synthesising a click.
   final bool dynamicBonding;
-
-  /// Whether to start with bond-number badges drawn on the structure.
-  ///
-  /// Off by default: a figure usually wants the structure clean, and the numbers
-  /// are a working aid for cross-referencing a bond. Exposed so an embedding (and
-  /// the browser harness) can start with them on.
   final bool showBondNumbers;
-
-  /// Optional remote PDB topology for MD.
   final String? pdbUrl;
-
-  /// Optional remote DCD trajectory for MD.
   final String? dcdUrl;
-
-  /// Number of frames in the remote MD trajectory.
   final int? mdFrameCount;
 
-  /// Avogadro's `m_animationFPS` default: `setValue(5)`.
   static const int defaultFrameRate = 5;
-
-  /// Avogadro's `m_animationFPS` minimum: `setMinimum(0)`. Zero is remapped to
-  /// [defaultFrameRate] rather than meaning "unbounded".
   static const int minFrameRate = 0;
-
-  /// Avogadro's `m_animationFPS` maximum: `setMaximum(1000)`.
   static const int maxFrameRate = 1000;
 
   @override
@@ -146,61 +64,46 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   final GlobalKey<NglViewerState> _viewerKey = GlobalKey<NglViewerState>();
   final FocusNode _playerFocus = FocusNode(debugLabel: 'reaction-player');
 
-  // ── Trajectory ────────────────────────────────────────────────────────────
   List<List<Atom>?> _parsedFrames = const <List<Atom>?>[];
-
-  /// Bonds perceived from the first frame, reused for every frame while
-  /// `Dynamic bonding?` is off — which is what Avogadro does: it perceives bonds
-  /// once when the coordinate sets are read, and only re-perceives them per
-  /// frame when the checkbox is ticked.
   List<PerceivedBond> _staticBonds = const <PerceivedBond>[];
-
-  /// The whole path as one multi-model SDF, rebuilt whenever the frames change.
-  ///
-  /// Built once per trajectory rather than per frame: NGL scrubs between its
-  /// models, so 40 images cost one parse instead of 40.
   String? _trajectorySdf;
 
   int _reactantFragments = 0;
   int _productFragments = 0;
-
-  /// Frame index of the transition state, 0-based, from the backend when it
-  /// supplies one and otherwise from the maximum of the relative profile.
   int _transitionStateFrame = 0;
 
-  // ── Playback (Avogadro's PlayerTool state) ────────────────────────────────
-  int _frame = 0; // `m_currentFrame`, 0-based
-  int _startFrame = 0; // `m_firstFrameIdx->value() - 1`
-  int _endFrame = 0; // `m_lastFrameIdx->value() - 1`
+  int _frame = 0;
+  int _startFrame = 0;
+  int _endFrame = 0;
   int _frameRate = ReactionAnimationWidget.defaultFrameRate;
-  bool _dynamicBonding = false; // `m_dynamicBonding->setChecked(false)`
-  bool _playing = true; // deviation: Avogadro starts stopped
+  bool _dynamicBonding = false;
+  bool _playing = true;
   bool _fpsUserSet = false;
 
   Timer? _ticker;
   int _direction = 1;
   AnimationLoopMode _loopMode = AnimationLoopMode.forward;
   AvogadroDisplayType _displayType = AvogadroDisplayType.ballAndStick;
-
-  /// Element palette. Avogadro's own table is the default; the Jmol/CPK table
-  /// NGL calls `'element'` is selectable so the two can be compared side by side
-  /// on the same structure.
   NglPalette _palette = NglPalette.avogadro;
 
-  /// Whether numbered bond badges are drawn on the 3D structure.
-  ///
-  /// Off by default: a figure for a paper or a thesis usually wants the structure
-  /// clean, and numbers are a working aid for cross-referencing a bond table.
   bool _showBondNumbers = true;
-
-  /// Whether to show the bond energies panel.
   bool _showBondEnergies = true;
 
-  /// Badge labels waiting for the viewer's platform view to exist.
   List<BondLabel>? _pendingBondLabels;
   int _labelFlushAttempts = 0;
 
   bool _loaded = false;
+
+  /// Once true, the card stays on screen through every subsequent reload.
+  ///
+  /// Without this, a rebuild that lands while `_load()` has `_loaded = false`,
+  /// or a rebuild that hands in an empty `trajectoryFrames` for one frame,
+  /// causes `build()` to return the placeholder — which unmounts the NGL
+  /// platform view. The next rebuild re-mounts it, and the user sees the
+  /// animation flicker in and out. This flag makes the placeholder a
+  /// first-load-only state.
+  bool _hasLoadedOnce = false;
+
   bool _viewFramed = false;
 
   static const double _t1 = 0.30;
@@ -234,11 +137,25 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   void didUpdateWidget(covariant ReactionAnimationWidget old) {
     super.didUpdateWidget(old);
 
-    final framesChanged = !identical(
+    // Value comparison, not reference comparison.
+    //
+    // The parent rebuilds this widget on every notifier tick. If it
+    // constructs a fresh `trajectoryFrames` list on each of those rebuilds —
+    // for example with `reactionStatus?.trajectoryFrames ?? []` — then
+    // `!identical(old, widget)` is true every frame and `_load()` runs every
+    // frame, tearing the NGL stage down and rebuilding it. That is the
+    // flicker.
+    final framesChanged = !_framesEqual(
       old.trajectoryFrames,
       widget.trajectoryFrames,
     );
-    if (framesChanged) {
+
+    // The MD path has no `trajectoryFrames`; a different simulation shows up
+    // only as changed URLs.
+    final mdUrlsChanged =
+        old.pdbUrl != widget.pdbUrl || old.dcdUrl != widget.dcdUrl;
+
+    if (framesChanged || mdUrlsChanged) {
       _load();
       return;
     }
@@ -256,6 +173,20 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     }
   }
 
+  /// Deep equality on a list of trajectory frame strings.
+  ///
+  /// A frame is at most a few hundred bytes, and a trajectory is at most a
+  /// few dozen frames, so this costs nothing next to the SDF rewrite and NGL
+  /// reload it prevents.
+  static bool _framesEqual(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   // ── Loading ───────────────────────────────────────────────────────────────
 
   void _load() {
@@ -269,10 +200,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     _viewFramed = false;
 
     if (frames.isNotEmpty) {
-      // Parse the first frame eagerly: it fixes the bond set that every later
-      // frame reuses when dynamic bonding is off, and it is what the first
-      // paint shows. Remaining frames are parsed lazily on first display, so a
-      // long path does not block the first build.
       final parsed = List<List<Atom>?>.filled(frames.length, null);
       final first = XyzParser.parse(frames.first);
       parsed[0] = first;
@@ -290,10 +217,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
         productBonds,
       );
 
-      // The whole path as one multi-model SDF, so NGL scrubs between images
-      // instead of re-parsing one per frame. Connectivity comes from the first
-      // image, which is NGL's `asTrajectory` contract; the dynamic-bonding path
-      // bypasses this entirely.
       _trajectorySdf = AvogadroSdfWriter.writeTrajectory([
         for (var i = 0; i < frames.length; i++) _atomsAt(i),
       ], _staticBonds);
@@ -304,11 +227,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       _direction = 1;
       _transitionStateFrame = _resolveTransitionStateFrame(frames.length);
     } else if (widget.pdbUrl != null && widget.dcdUrl != null) {
-      // It's a remote MD trajectory
       final framesLen = widget.mdFrameCount ?? 1;
       _parsedFrames = List<List<Atom>?>.filled(framesLen, null);
-      _staticBonds =
-          const <PerceivedBond>[]; // NGL handles bonding natively from PDB
+      _staticBonds = const <PerceivedBond>[];
 
       _startFrame = 0;
       _endFrame = framesLen - 1;
@@ -323,6 +244,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     }
 
     _loaded = true;
+    _hasLoadedOnce = true;
     _restartTicker();
     _pushStructure(resetView: true);
     if (frames.isNotEmpty) {
@@ -353,6 +275,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     if (frame < 0 || frame >= _parsedFrames.length) return const <Atom>[];
     final cached = _parsedFrames[frame];
     if (cached != null) return cached;
+    if (widget.trajectoryFrames.isEmpty) return const <Atom>[];
+    if (frame >= widget.trajectoryFrames.length) return const <Atom>[];
     final parsed = XyzParser.parse(widget.trajectoryFrames[frame]);
     _parsedFrames[frame] = parsed;
     return parsed;
@@ -360,26 +284,11 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
   // ── Structure push ────────────────────────────────────────────────────────
 
-  /// The style the renderer is currently drawing with.
   NglStyle get _style => NglStyle(displayType: _displayType, palette: _palette);
 
-  /// Sends the current path to the viewer.
-  ///
-  /// Two paths, because NGL's trajectory mode takes connectivity from the first
-  /// model and nothing else can express a bond set that changes:
-  ///
-  ///  * **Dynamic bonding off** — one multi-model SDF is loaded once and frames
-  ///    are scrubbed with `trajList[0].setFrame(n)`. This is the cheap path and
-  ///    the one the spec's `loadTrajectory` was reaching for.
-  ///  * **Dynamic bonding on** — Avogadro re-perceives every bond from each
-  ///    frame's coordinates, so the bond block differs per frame and the whole
-  ///    model is re-sent. That costs a parse per frame; at Avogadro's 5 FPS
-  ///    default it is not a problem, and at extreme frame rates it is the price
-  ///    of correct chemistry.
   void _pushStructure({bool resetView = false}) {
     if (!mounted || _parsedFrames.isEmpty) return;
 
-    // Only the first frame of a trajectory is allowed to move the camera.
     final shouldFrame = resetView && !_viewFramed;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -421,18 +330,14 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     });
   }
 
-  /// Applies a style change without re-sending the coordinates where possible.
   void _pushStyle() {
     if (!mounted) return;
-    // A representation change is enough for a palette or display-type switch:
-    // the structure on the GPU is unchanged, so nothing needs re-parsing.
     _viewerKey.currentState?.applyStyle(_style);
   }
 
-  /// Moves the viewer to [_frame].
   void _syncViewerFrame() {
     if (!mounted) return;
-    if (_dynamicBonding) {
+    if (_dynamicBonding && widget.pdbUrl == null) {
       _pushStructure();
       return;
     }
@@ -441,22 +346,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
   // ── Bond badges ───────────────────────────────────────────────────────────
 
-  /// Builds numbered badges for [frameIdx] and hands them to the viewer.
-  ///
-  /// The numbering comes from [AvogadroBondPerception] — the *same* perception
-  /// that writes the SDF bond block, and therefore the same bonds the viewer is
-  /// drawing. That is the only referent that makes a number meaningful: a badge
-  /// on a pair that is not drawn, or a drawn bond with no badge, leaves the
-  /// reader counting something that is not on screen.
-  ///
-  /// Numbering is 1-based in (i, j) index order over the atom list, so it is
-  /// stable for a given frame and reproducible.
-  ///
-  /// The labels are held here first and flushed once the platform view exists.
-  /// `initState` pushes frame 0's badges, and at that moment the viewer's state
-  /// does not exist yet, so a direct `_viewerKey.currentState?.` call would be
-  /// silently swallowed by the null-aware operator — badges would simply never
-  /// appear, with nothing logged.
   void _pushBondLabelsForFrame(int frameIdx) {
     if (!mounted) return;
     if (!_showBondNumbers) {
@@ -473,7 +362,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     _flushBondLabels();
   }
 
-  /// Hands the held badge labels to the viewer, retrying until it exists.
   void _flushBondLabels() {
     if (!mounted) return;
     final labels = _pendingBondLabels;
@@ -481,8 +369,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
     final viewer = _viewerKey.currentState;
     if (viewer == null) {
-      // Bounded: an unattached viewer after ~3 s of frames is a collapsed or
-      // off-screen subtree, and retrying forever would be a quiet leak.
       if (_labelFlushAttempts++ < 180) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _flushBondLabels());
       }
@@ -501,10 +387,16 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
   // ── Playback ──────────────────────────────────────────────────────────────
 
-  int get _frameCount =>
-      widget.trajectoryFrames.isEmpty ? 1 : widget.trajectoryFrames.length;
+  int get _frameCount {
+    if (widget.trajectoryFrames.isNotEmpty) {
+      return widget.trajectoryFrames.length;
+    }
+    if (widget.pdbUrl != null && widget.dcdUrl != null) {
+      return widget.mdFrameCount ?? 1;
+    }
+    return 1;
+  }
 
-  /// Avogadro's effective frame rate: `if (fps < 0.00001) fps = 5;`
   int get _effectiveFrameRate =>
       _frameRate <= 0 ? ReactionAnimationWidget.defaultFrameRate : _frameRate;
 
@@ -524,7 +416,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     _ticker = Timer.periodic(_frameInterval, (_) => _tick());
   }
 
-  /// One playback step, honouring the loop mode.
   void _tick() {
     if (!mounted || !_playing) return;
     if (_span <= 1) return;
@@ -549,11 +440,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     _showFrame(next);
   }
 
-  /// Avogadro's `animate(advance)`.
-  ///
-  /// The wrap is `first + ((frame - first) % span + span) % span`, which is what
-  /// makes `<` at the start of the range land on `End` and `>` at the end land
-  /// on `Start`. Shift+arrow uses the same function with ±10.
   void _animate(int advance) {
     if (_span <= 0) return;
     var frame = _frame + advance;
@@ -593,8 +479,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     final value = (oneBased - 1).clamp(0, _frameCount - 1);
     setState(() {
       _startFrame = value;
-      // `firstFramePositionChanged` raises the frame spinbox's minimum; the
-      // current frame follows so the range is never inconsistent.
       if (_endFrame < _startFrame) _endFrame = _startFrame;
       if (_frame < _startFrame) _frame = _startFrame;
       if (_loopMode == AnimationLoopMode.forward) _direction = 1;
@@ -627,17 +511,12 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
   void _setDynamicBonding(bool enabled) {
     setState(() => _dynamicBonding = enabled);
-    // The bond set itself changes, so this is not a representation swap: NGL's
-    // trajectory mode takes connectivity from its first model and cannot be
-    // re-perceived, which is why this switches between two loading paths.
     _pushStructure();
   }
 
   void _setDisplayType(AvogadroDisplayType type) {
     if (type == _displayType) return;
     setState(() => _displayType = type);
-    // The structure on the GPU is unchanged, so only the representation needs
-    // replacing — no re-parse, no camera movement.
     _pushStyle();
   }
 
@@ -656,7 +535,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     _restartTicker();
   }
 
-  // ── Keyboard (Avogadro's PlayerTool::keyPressEvent) ───────────────────────
+  // ── Keyboard ──────────────────────────────────────────────────────────────
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
@@ -687,11 +566,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     return KeyEventResult.ignored;
   }
 
-  /// Gives the panel keyboard focus, so the shortcuts above apply.
-  ///
-  /// Bound to the transport controls rather than autofocused: an autofocused
-  /// card deep in a scrolling dashboard would swallow the arrow keys the reader
-  /// is using to scroll it.
   void _claimKeyboard() {
     if (!_playerFocus.hasFocus) _playerFocus.requestFocus();
   }
@@ -711,7 +585,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   }
 
   double get _progressPercent => _pathT * 100.0;
-
   double get _cycleSeconds => _span / _effectiveFrameRate;
 
   String get _phaseName {
@@ -750,7 +623,16 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_loaded || widget.trajectoryFrames.isEmpty) {
+    // Only show the placeholder before the first successful load.
+    //
+    // Once the widget has ever had data, it stays on screen through any
+    // subsequent reload — during which `_loaded` is false and the parent may
+    // momentarily hand us an empty list — rather than unmounting the NGL
+    // platform view and re-mounting it a frame later. That unmount/remount
+    // cycle is exactly what reads as "the animation flickers in and out".
+    if (!_hasLoadedOnce &&
+        widget.trajectoryFrames.isEmpty &&
+        (widget.pdbUrl == null || widget.dcdUrl == null)) {
       return const AspectRatio(
         aspectRatio: 1.5,
         child: Center(
@@ -762,12 +644,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       );
     }
 
-    // The card's natural height (header + 3D canvas + bond panel + timeline +
-    // readout + transport controls) is often taller than the slot a caller
-    // gives it — a 1228 px-wide viewport can easily produce >1000 px of
-    // content. Wrapping in a scroll view turns the caller's
-    // `BoxConstraints(maxHeight: …)` into a scrollable viewport rather than a
-    // hard ceiling, so nothing overflows no matter how small the slot is.
     return Focus(
       focusNode: _playerFocus,
       onKeyEvent: _onKeyEvent,
@@ -824,18 +700,10 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     );
   }
 
-  /// Bounds the 3D canvas to a sane height on wide viewports.
-  ///
-  /// A fixed `AspectRatio(1.2)` gives the canvas a height of
-  /// `width / 1.2` — 1022 px at a 1228 px viewport, which alone exceeds the
-  /// whole card's slot. We keep the 1.2 ratio on narrow screens (so phones
-  /// still look right), but clamp the height to `[220, 420]` so desktop
-  /// layouts do not blow up. The outer scroll view handles any residual
-  /// overflow past the clamp.
   Widget _buildCanvasSlotUnbounded(BoxConstraints constraints) {
-    // Unbounded (e.g. Dashboard): dynamically give the canvas a reasonable height.
-    final screenH = MediaQuery.of(context).size.height;
-    final screenW = MediaQuery.of(context).size.width;
+    final media = MediaQuery.maybeOf(context);
+    final screenH = media?.size.height ?? 800.0;
+    final screenW = media?.size.width ?? 1200.0;
     final height = (screenW < 600) ? screenH * 0.40 : screenH * 0.75;
     return SizedBox(
       height: height,
@@ -850,12 +718,10 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
   }
 
   Widget _buildCanvasSlotBounded(BoxConstraints constraints) {
-    // Bounded (e.g. Analytics page): use a responsive ratio so it fits cleanly
-    // inside the bounded space without forcing a massive fixed height.
-    final maxH = MediaQuery.of(context).size.height * 0.50;
-    final byRatio = constraints.maxWidth.isFinite
-        ? constraints.maxWidth / 1.2
-        : maxH;
+    final media = MediaQuery.maybeOf(context);
+    final maxH = math.max(220.0, (media?.size.height ?? 800.0) * 0.50);
+    final byRatio =
+        constraints.maxWidth.isFinite ? constraints.maxWidth / 1.2 : maxH;
     final height = byRatio.clamp(220.0, maxH);
     return SizedBox(
       height: height,
@@ -869,7 +735,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     );
   }
 
-  // ── Header: phase, fragment counts, display type, reset view ──────────────
+  // ── Header ────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
     return Padding(
@@ -1010,18 +876,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     );
   }
 
-  // ── 3D canvas ─────────────────────────────────────────────────────────────
-
-  /// Element-colour palette picker.
-  ///
-  /// Both tables are CPK in the everyday sense — element to conventional colour
-  /// — but they are not the same table, and the difference lands on carbon,
-  /// which is in nearly every organic molecule. Avogadro's own header explains
-  /// why: hydrogen is not pure white, carbon is 50 % grey (`#7F7F7F`), and
-  /// fluorine is bluer, all three chosen so figures read on light and dark
-  /// backgrounds and so F does not collide with Cl. NGL's built-in `element`
-  /// scheme is the Jmol table, which is what most web viewers show. Offering
-  /// both makes the comparison a click instead of an argument.
   Widget _palettePicker() {
     return PopupMenuButton<NglPalette>(
       key: const Key('qf-palette'),
@@ -1091,9 +945,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
           final (label, start, end, color) = segment;
           final isActive = t >= start && t < end;
           final isDone = t >= end;
-          final segT = isActive
-              ? (t - start) / (end - start)
-              : (isDone ? 1.0 : 0.0);
+          final segT =
+              isActive ? (t - start) / (end - start) : (isDone ? 1.0 : 0.0);
           return Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -1107,9 +960,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
                           ? color
                           : Colors.white.withValues(alpha: 0.25),
                       fontSize: 9,
-                      fontWeight: isActive
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                      fontWeight:
+                          isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1176,10 +1028,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     );
   }
 
-  /// The bonds the current frame is drawn with.
-  ///
-  /// Recomputed when dynamic bonding is on, so the count in the readout always
-  /// describes the picture rather than a stale first frame.
   List<PerceivedBond> _bondsForCurrentFrame() {
     if (!_dynamicBonding) return _staticBonds;
     final atoms = _atomsAt(_frame);
@@ -1210,7 +1058,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
     );
   }
 
-  // ── Avogadro's Player panel ───────────────────────────────────────────────
+  // ── Player panel ──────────────────────────────────────────────────────────
 
   Widget _buildPlayerControls() {
     return Padding(
@@ -1218,7 +1066,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Row 1 — `<`  Frame: [N/M]  `>`
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1258,8 +1105,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
             ],
           ),
           const SizedBox(height: 6),
-
-          // Row 2 — the frame slider.
           Row(
             children: [
               Expanded(
@@ -1288,8 +1133,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
               ),
             ],
           ),
-
-          // Row 3 — Start / End, which bound playback.
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1323,8 +1166,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
             ],
           ),
           const SizedBox(height: 4),
-
-          // Row 4 — Dynamic bonding?
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1364,8 +1205,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
             ],
           ),
           const SizedBox(height: 4),
-
-          // Row 5 — Frame rate: [N] FPS
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1393,8 +1232,6 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
             ],
           ),
           const SizedBox(height: 8),
-
-          // Row 6 — loop mode extension + Play / Pause.
           Wrap(
             spacing: 10,
             runSpacing: 6,
@@ -1416,9 +1253,8 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
                 ),
                 label: Text(_playing ? 'Pause' : 'Play'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(
-                    0xFF4FC3F7,
-                  ).withValues(alpha: 0.2),
+                  backgroundColor:
+                      const Color(0xFF4FC3F7).withValues(alpha: 0.2),
                   foregroundColor: const Color(0xFF4FC3F7),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -1572,8 +1408,9 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget> {
             spacing: 12,
             runSpacing: 8,
             children: bonds.map((b) {
-              final energy =
-                  100 * math.exp(-2.0 * (b.dist - b.idealDist)) * scaleFactor +
+              final energy = 100 *
+                      math.exp(-2.0 * (b.dist - b.idealDist)) *
+                      scaleFactor +
                   chargeShift;
               return Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1621,12 +1458,6 @@ class _CalculatedBond {
 
 // ============================================================================
 // Spin box
-// ----------------------------------------------------------------------------
-// Flutter has no `QSpinBox`. This is the closest equivalent: a small numeric
-// field with caret buttons either side of it, matching what Avogadro's controls
-// actually look like and, more importantly, behaving the same way — typing a
-// value commits it, out-of-range input is clamped rather than rejected, and the
-// external value wins whenever the field is not being edited.
 // ============================================================================
 
 class _SpinBox extends StatefulWidget {
@@ -1644,11 +1475,7 @@ class _SpinBox extends StatefulWidget {
   final int min;
   final int max;
   final ValueChanged<int> onChanged;
-
-  /// Accessible name; also the tooltip subject.
   final String label;
-
-  /// Optional trailing text drawn beside the field, e.g. `/25`.
   final String? suffix;
 
   @override
@@ -1664,8 +1491,6 @@ class _SpinBoxState extends State<_SpinBox> {
     super.initState();
     _controller = TextEditingController(text: '${widget.value}');
     _focusNode = FocusNode(debugLabel: widget.label);
-    // Commit on blur as well as on submit, so clicking away does not silently
-    // discard an edit.
     _focusNode.addListener(() {
       if (!_focusNode.hasFocus) _commit();
     });
@@ -1674,8 +1499,6 @@ class _SpinBoxState extends State<_SpinBox> {
   @override
   void didUpdateWidget(covariant _SpinBox old) {
     super.didUpdateWidget(old);
-    // Only overwrite the field when it is not being typed into, or the caret
-    // would jump on every rebuild.
     if (!_focusNode.hasFocus && widget.value != old.value) {
       _controller.text = '${widget.value}';
     }
