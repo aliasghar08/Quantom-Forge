@@ -113,23 +113,23 @@ extension ReactionProviderDispatchExt on ReactionNotifier {
           progress: 0.0,
           message: 'Cache hit! Restoring quantum state...',
         );
-        notifyListeners();
 
         // Simulate fast restoration progress
         for (int i = 1; i <= 10; i++) {
           await Future.delayed(const Duration(milliseconds: 100));
-          value = ReactionStatusResponse(
-            reactionId: cachedReaction.reactionId,
-            state: ReactionState.optimizing,
-            progress: i / 10.0,
-            message: 'Restoring trajectory frames...',
-          );
-          notifyListeners();
+          playbackProgressNotifier.value = i / 10.0;
+          if (value == null || value!.message != 'Restoring trajectory frames...') {
+            value = ReactionStatusResponse(
+              reactionId: cachedReaction.reactionId,
+              state: ReactionState.optimizing,
+              progress: i / 10.0,
+              message: 'Restoring trajectory frames...',
+            );
+          }
         }
 
         value = cachedReaction;
         _listenToReactionUpdates(cachedReaction.reactionId);
-        notifyListeners();
         return;
       }
       // ---------------------

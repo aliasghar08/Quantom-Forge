@@ -353,9 +353,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildReactionWorkspace() {
     final reactionNotifier = context.read<ReactionNotifier>();
 
-    return ValueListenableBuilder<ReactionStatusResponse?>(
-      valueListenable: reactionNotifier,
-      builder: (context, reactionStatus, _) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        reactionNotifier,
+        reactionNotifier.isLoadingNotifier,
+        reactionNotifier.errorNotifier,
+      ]),
+      builder: (context, _) {
+        final reactionStatus = reactionNotifier.value;
         final isLoading = reactionNotifier.isLoading;
         final hasError = reactionNotifier.error != null;
         final errorMsg = reactionNotifier.error;

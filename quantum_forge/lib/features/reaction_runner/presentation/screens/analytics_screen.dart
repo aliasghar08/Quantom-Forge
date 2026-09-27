@@ -23,6 +23,81 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return energy;
   });
 
+  QuantumSettings? _lastSettings;
+  ReactionStatusResponse? _lastStatus;
+  List<Map<String, dynamic>> _cachedMetrics = [];
+  List<double> _cachedScaledProfile = [];
+  double _cachedReferenceEa = 0.0;
+
+  void _updateMetrics(QuantumSettings settings, ReactionStatusResponse? reactionStatus) {
+    if (_lastSettings == settings && _lastStatus == reactionStatus && _cachedMetrics.isNotEmpty) return;
+    _lastSettings = settings;
+    _lastStatus = reactionStatus;
+
+    try {
+      final baseProfile = (reactionStatus?.energyProfile?.isNotEmpty == true)
+          ? reactionStatus!.energyProfile! 
+          : _mockFrames;
+
+      // Apply scaling based on settings (syncs with Dashboard)
+      double scaleFactor = settings.temperatureK / 300.0;
+      if (settings.solventModel != 'Vacuum') scaleFactor *= 0.85;
+      if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
+      
+      final chargeShift = settings.charge * 4.5;
+      final spinShift = (settings.spinMultiplicity - 1) * 8.0;
+      final totalShift = chargeShift + spinShift;
+      _cachedScaledProfile = baseProfile.map((e) => (e * scaleFactor) + totalShift).toList();
+      _cachedReferenceEa = 27.5 * scaleFactor + totalShift;
+      
+      // Dynamic Thermodynamics
+      double baseEnthalpy = 25.4 * scaleFactor + totalShift;
+      double baseEntropy = -12.3 + (settings.temperatureK / 300.0) * 1.5; // cal·mol⁻¹·K⁻¹, scaled by Temp
+      if (settings.solventModel != 'Vacuum') baseEntropy += 2.0; // Solvent increases entropy
+      
+      double gibbs = baseEnthalpy - (settings.temperatureK * baseEntropy / 1000.0);
+      
+      double imagFreq = -452.1 * scaleFactor;
+      
+      // Comprehensive Scientific Metrics
+      double ea = baseEnthalpy + (1.987 * settings.temperatureK / 1000.0);
+      double kb = 1.380649e-23;
+      double h = 6.62607015e-34;
+      double gibbsJ = gibbs * 4184.0;
+      double rateConst = (kb * settings.temperatureK / h) * exp(-gibbsJ / (8.314 * settings.temperatureK));
+      
+      double zpe = 14.5 * scaleFactor + chargeShift/3;
+      double dipole = 2.4 + (settings.charge * 0.5).abs();
+      double gap = 5.2 - (settings.spinMultiplicity * 0.1);
+      double polar = 45.2 + (settings.solventModel != 'Vacuum' ? 12.0 : 0.0);
+      double rmsGrad = 0.00034 * (scaleFactor > 0 ? scaleFactor : 1);
+      
+      // Partition function approximation based on dG
+      double partFunc = exp(-gibbsJ / (8.314 * settings.temperatureK)) * 1e12; 
+
+      _cachedMetrics = [
+        {'title': 'Enthalpy (ΔH‡)', 'value': '${baseEnthalpy.toStringAsFixed(1)} kcal·mol⁻¹', 'icon': Icons.thermostat},
+        {'title': 'Entropy (ΔS‡)', 'value': '${baseEntropy.toStringAsFixed(1)} cal·mol⁻¹·K⁻¹', 'icon': Icons.shuffle},
+        {'title': 'Gibbs Free Energy (ΔG‡)', 'value': '${gibbs.toStringAsFixed(1)} kcal·mol⁻¹', 'icon': Icons.bolt},
+        {'title': 'Imaginary Freq. (v‡)', 'value': '${imagFreq.toStringAsFixed(1)} cm⁻¹', 'icon': Icons.waves},
+        {'title': 'Activation Energy (Ea)', 'value': '${ea.toStringAsFixed(1)} kcal·mol⁻¹', 'icon': Icons.local_fire_department},
+        {'title': 'Rate Constant (k)', 'value': '${rateConst.toStringAsExponential(2)} s⁻¹', 'icon': Icons.speed},
+        {'title': 'ZPE Correction', 'value': '${zpe.toStringAsFixed(2)} kcal·mol⁻¹', 'icon': Icons.compress},
+        {'title': 'Dipole Moment (μ)', 'value': '${dipole.toStringAsFixed(2)} D', 'icon': Icons.compare_arrows},
+        {'title': 'HOMO-LUMO Gap', 'value': '${gap.toStringAsFixed(2)} eV', 'icon': Icons.swap_vert},
+        {'title': 'Polarizability (α)', 'value': '${polar.toStringAsFixed(1)} Bohr³', 'icon': Icons.blur_on},
+        {'title': 'RMS Gradient', 'value': '${rmsGrad.toStringAsExponential(2)} a.u.', 'icon': Icons.show_chart},
+        {'title': 'Partition Func (q)', 'value': partFunc.toStringAsExponential(2), 'icon': Icons.pie_chart},
+      ];
+    } catch (e) {
+      _cachedMetrics = [
+        {'title': 'Error', 'value': 'Failed to compute metrics', 'icon': Icons.error},
+      ];
+      _cachedScaledProfile = _mockFrames;
+      _cachedReferenceEa = 27.5;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<QuantumSettings>(
@@ -31,60 +106,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         return ValueListenableBuilder<ReactionStatusResponse?>(
           valueListenable: context.read<ReactionNotifier>(),
           builder: (context, reactionStatus, _) {
-            final baseProfile = (reactionStatus?.energyProfile?.isNotEmpty == true)
-                ? reactionStatus!.energyProfile! 
-                : _mockFrames;
-
-            // Apply scaling based on settings (syncs with Dashboard)
-            double scaleFactor = settings.temperatureK / 300.0;
-            if (settings.solventModel != 'Vacuum') scaleFactor *= 0.85;
-            if (settings.mlipModel == 'ANI-2x') scaleFactor *= 1.05;
-            
-            final chargeShift = settings.charge * 4.5;
-            final spinShift = (settings.spinMultiplicity - 1) * 8.0;
-            final totalShift = chargeShift + spinShift;
-            final scaledProfile = baseProfile.map((e) => (e * scaleFactor) + totalShift).toList();
-            
-            // Dynamic Thermodynamics
-            double baseEnthalpy = 25.4 * scaleFactor + totalShift;
-            double baseEntropy = -12.3 + (settings.temperatureK / 300.0) * 1.5; // cal·mol⁻¹·K⁻¹, scaled by Temp
-            if (settings.solventModel != 'Vacuum') baseEntropy += 2.0; // Solvent increases entropy
-            
-            double gibbs = baseEnthalpy - (settings.temperatureK * baseEntropy / 1000.0);
-            
-            double imagFreq = -452.1 * scaleFactor;
-            
-            // Comprehensive Scientific Metrics
-            double ea = baseEnthalpy + (1.987 * settings.temperatureK / 1000.0);
-            double kb = 1.380649e-23;
-            double h = 6.62607015e-34;
-            double gibbsJ = gibbs * 4184.0;
-            double rateConst = (kb * settings.temperatureK / h) * exp(-gibbsJ / (8.314 * settings.temperatureK));
-            
-            double zpe = 14.5 * scaleFactor + chargeShift/3;
-            double dipole = 2.4 + (settings.charge * 0.5).abs();
-            double gap = 5.2 - (settings.spinMultiplicity * 0.1);
-            double polar = 45.2 + (settings.solventModel != 'Vacuum' ? 12.0 : 0.0);
-            double rmsGrad = 0.00034 * (scaleFactor > 0 ? scaleFactor : 1);
-            
-            // Partition function approximation based on dG
-            double partFunc = exp(-gibbsJ / (8.314 * settings.temperatureK)) * 1e12; 
-
-            final List<Map<String, dynamic>> metrics = [
-              {'title': 'Enthalpy (ΔH‡)', 'value': '${baseEnthalpy.toStringAsFixed(1)} kcal·mol⁻¹', 'icon': Icons.thermostat},
-              {'title': 'Entropy (ΔS‡)', 'value': '${baseEntropy.toStringAsFixed(1)} cal·mol⁻¹·K⁻¹', 'icon': Icons.shuffle},
-              {'title': 'Gibbs Free Energy (ΔG‡)', 'value': '${gibbs.toStringAsFixed(1)} kcal·mol⁻¹', 'icon': Icons.bolt},
-              {'title': 'Imaginary Freq. (v‡)', 'value': '${imagFreq.toStringAsFixed(1)} cm⁻¹', 'icon': Icons.waves},
-              {'title': 'Activation Energy (Ea)', 'value': '${ea.toStringAsFixed(1)} kcal·mol⁻¹', 'icon': Icons.local_fire_department},
-              {'title': 'Rate Constant (k)', 'value': '${rateConst.toStringAsExponential(2)} s⁻¹', 'icon': Icons.speed},
-              {'title': 'ZPE Correction', 'value': '${zpe.toStringAsFixed(2)} kcal·mol⁻¹', 'icon': Icons.compress},
-              {'title': 'Dipole Moment (μ)', 'value': '${dipole.toStringAsFixed(2)} D', 'icon': Icons.compare_arrows},
-              {'title': 'HOMO-LUMO Gap', 'value': '${gap.toStringAsFixed(2)} eV', 'icon': Icons.swap_vert},
-              {'title': 'Polarizability (α)', 'value': '${polar.toStringAsFixed(1)} Bohr³', 'icon': Icons.blur_on},
-              {'title': 'RMS Gradient', 'value': '${rmsGrad.toStringAsExponential(2)} a.u.', 'icon': Icons.show_chart},
-              {'title': 'Partition Func (q)', 'value': partFunc.toStringAsExponential(2), 'icon': Icons.pie_chart},
-            ];
-            
+            _updateMetrics(settings, reactionStatus);
             return LayoutBuilder(
               builder: (context, constraints) {
                 // Adjust grid columns based on screen width for responsiveness
@@ -138,8 +160,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               const SizedBox(height: 16),
                               Expanded(
                                 child: KineticChartWidget(
-                                  energyProfile: scaledProfile,
-                                  referenceEa: 27.5 * scaleFactor + totalShift,
+                                  energyProfile: _cachedScaledProfile,
+                                  referenceEa: _cachedReferenceEa,
                                   onPointSelected: (idx) {},
                                 ),
                               ),
@@ -153,7 +175,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       Wrap(
                         spacing: 16,
                         runSpacing: 16,
-                        children: metrics.map((m) {
+                        children: _cachedMetrics.map((m) {
                           // Calculate width based on crossAxisCount
                           double w = constraints.maxWidth;
                           if (crossAxisCount > 1) {

@@ -10,13 +10,24 @@ extension ReactionProviderGuestExt on ReactionNotifier {
     final reactionId = 'guest-${UuidUtil.v4()}';
 
     void emit(ReactionState state, double progress, String message) {
-      value = ReactionStatusResponse(
-        reactionId: reactionId,
-        state: state,
-        progress: progress,
-        message: message,
-      );
-      notifyListeners();
+      playbackProgressNotifier.value = progress;
+      if (state == ReactionState.pending || state == ReactionState.optimizing) {
+        if (value == null || value!.state != state || value!.message != message) {
+          value = ReactionStatusResponse(
+            reactionId: reactionId,
+            state: state,
+            progress: progress,
+            message: message,
+          );
+        }
+      } else {
+        value = ReactionStatusResponse(
+          reactionId: reactionId,
+          state: state,
+          progress: progress,
+          message: message,
+        );
+      }
     }
 
     emit(ReactionState.pending, 0.0, 'Queued (local session)…');
@@ -99,8 +110,7 @@ extension ReactionProviderGuestExt on ReactionNotifier {
       energyProfile: energyProfile,
       trajectoryFrames: trajectoryFrames,
     );
-    _isLoading = false;
-    notifyListeners();
+    isLoadingNotifier.value = false;
   }
 
 }

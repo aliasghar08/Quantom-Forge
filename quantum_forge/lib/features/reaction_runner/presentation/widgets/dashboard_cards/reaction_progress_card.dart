@@ -93,21 +93,7 @@ class _ReactionProgressCardState extends State<ReactionProgressCard>
               },
             ),
             const SizedBox(height: 32),
-            
-            // Percentage text
-            Text(
-              '$pct%',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 48,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1,
-                shadows: [
-                  Shadow(color: activeColor.withValues(alpha: 0.5), blurRadius: 20)
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+
             
             // Message
             Text(
@@ -123,16 +109,31 @@ class _ReactionProgressCardState extends State<ReactionProgressCard>
             const SizedBox(height: 32),
             
             // Progress Bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                height: 8,
-                child: LinearProgressIndicator(
-                  value: widget.status.progress > 0 ? widget.status.progress : null,
-                  backgroundColor: Colors.white.withValues(alpha: 0.05),
-                  valueColor: AlwaysStoppedAnimation<Color>(activeColor),
+            Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      height: 8,
+                      child: LinearProgressIndicator(
+                        value: widget.status.progress > 0 ? widget.status.progress : null,
+                        backgroundColor: Colors.white.withValues(alpha: 0.05),
+                        valueColor: AlwaysStoppedAnimation<Color>(activeColor),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Text(
+                  '$pct%',
+                  style: TextStyle(
+                    color: activeColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

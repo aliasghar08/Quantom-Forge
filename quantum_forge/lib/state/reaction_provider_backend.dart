@@ -33,7 +33,6 @@ extension ReactionProviderBackendExt on ReactionNotifier {
         progress: 0.0,
         message: 'Submitting to ${settings.mlipModel == 'tx1-fastapi' ? 'GNN (tx1)' : 'DMF'} compute node…',
       );
-      notifyListeners();
 
       // Fake progress during potentially long cold-start submit request
       bool isSubmitting = true;
@@ -53,13 +52,15 @@ extension ReactionProviderBackendExt on ReactionNotifier {
             message = 'Waking up compute node (this may take up to 2 minutes)…';
           }
           
-          value = ReactionStatusResponse(
-            reactionId: '',
-            state: ReactionState.pending,
-            progress: simulatedProgress,
-            message: message,
-          );
-          notifyListeners();
+          playbackProgressNotifier.value = simulatedProgress;
+          if (value == null || value!.message != message) {
+            value = ReactionStatusResponse(
+              reactionId: '',
+              state: ReactionState.pending,
+              progress: simulatedProgress,
+              message: message,
+            );
+          }
         }
       }
       simulateProgress();
@@ -75,18 +76,24 @@ extension ReactionProviderBackendExt on ReactionNotifier {
         progress: 0.05,
         message: '${settings.mlipModel == 'tx1-fastapi' ? 'GNN (tx1)' : 'Direct MaxFlux'} running (${settings.mlipModel})…',
       );
-      notifyListeners();
 
       await for (final result in _backend.poll(url, reactionId)) {
         if (result.state == ReactionState.error) {
           // The backend's own reason is the useful one; `message` is the generic
           // "DMF optimisation failed." line.
-          _error = result.error ?? result.message ?? 'Backend optimisation failed.';
+          errorNotifier.value = result.error ?? result.message ?? 'Backend optimisation failed.';
+          value = result;
+        } else if (result.state == ReactionState.completed) {
+          value = result;
+        } else {
+          playbackProgressNotifier.value = result.progress;
+          // Only update value if message or state changes
+          if (value == null || value!.state != result.state || value!.message != result.message) {
+            value = result;
+          }
         }
-        value = result;
-        notifyListeners();
       }
-      _isLoading = false;
+      isLoadingNotifier.value = false;
     } catch (e) {
       _setError('DMF backend error: $e');
     }

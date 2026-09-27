@@ -39,8 +39,16 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
   final String Function()? gnnBackendUrlProvider;
 
   final BackendComputeService _backend = const BackendComputeService();
-  bool _isLoading = false;
-  String? _error;
+  /// High-frequency: frame index during a running simulation.
+  final ValueNotifier<int> playbackFrameNotifier = ValueNotifier<int>(0);
+
+  /// High-frequency: fractional progress 0..1 during a running simulation.
+  final ValueNotifier<double> playbackProgressNotifier = ValueNotifier<double>(0.0);
+
+  /// Loading is a *phase*, not a payload.
+  final ValueNotifier<bool> isLoadingNotifier = ValueNotifier<bool>(false);
+
+  final ValueNotifier<String?> errorNotifier = ValueNotifier<String?>(null);
 
   ReactionNotifier(
     this._auth,
@@ -50,28 +58,26 @@ class ReactionNotifier extends ValueNotifier<ReactionStatusResponse?> {
     this.gnnBackendUrlProvider,
   }) : super(null);
 
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+  bool get isLoading => isLoadingNotifier.value;
+  String? get error => errorNotifier.value;
 
   void _setLoading(bool loading) {
-    _isLoading = loading;
-    if (loading) _error = null;
-    notifyListeners();
+    isLoadingNotifier.value = loading;
+    if (loading) errorNotifier.value = null;
   }
 
-  void _setError(String error) {
-    _isLoading = false;
-    _error = error;
+  void _setError(String errorStr) {
+    isLoadingNotifier.value = false;
+    errorNotifier.value = errorStr;
     if (value != null) {
       value = ReactionStatusResponse(
         reactionId: value!.reactionId,
         state: ReactionState.error,
         progress: value!.progress,
         message: value!.message,
-        error: error,
+        error: errorStr,
       );
     }
-    notifyListeners();
   }
 
 }

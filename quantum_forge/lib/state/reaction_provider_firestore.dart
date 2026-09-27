@@ -7,8 +7,7 @@ extension ReactionProviderFirestoreExt on ReactionNotifier {
     _repo.watchReaction(reactionId).listen(
       (reactionStatus) {
         value = reactionStatus;
-        _isLoading = false;
-        notifyListeners();
+        isLoadingNotifier.value = false;
       },
       onError: (e) {
         _setError('Error listening to reaction: $e');

@@ -1,5 +1,4 @@
-
-
+import 'package:flutter/foundation.dart';
 enum ReactionState { idle, pending, optimizing, completed, error }
 
 class VibrationalMode {
@@ -183,5 +182,42 @@ class ReactionStatusResponse {
           const [],
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
     );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+  
+    return other is ReactionStatusResponse &&
+      other.reactionId == reactionId &&
+      other.state == state &&
+      other.progress == progress &&
+      other.message == message &&
+      other.error == error &&
+      listEquals(other.energyProfile, energyProfile) &&
+      listEquals(other.energyProfileEv, energyProfileEv) &&
+      listEquals(other.trajectoryFrames, trajectoryFrames) &&
+      listEquals(other.vibrationalModes, vibrationalModes) &&
+      other.maxEnergyIndex == maxEnergyIndex &&
+      other.createdAt == createdAt &&
+      listEquals(other.dftAttachments, dftAttachments) &&
+      other.fromBackend == fromBackend;
+  }
+
+  @override
+  int get hashCode {
+    return reactionId.hashCode ^
+      state.hashCode ^
+      progress.hashCode ^
+      message.hashCode ^
+      error.hashCode ^
+      energyProfile.hashCode ^
+      energyProfileEv.hashCode ^
+      trajectoryFrames.hashCode ^
+      vibrationalModes.hashCode ^
+      maxEnergyIndex.hashCode ^
+      createdAt.hashCode ^
+      dftAttachments.hashCode ^
+      fromBackend.hashCode;
   }
 }
