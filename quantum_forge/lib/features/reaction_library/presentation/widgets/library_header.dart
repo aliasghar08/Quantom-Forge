@@ -157,32 +157,12 @@ class LibraryHeader extends StatelessWidget {
       fontWeight: FontWeight.w600,
     );
 
-    // Cloud count badge
-    Widget cloudBadge;
-    if (cloudCount == null) {
-      // Loading — pulsing shimmer pill
-      cloudBadge = _ShimmerPill();
-    } else if (cloudCount == -1 || cloudCount == 0) {
-      // Unavailable or zero — show local count only
-      cloudBadge = Text('local only', style: subtitleStyle);
-    } else {
-      cloudBadge = Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.cloud_done_rounded,
-            size: 13, color: Colors.cyanAccent.withValues(alpha: 0.7)),
-        const SizedBox(width: 4),
-        _AnimatedCount(
-          from: 0,
-          to: cloudCount!,
-          duration: const Duration(milliseconds: 1200),
-          style: accentStyle,
-        ),
-        Text(' in cloud', style: subtitleStyle),
-      ]);
-    }
+    // Cloud count handled directly in the return widget below
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        Text('Showing ', style: subtitleStyle),
         _AnimatedCount(
           from: 0,
           to: localCount,
@@ -193,8 +173,19 @@ class LibraryHeader extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        Text(' systematic variants  •  ', style: subtitleStyle),
-        cloudBadge,
+        Text(' of ', style: subtitleStyle),
+        if (cloudCount != null && cloudCount! > 0) ...[
+          _AnimatedCount(
+            from: 0,
+            to: cloudCount!,
+            duration: const Duration(milliseconds: 1200),
+            style: accentStyle,
+          ),
+          Text(' reactions from Firebase', style: subtitleStyle),
+        ] else if (cloudCount == null)
+          _ShimmerPill()
+        else
+          Text('? reactions from Firebase', style: subtitleStyle),
       ],
     );
   }
