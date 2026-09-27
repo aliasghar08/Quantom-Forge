@@ -31,10 +31,32 @@ fail silently from the app's side:
 4. **A failed model load was invisible.** The exception was printed and then
    `/predict` answered 500 "Model failed to load on startup" with no way to find
    out *why*. The reason is captured and reported by `/health`.
+
+Two further changes were made after the initial deployment, both to the
+reaction path emitted by `run_reaction`:
+
+5. **Frame count.** The original path was 11 images long. That is enough to see
+   a mechanism at a glance but not enough to step through the transition state
+   one frame at a time — the TS window in the animation panel is only ~4
+   frames wide at 11 total. The default is now 121, which gives the four phase
+   bands in the animation widget roughly 36 / 49 / 18 / 18 images. The count is
+   configurable through `T1X_FRAMES` for deployment-scale tuning; the
+   wall-clock cost is linear in this number because each frame is a separate
+   model forward pass.
+
+6. **Cosine easing on the interpolation parameter.** The original linear
+   interpolation moved every atom at constant speed, which is what a machine
+   draws, not what a physical trajectory does. `alpha(t) = 0.5·(1 − cos(π t))`
+   has zero derivative at both endpoints and maximum derivative at the midpoint,
+   so the system accelerates through the barrier and decelerates into the
+   wells. This is a schematic improvement, not a computational one — the path
+   is still an interpolation between two endpoints, and a real reaction path
+   requires gradients and NEB/DMF.
 """
 
 from __future__ import annotations
 
+import math
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -200,7 +222,7 @@ def allowed_origins() -> list[str]:
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
-app = FastAPI(title="Transition1x GNN API", version="1.1.0", lifespan=lifespan)
+app = FastAPI(title="Transition1x GNN API", version="1.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -321,6 +343,24 @@ class ReactionRequest(BaseModel):
 
 _reactions = {}
 
+
+def _configured_frame_count() -> int:
+    """How many images to emit for each reaction.
+
+    Default 121, which gives the animation widget's four phase bands roughly
+    36 / 49 / 18 / 18 frames. Override via `T1X_FRAMES`; clamp to a sane
+    range so a mis-set environment variable cannot produce a one-frame path
+    or a request that never completes. The wall-clock cost is linear in this
+    number because each frame is a separate model forward pass.
+    """
+    raw = os.environ.get("T1X_FRAMES", "121").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 121
+    return max(5, min(value, 501))
+
+
 def parse_xyz(xyz_str: str):
     lines = [L.strip() for L in xyz_str.strip().split('\n') if L.strip()]
     if len(lines) < 3: return [], []
@@ -345,9 +385,9 @@ async def run_reaction(reaction_id: str, req: ReactionRequest):
     try:
         r_atoms, r_pos = parse_xyz(req.reactant_xyz)
         p_atoms, p_pos = parse_xyz(req.product_xyz)
-        
+
         if len(r_atoms) != len(p_atoms):
-            
+
             # Deterministic padding: pair each reactant atom with the matching product atom
             # when one is available, otherwise give the reactant's position. This preserves
             # the reactant's atom ordering, which is what the model expects, and it always
@@ -380,16 +420,40 @@ async def run_reaction(reaction_id: str, req: ReactionRequest):
             assert len(p_pos) == len(r_pos), (
                 f"padding failed: {len(p_pos)} product positions vs {len(r_pos)} reactant positions"
             )
-            
+
         # Simple atomic number mapping for basic organic elements
         mapping = {"H":1, "C":6, "N":7, "O":8, "F":9, "P":15, "S":16, "Cl":17, "Br":35, "I":53}
         atomic_numbers = [mapping.get(sym.upper().capitalize(), 6) for sym in r_atoms]
-            
+
         frames = []
         energies_ev = []
-        n_frames = 11
+
+        # Frame count. Every frame is a separate model forward pass, so the
+        # cost of the whole reaction is linear in this number. See
+        # `_configured_frame_count` for the trade-off and the env override.
+        n_frames = _configured_frame_count()
+
         for i in range(n_frames):
-            alpha = i / (n_frames - 1)
+            # ── Cosine easing on the interpolation parameter. ─────────────
+            #
+            # The previous version used `alpha = i / (n_frames - 1)`, which is
+            # linear in time: every atom moves at the same speed throughout,
+            # including across the barrier. That is what a machine draws. A
+            # physical trajectory has zero velocity at the reactant and
+            # product wells and maximum velocity at the TS, which is what the
+            # cosine easing below produces:
+            #
+            #     alpha(t) = 0.5 * (1 - cos(pi * t))
+            #
+            # At t=0 the derivative is 0 (the reactant is stationary); at
+            # t=0.5 the derivative is maximal (the TS region is traversed
+            # quickly); at t=1 the derivative is 0 again (the product is
+            # stationary). This is the same easing the Flutter preview uses in
+            # `template_detail_screen.dart`, so the two stay visually
+            # consistent.
+            t = i / (n_frames - 1)
+            alpha = 0.5 * (1.0 - math.cos(math.pi * t))
+
             cur_pos = []
             for rp, pp in zip(r_pos, p_pos):
                 cur_pos.append([
@@ -397,41 +461,57 @@ async def run_reaction(reaction_id: str, req: ReactionRequest):
                     rp[1] * (1 - alpha) + pp[1] * alpha,
                     rp[2] * (1 - alpha) + pp[2] * alpha,
                 ])
-                
+
             z = torch.tensor(atomic_numbers, dtype=torch.long).unsqueeze(0)
             pos = torch.tensor(cur_pos, dtype=torch.float32).unsqueeze(0)
             mask = (z != 0).float()
-            
+
             if len(atomic_numbers) != len(cur_pos):
                 raise RuntimeError(
                     f"shape mismatch before forward: atomic_numbers={len(atomic_numbers)} "
                     f"cur_pos={len(cur_pos)}. This is a bug in the padding logic, not the model."
                 )
-            
+
             if model is not None:
                 with torch.no_grad():
                     energy = model(z, pos, mask)
                 energy_val = energy.item()
             else:
                 energy_val = 0.0
-                
+
             energies_ev.append(energy_val)
             frames.append(to_xyz(r_atoms, cur_pos, f"Frame {i} Energy: {energy_val:.4f} eV"))
-            
+
+            # Progress is reported on a 0.1..0.9 scale so the UI sees a moving
+            # bar between submission and completion. The sleep yields to the
+            # event loop so the polling endpoint can service requests; it is
+            # deliberately short because the model forward pass above is the
+            # real cost.
             _reactions[reaction_id]["progress"] = 0.1 + 0.8 * (i / n_frames)
-            await asyncio.sleep(0.1)
-            
+            await asyncio.sleep(0.01)
+
         # Convert absolute energies in eV to relative energies in kcal/mol
         # 1 eV = 23.0605 kcal/mol
         energy_profile_kcal = [(e - energies_ev[0]) * 23.0605 for e in energies_ev]
-        
+
+        # Index of the maximum, taking the *first* occurrence of a tie.
+        # `list.index(max(...))` also does this, but building the index
+        # explicitly is clearer about the tie-breaking rule and lets a reader
+        # see the intent.
+        max_idx = 0
+        max_val = energy_profile_kcal[0]
+        for idx, val in enumerate(energy_profile_kcal):
+            if val > max_val:
+                max_val = val
+                max_idx = idx
+
         _reactions[reaction_id].update({
             "state": "completed",
             "progress": 1.0,
-            "message": "Linear Synchronous Transit (LST) completed successfully using TX1.",
+            "message": f"Linear Synchronous Transit (LST) completed successfully using TX1 ({n_frames} frames).",
             "energy_profile_ev": energies_ev,
             "energy_profile": energy_profile_kcal,
-            "max_energy_index": energy_profile_kcal.index(max(energy_profile_kcal)),
+            "max_energy_index": max_idx,
             "trajectory_frames": frames,
             "vibrational_modes": []
         })
@@ -479,27 +559,27 @@ async def start_hybrid_md(request: Request):
         from worker_hybrid import run_hybrid_md
     except ImportError:
         raise HTTPException(status_code=500, detail="Celery worker module not available.")
-    
+
     content_type = request.headers.get("content-type", "")
     job_id = str(uuid.uuid4())
     pdb_path = ""
     mlip_model = "tx1-fastapi"
     simulation_length_ns = 200.0
-    
+
     if "multipart/form-data" in content_type:
         form = await request.form()
         file = form.get("file")
         if not file:
             raise HTTPException(status_code=400, detail="No file uploaded.")
-        
+
         drive_inputs = os.environ.get("QUANTUM_FORGE_INPUTS", "./inputs")
         os.makedirs(drive_inputs, exist_ok=True)
         pdb_path = os.path.join(drive_inputs, f"{job_id}_{file.filename}")
-        
+
         content = await file.read()
         with open(pdb_path, "wb") as f:
             f.write(content)
-            
+
         mlip_model = form.get("mlip_model", "tx1-fastapi")
         simulation_length_ns = float(form.get("simulation_length_ns", 200.0))
     else:
@@ -510,13 +590,13 @@ async def start_hybrid_md(request: Request):
             simulation_length_ns = float(req_json.get("simulation_length_ns", 200.0))
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON or Form.")
-            
+
     if not pdb_path:
         raise HTTPException(status_code=400, detail="pdb_path or file is required.")
-    
+
     # Dispatch to Celery asynchronously
     task = run_hybrid_md.apply_async(args=[pdb_path, job_id, mlip_model, simulation_length_ns], task_id=job_id)
-    
+
     return {
         "status": "ACCEPTED",
         "job_id": job_id,
@@ -530,27 +610,27 @@ async def get_hybrid_md_status(job_id: str, task_id: str = None):
         from worker_hybrid import celery_app
     except ImportError:
         raise HTTPException(status_code=500, detail="Celery not installed.")
-        
+
     if not task_id:
-        task_id = job_id 
-        
+        task_id = job_id
+
     res = AsyncResult(task_id, app=celery_app)
-    
+
     if res.ready():
         result = res.result
-        
+
         # Check for the .dcd file inside the Outputs path
         base_output_dir = os.environ.get("QUANTUM_FORGE_OUTPUTS", "./outputs")
         drive_outputs = os.path.join(base_output_dir, str(job_id))
         dcd_path = os.path.join(drive_outputs, 'trajectory.dcd')
         dcd_exists = os.path.exists(dcd_path)
-        
+
         if isinstance(result, dict):
             result['dcd_exists'] = dcd_exists
             result['trajectory_dir'] = drive_outputs
-            
+
         return result
-        
+
     return {
         "status": res.state,
         "job_id": job_id,
@@ -565,12 +645,12 @@ async def download_trajectory_file(job_id: str, filename: str):
     base_output_dir = os.environ.get("QUANTUM_FORGE_OUTPUTS", "./outputs")
     job_dir = os.path.join(base_output_dir, str(job_id))
     file_path = os.path.abspath(os.path.join(job_dir, filename))
-    
+
     # Security: Prevent directory traversal
     if not file_path.startswith(os.path.abspath(job_dir)):
         raise HTTPException(status_code=403, detail="Access denied")
-        
+
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Trajectory file not found")
-        
+
     return FileResponse(file_path)
